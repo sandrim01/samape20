@@ -251,6 +251,7 @@ app.get('/api/maquinas', authenticateToken, async (req, res) => {
 app.post('/api/maquinas', authenticateToken, async (req, res) => {
     try {
         const { cliente_id, modelo } = req.body;
+        console.log('Dados recebidos /api/maquinas:', req.body);
 
         // Mapeamento de campos do Front-end para o Banco com fallbacks para evitar erros de NOT NULL
         const tipo = req.body.tipo || 'Geral';
@@ -634,7 +635,7 @@ app.get('/api/health', (req, res) => {
     res.json({
         success: true,
         message: 'API SAMAPEOP funcionando!',
-        version: 'v1.0.1-hotfix-deploy',
+        version: 'v1.0.2-debug-logs',
         timestamp: new Date()
     });
 });
