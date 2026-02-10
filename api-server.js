@@ -674,7 +674,7 @@ app.get('/api/health', (req, res) => {
     res.json({
         success: true,
         message: 'API SAMAPEOP funcionando!',
-        version: 'v1.0.3-resilient-init',
+        version: 'v1.0.4-fix-persistence-methods',
         timestamp: new Date()
     });
 });

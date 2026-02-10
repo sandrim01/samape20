@@ -128,6 +128,17 @@ const WebAPI = {
         API_CONFIG.logout();
     },
 
+    // Persistência local
+    getUser() {
+        return API_CONFIG.getUser();
+    },
+    setUser(user) {
+        API_CONFIG.setUser(user);
+    },
+    clearUser() {
+        API_CONFIG.clearUser();
+    },
+
     // Usuários
     async criarUsuario(dados) {
         return await apiFetch('/usuarios', {
