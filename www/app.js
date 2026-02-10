@@ -167,7 +167,9 @@ function renderSidebar() {
 
   if (currentSection) navHTML += '</div></div>';
 
-  const initials = AppState.currentUser.nome.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+  const userName = AppState.currentUser ? (AppState.currentUser.nome || 'Usuário') : 'Usuário';
+  const initials = userName.split(' ').filter(n => n).map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'U';
+
   const roleLabels = {
     ADMIN: 'Administrador',
     DIRETOR: 'Diretor',
@@ -185,7 +187,7 @@ function renderSidebar() {
           <div class="user-info-brief">
             <div class="user-avatar-sm">${initials}</div>
             <div class="user-details-sm">
-              <div class="user-name-sm">${AppState.currentUser.nome}</div>
+              <div class="user-name-sm">${userName}</div>
             </div>
           </div>
           <button class="btn btn-danger btn-sm" id="logout-btn" style="width: 100%; margin-top: 0.5rem;">

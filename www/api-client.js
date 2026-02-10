@@ -285,11 +285,9 @@ const WebAPI = {
 };
 
 // Expõe a API como global para o app.js
-if (!window.api) {
-    window.api = WebAPI;
-    console.log('✅ WebAPI robusta carregada. Servidor:', API_CONFIG.BASE_URL);
-} else {
-    // Se já existir (Electron), podemos complementar se faltar algo, 
-    // mas aqui deixamos como está para não quebrar o Electron Bridge
-    console.log('✅ Utilizando API nativa (Electron Bridge)');
-}
+// No Android/Web, sempre usamos a WebAPI para garantir que métodos como getUser() existam
+window.api = {
+    ...(window.api || {}),
+    ...WebAPI
+};
+console.log('✅ WebAPI integrada. Servidor:', API_CONFIG.BASE_URL);

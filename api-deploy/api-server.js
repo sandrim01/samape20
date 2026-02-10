@@ -672,7 +672,7 @@ app.get('/api/health', (req, res) => {
     res.json({
         success: true,
         message: 'API SAMAPEOP funcionando!',
-        version: 'v1.0.2-debug-logs',
+        version: 'v1.0.3-resilient-init',
         timestamp: new Date()
     });
 });
