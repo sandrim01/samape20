@@ -25,7 +25,7 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false
     },
-    icon: path.join(__dirname, 'resources', 'favicon.ico'),
+    icon: path.join(__dirname, 'resources', 'icon.png'),
     title: 'SAMAPEOP - Sistema de Gerenciamento de Manutenção'
   });
 

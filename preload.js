@@ -43,5 +43,21 @@ contextBridge.exposeInMainWorld('api', {
     registrarPagamentoPagar: (id, data) => ipcRenderer.invoke('registrar-pagamento-pagar', { id, data_pagamento: data }),
 
     // Dashboard
-    obterEstatisticas: () => ipcRenderer.invoke('obter-estatisticas')
+    obterEstatisticas: () => ipcRenderer.invoke('obter-estatisticas'),
+
+    // Sessão (LocalStorage via Bridge)
+    getUser: () => {
+        try {
+            const user = localStorage.getItem('user_info');
+            return user ? JSON.parse(user) : null;
+        } catch (e) { return null; }
+    },
+    setUser: (user) => {
+        if (user) localStorage.setItem('user_info', JSON.stringify(user));
+    },
+    clearUser: () => localStorage.removeItem('user_info'),
+    logout: () => {
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user_info');
+    }
 });
