@@ -35,13 +35,24 @@ function hasPermission(permission) {
 
 // Renderizar aplicação
 function render() {
-  const app = document.getElementById('app');
+  try {
+    const app = document.getElementById('app');
 
-  if (!AppState.currentUser) {
-    app.innerHTML = renderLogin();
-  } else {
-    app.innerHTML = renderMainApp();
-    attachEventListeners();
+    if (!AppState.currentUser) {
+      app.innerHTML = renderLogin();
+    } else {
+      app.innerHTML = renderMainApp();
+      attachEventListeners();
+    }
+  } catch (error) {
+    console.error('Erro na renderização:', error);
+    document.getElementById('app').innerHTML = `
+      <div style="padding: 2rem; color: #ef4444; background: #fee2e2; border: 1px solid #fca5a5; border-radius: 0.5rem; margin: 1rem;">
+        <h3>Erro de Inicialização</h3>
+        <p>Ocorreu um erro ao carregar a interface. Por favor, tente reiniciar o aplicativo.</p>
+        <pre style="font-size: 0.8rem; margin-top: 1rem; overflow: auto;">${error.stack}</pre>
+      </div>
+    `;
   }
 }
 

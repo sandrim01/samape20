@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
@@ -93,10 +93,10 @@ function createWindow() {
     title: 'SAMAPEOP - Sistema de Gerenciamento de Manutenção'
   });
 
-  mainWindow.loadFile('index.html');
+  mainWindow.loadFile('www/index.html');
 
-  // Abrir DevTools em desenvolvimento
-  // mainWindow.webContents.openDevTools();
+  // Abrir DevTools em desenvolvimento (Desabilitar para produção se desejar)
+  mainWindow.webContents.openDevTools();
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -108,6 +108,32 @@ app.whenReady().then(() => {
   initializePaths();
   loadDatabase();
   createWindow();
+
+  // Configurar menu básico
+  const template = [
+    {
+      label: 'Arquivo',
+      submenu: [
+        { label: 'Sair', role: 'quit' }
+      ]
+    },
+    {
+      label: 'Ver',
+      submenu: [
+        { label: 'Recarregar', role: 'reload' },
+        { label: 'Forçar Recarregar', role: 'forcereload' },
+        { label: 'Ferramentas do Desenvolvedor', role: 'toggledevtools' },
+        { type: 'separator' },
+        { label: 'Resetar Zoom', role: 'resetzoom' },
+        { label: 'Zoom In', role: 'zoomin' },
+        { label: 'Zoom Out', role: 'zoomout' },
+        { type: 'separator' },
+        { label: 'Tela Cheia', role: 'togglefullscreen' }
+      ]
+    }
+  ];
+  const menu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(menu);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -502,4 +528,33 @@ ipcMain.handle('obter-estatisticas', async () => {
   };
 
   return { success: true, stats };
+});
+
+// Handlers adicionais para compatibilidade com o preload.js
+ipcMain.handle('atualizar-usuario', async (event, { id, dados }) => {
+  const index = db.usuarios.findIndex(u => u.id === id);
+  if (index === -1) return { success: false, message: 'Usuário não encontrado' };
+  if (dados.senha) dados.senha = bcrypt.hashSync(dados.senha, 10);
+  db.usuarios[index] = { ...db.usuarios[index], ...dados };
+  saveDatabase();
+  return { success: true };
+});
+
+ipcMain.handle('atualizar-estoque', async (event, { id, quantidade }) => {
+  const index = db.pecas.findIndex(p => p.id === id);
+  if (index === -1) return { success: false, message: 'Peça não encontrada' };
+  db.pecas[index].estoque_atual += quantidade;
+  saveDatabase();
+  return { success: true };
+});
+
+ipcMain.handle('criar-venda', async (event, dados) => {
+  const novaVenda = {
+    id: ++db.counters.vendas_pecas,
+    ...dados,
+    data_venda: new Date().toISOString()
+  };
+  db.vendas_pecas.push(novaVenda);
+  saveDatabase();
+  return { success: true, id: novaVenda.id };
 });
