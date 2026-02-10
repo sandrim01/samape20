@@ -46,6 +46,7 @@
 - status (ABERTA, EM_ANDAMENTO, AGUARDANDO_PECAS, FECHADA, CANCELADA)
 - prioridade (BAIXA, MEDIA, ALTA, URGENTE)
 - descricao_problema, diagnostico, servicos_realizados
+- km_ida, km_volta, valor_por_km
 - valor_mao_obra, valor_pecas, valor_total
 - observacoes
 - created_at, updated_at
