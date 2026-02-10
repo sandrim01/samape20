@@ -23,26 +23,57 @@ const API_CONFIG = {
 
 // Função auxiliar para fetch com tratamento de erro
 async function apiFetch(endpoint, options = {}) {
+    console.log(`🚀 Chamando API: ${endpoint}`, options.method || 'GET');
+
     try {
         const url = endpoint.startsWith('http') ? endpoint : `${API_CONFIG.BASE_URL}${endpoint}`;
-        const response = await fetch(url, {
+
+        // Timeout de 15 segundos
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+        const fetchOptions = {
             ...options,
             headers: {
                 ...API_CONFIG.getHeaders(),
                 ...options.headers
-            }
-        });
+            },
+            signal: controller.signal
+        };
+
+        const response = await fetch(url, fetchOptions);
+        clearTimeout(timeoutId);
+
+        console.log(`📡 Resposta de ${endpoint}:`, response.status, response.statusText);
 
         if (response.status === 401 || response.status === 403) {
-            console.warn('Sessão expirada ou acesso negado');
-            // Opcional: redirecionar para login ou limpar token
+            console.warn('⚠️ Sessão expirada ou acesso negado');
+            // Opcional: redirecionar para login
         }
 
-        const data = await response.json();
-        return data;
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.indexOf("application/json") !== -1) {
+            const data = await response.json();
+            return data;
+        } else {
+            const text = await response.text();
+            console.error('❌ Resposta não-JSON:', text);
+            return { success: false, message: 'O servidor retornou um erro inesperado (não-JSON). Status: ' + response.status };
+        }
+
     } catch (error) {
-        console.error(`Erro na requisição ${endpoint}:`, error);
-        return { success: false, message: 'Erro de conexão com o servidor' };
+        console.error(`❌ Erro crítico na requisição ${endpoint}:`, error);
+
+        let msg = 'Erro de conexão com o servidor';
+        if (error.name === 'AbortError') {
+            msg = 'A requisição demorou muito tempo (Timeout). Verifique sua internet.';
+        } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+            msg = 'Impossível conectar ao servidor. Verifique sua conexão com a internet ou se o servidor está online.';
+        } else {
+            msg = 'Erro inesperado: ' + error.message;
+        }
+
+        return { success: false, message: msg };
     }
 }
 
@@ -77,6 +108,13 @@ const WebAPI = {
         return data || { success: true, usuarios: [] };
     },
 
+    async atualizarUsuario(id, dados) {
+        return await apiFetch(`/usuarios/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(dados)
+        });
+    },
+
     // Clientes
     async criarCliente(dados) {
         return await apiFetch('/clientes', { method: 'POST', body: JSON.stringify(dados) });
@@ -85,6 +123,10 @@ const WebAPI = {
     async listarClientes() {
         const data = await apiFetch('/clientes');
         return data || { success: true, clientes: [] };
+    },
+
+    async atualizarCliente(id, dados) {
+        return await apiFetch(`/clientes/${id}`, { method: 'PUT', body: JSON.stringify(dados) });
     },
 
     // Máquinas
@@ -104,13 +146,20 @@ const WebAPI = {
         return await apiFetch('/ordens', { method: 'POST', body: JSON.stringify(dados) });
     },
 
-    async listarOS(filtros = {}) {
+    async atualizarOS(id, dados) {
+        return await apiFetch(`/ordens/${id}`, { method: 'PUT', body: JSON.stringify(dados) });
+    },
+
+    async listarOrdens(filtros = {}) {
         let url = '/ordens';
         const params = new URLSearchParams(filtros);
         if (params.toString()) url += `?${params.toString()}`;
         const data = await apiFetch(url);
-        return data || { success: true, ordens: [] };
+        if (data.success && data.ordens) return data;
+        return { success: true, ordens: data.ordens || [] };
     },
+
+    async listarOS(filtros = {}) { return this.listarOrdens(filtros); },
 
     async obterOS(id) {
         return await apiFetch(`/ordens/${id}`);
@@ -126,10 +175,21 @@ const WebAPI = {
         return data || { success: true, pecas: [] };
     },
 
+    async atualizarEstoque(id, quantidade) {
+        return await apiFetch(`/pecas/${id}/estoque`, {
+            method: 'PATCH',
+            body: JSON.stringify({ quantidade })
+        });
+    },
+
     // Vendas
     async listarVendas() {
         const data = await apiFetch('/vendas');
         return data || { success: true, vendas: [] };
+    },
+
+    async criarVenda(dados) {
+        return await apiFetch('/vendas', { method: 'POST', body: JSON.stringify(dados) });
     },
 
     // Financeiro
@@ -172,11 +232,30 @@ const WebAPI = {
     // Dashboard
     async obterEstatisticas() {
         const data = await apiFetch('/stats');
+        // Normalização para o app.js
+        if (data.success && data.stats) {
+            return {
+                success: true,
+                stats: {
+                    os_abertas: data.stats.ordensAbertas || 0,
+                    os_em_andamento: 0, // A API unificou, mas o app espera separado
+                    contas_receber_pendentes: { total: data.stats.receitaTotal || 0, count: 0 },
+                    contas_pagar_pendentes: { total: 0, count: 0 },
+                    pecas_estoque_baixo: 0,
+                    vendas_mes: { total: 0, count: 0 }
+                }
+            };
+        }
         return data || { success: true, stats: {} };
     }
 };
 
 // Expõe a API como global para o app.js
-window.api = WebAPI;
-
-console.log('✅ WebAPI robusta carregada. Servidor:', API_CONFIG.BASE_URL);
+if (!window.api) {
+    window.api = WebAPI;
+    console.log('✅ WebAPI robusta carregada. Servidor:', API_CONFIG.BASE_URL);
+} else {
+    // Se já existir (Electron), podemos complementar se faltar algo, 
+    // mas aqui deixamos como está para não quebrar o Electron Bridge
+    console.log('✅ Utilizando API nativa (Electron Bridge)');
+}

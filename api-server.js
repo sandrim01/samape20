@@ -91,6 +91,73 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
+// ==================== ROTAS DE USUÁRIOS ====================
+
+// Listar usuários
+app.get('/api/usuarios', authenticateToken, async (req, res) => {
+    try {
+        const result = await pool.query(
+            'SELECT id, nome, email, cargo, ativo, created_at FROM usuarios WHERE ativo = true ORDER BY nome'
+        );
+        res.json({ success: true, users: result.rows });
+    } catch (error) {
+        console.error('Erro ao listar usuários:', error);
+        res.status(500).json({ success: false, message: 'Erro no servidor' });
+    }
+});
+
+// Criar usuário
+app.post('/api/usuarios', authenticateToken, async (req, res) => {
+    try {
+        const { nome, email, senha, cargo } = req.body;
+
+        // Verificar se usuário já existe
+        const exists = await pool.query('SELECT id FROM usuarios WHERE email = $1', [email]);
+        if (exists.rows.length > 0) {
+            return res.json({ success: false, message: 'Este e-mail já está cadastrado' });
+        }
+
+        const hashedPassword = await bcrypt.hash(senha, 10);
+        const result = await pool.query(
+            `INSERT INTO usuarios (nome, email, senha, cargo, ativo)
+             VALUES ($1, $2, $3, $4, true)
+             RETURNING id, nome, email, cargo`,
+            [nome, email, hashedPassword, cargo]
+        );
+
+        res.json({ success: true, user: result.rows[0] });
+    } catch (error) {
+        console.error('Erro ao criar usuário:', error);
+        res.status(500).json({ success: false, message: 'Erro no servidor' });
+    }
+});
+
+// Atualizar usuário
+app.put('/api/usuarios/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { nome, email, senha, cargo, ativo } = req.body;
+
+        let query = 'UPDATE usuarios SET nome = $1, email = $2, cargo = $3, ativo = $4';
+        let params = [nome, email, cargo, ativo];
+
+        if (senha) {
+            const hashedPassword = await bcrypt.hash(senha, 10);
+            query += ', senha = $5 WHERE id = $6';
+            params.push(hashedPassword, id);
+        } else {
+            query += ' WHERE id = $5';
+            params.push(id);
+        }
+
+        const result = await pool.query(query + ' RETURNING id, nome, email, cargo, ativo', params);
+        res.json({ success: true, user: result.rows[0] });
+    } catch (error) {
+        console.error('Erro ao atualizar usuário:', error);
+        res.status(500).json({ success: false, message: 'Erro no servidor' });
+    }
+});
+
 // ==================== ROTAS DE CLIENTES ====================
 
 // Listar clientes
@@ -256,10 +323,22 @@ app.get('/api/ordens/:id', authenticateToken, async (req, res) => {
 app.post('/api/ordens', authenticateToken, async (req, res) => {
     try {
         const {
-            numero_os, cliente_id, maquina_id, mecanico_id, status, prioridade,
+            cliente_id, maquina_id, mecanico_id, status, prioridade,
             descricao_problema, diagnostico, servicos_realizados,
             valor_mao_obra, valor_pecas, valor_total, observacoes
         } = req.body;
+
+        // Gerar número da OS se não fornecido
+        let numero_os = req.body.numero_os;
+        if (!numero_os) {
+            const ano = new Date().getFullYear();
+            const countResult = await pool.query(
+                "SELECT COUNT(*) FROM ordens_servico WHERE numero_os LIKE $1",
+                [`OS-${ano}-%`]
+            );
+            const proximo = parseInt(countResult.rows[0].count) + 1;
+            numero_os = `OS-${ano}-${proximo.toString().padStart(5, '0')}`;
+        }
 
         const result = await pool.query(
             `INSERT INTO ordens_servico 
@@ -268,12 +347,12 @@ app.post('/api/ordens', authenticateToken, async (req, res) => {
         valor_mao_obra, valor_pecas, valor_total, observacoes)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        RETURNING *`,
-            [numero_os, cliente_id, maquina_id, mecanico_id, status, prioridade,
+            [numero_os, cliente_id, maquina_id, mecanico_id, status || 'ABERTA', prioridade || 'MEDIA',
                 descricao_problema, diagnostico, servicos_realizados,
-                valor_mao_obra, valor_pecas, valor_total, observacoes]
+                valor_mao_obra || 0, valor_pecas || 0, valor_total || 0, observacoes]
         );
 
-        res.json({ success: true, ordem: result.rows[0] });
+        res.json({ success: true, ordem: result.rows[0], numero_os });
     } catch (error) {
         console.error('Erro ao criar ordem:', error);
         res.status(500).json({ success: false, message: 'Erro no servidor' });
@@ -391,9 +470,16 @@ app.listen(PORT, () => {
     console.log(`🔗 Database: ${process.env.DATABASE_URL ? 'PostgreSQL (Railway)' : 'Não configurado'}`);
     console.log(`\n✅ Rotas disponíveis:`);
     console.log(`   POST   /api/login`);
+    console.log(`   GET    /api/usuarios`);
+    console.log(`   POST   /api/usuarios`);
+    console.log(`   PUT    /api/usuarios/:id`);
     console.log(`   GET    /api/clientes`);
+    console.log(`   POST   /api/clientes`);
+    console.log(`   PUT    /api/clientes/:id`);
     console.log(`   GET    /api/maquinas`);
+    console.log(`   POST   /api/maquinas`);
     console.log(`   GET    /api/ordens`);
+    console.log(`   POST   /api/ordens`);
     console.log(`   GET    /api/ordens/:id`);
     console.log(`   GET    /api/pecas`);
     console.log(`   GET    /api/vendas`);
