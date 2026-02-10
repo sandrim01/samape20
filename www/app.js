@@ -2,6 +2,7 @@
 const AppState = {
   currentUser: null,
   currentPage: 'dashboard',
+  sidebarOpen: false, // Controle do menu mobile
   data: {
     clientes: [],
     maquinas: [],
@@ -95,6 +96,7 @@ function renderLogin() {
 function renderMainApp() {
   return `
     <div class="app-container">
+      <div class="sidebar-overlay" id="sidebar-overlay"></div>
       ${renderSidebar()}
       <div class="main-content">
         ${renderTopbar()}
@@ -158,9 +160,10 @@ function renderSidebar() {
   };
 
   return `
-    <div class="sidebar">
-      <div class="sidebar-header" style="padding: 1.5rem 1rem; text-align: center;">
+    <div class="sidebar ${AppState.sidebarOpen ? 'open' : ''}">
+      <div class="sidebar-header" style="padding: 1.5rem 1rem; text-align: center; position: relative;">
         <img src="resources/logonova2.png" alt="SAMAPE ÍNDIO" style="width: 100%; max-width: 180px; height: auto;" />
+        <button id="close-sidebar" class="mobile-only" style="position: absolute; right: 10px; top: 10px; background: none; border: none; color: white; font-size: 1.5rem;">&times;</button>
       </div>
       
       <div class="sidebar-nav">
@@ -198,8 +201,11 @@ function renderTopbar() {
 
   return `
     <div class="topbar">
-      <h1 class="page-title">${pageTitles[AppState.currentPage] || 'SAMAPEOP'}</h1>
-      <div style="color: var(--text-muted); font-size: 0.9rem;">
+      <div style="display: flex; align-items: center; gap: 1rem;">
+        <button id="menu-toggle" class="mobile-only" style="background: none; border: none; font-size: 1.5rem; color: white; cursor: pointer;">☰</button>
+        <h1 class="page-title">${pageTitles[AppState.currentPage] || 'SAMAPEOP'}</h1>
+      </div>
+      <div class="topbar-date" style="color: var(--text-muted); font-size: 0.9rem;">
         ${new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
       </div>
     </div>
@@ -832,9 +838,38 @@ function attachEventListeners() {
   document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', () => {
       AppState.currentPage = item.dataset.page;
+      AppState.sidebarOpen = false; // Fecha no mobile após clicar
       render();
     });
   });
+
+  // Toggle Sidebar Mobile
+  const menuToggle = document.getElementById('menu-toggle');
+  if (menuToggle) {
+    menuToggle.addEventListener('click', () => {
+      AppState.sidebarOpen = true;
+      document.querySelector('.sidebar').classList.add('open');
+      document.querySelector('.sidebar-overlay').classList.add('visible');
+    });
+  }
+
+  const closeSidebar = document.getElementById('close-sidebar');
+  if (closeSidebar) {
+    closeSidebar.addEventListener('click', () => {
+      AppState.sidebarOpen = false;
+      document.querySelector('.sidebar').classList.remove('open');
+      document.querySelector('.sidebar-overlay').classList.remove('visible');
+    });
+  }
+
+  const overlay = document.getElementById('sidebar-overlay');
+  if (overlay) {
+    overlay.addEventListener('click', () => {
+      AppState.sidebarOpen = false;
+      document.querySelector('.sidebar').classList.remove('open');
+      overlay.classList.remove('visible');
+    });
+  }
 
   // Logout
   const logoutBtn = document.getElementById('logout-btn');
