@@ -629,7 +629,12 @@ app.get('/api/stats', authenticateToken, async (req, res) => {
 // ==================== ROTA DE TESTE ====================
 
 app.get('/api/health', (req, res) => {
-    res.json({ success: true, message: 'API SAMAPEOP funcionando!', timestamp: new Date() });
+    res.json({
+        success: true,
+        message: 'API SAMAPEOP funcionando!',
+        version: 'v1.0.1-hotfix-deploy',
+        timestamp: new Date()
+    });
 });
 
 // Iniciar servidor
