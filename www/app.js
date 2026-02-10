@@ -2,7 +2,8 @@
 const AppState = {
   currentUser: null,
   currentPage: 'dashboard',
-  sidebarOpen: false, // Controle do menu mobile
+  menuOpen: false, // Controle do menu cascata
+  expandedSections: ['Operacional'], // Seções expandidas por padrão
   data: {
     clientes: [],
     maquinas: [],
@@ -96,10 +97,10 @@ function renderLogin() {
 function renderMainApp() {
   return `
     <div class="app-container">
-      <div class="sidebar-overlay" id="sidebar-overlay"></div>
-      ${renderSidebar()}
+      <div class="sidebar-overlay" id="menu-overlay"></div>
       <div class="main-content">
         ${renderTopbar()}
+        ${renderSidebar()}
         <div class="content-area" id="content-area">
           ${renderPage()}
         </div>
@@ -131,10 +132,15 @@ function renderSidebar() {
 
   navItems.forEach(item => {
     if (item.section) {
-      if (currentSection) navHTML += '</div>';
+      if (currentSection) navHTML += '</div></div>';
+      const isExpanded = AppState.expandedSections.includes(item.section);
       navHTML += `
-        <div class="nav-section">
-          <div class="nav-section-title">${item.section}</div>
+        <div class="cascade-section">
+          <div class="cascade-section-header" onclick="toggleSection('${item.section}')">
+            <span>${item.section}</span>
+            <span class="chevron">${isExpanded ? '▼' : '▶'}</span>
+          </div>
+          <div class="cascade-section-content ${isExpanded ? 'expanded' : ''}">
       `;
       currentSection = item.section;
     } else if (hasPermission(item.permission)) {
@@ -148,7 +154,7 @@ function renderSidebar() {
     }
   });
 
-  if (currentSection) navHTML += '</div>';
+  if (currentSection) navHTML += '</div></div>';
 
   const initials = AppState.currentUser.nome.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
   const roleLabels = {
@@ -160,30 +166,34 @@ function renderSidebar() {
   };
 
   return `
-    <div class="sidebar ${AppState.sidebarOpen ? 'open' : ''}">
-      <div class="sidebar-header" style="padding: 1.5rem 1rem; text-align: center; position: relative;">
-        <img src="resources/logonova2.png" alt="SAMAPE ÍNDIO" style="width: 100%; max-width: 180px; height: auto;" />
-        <button id="close-sidebar" class="mobile-only" style="position: absolute; right: 10px; top: 10px; background: none; border: none; color: white; font-size: 1.5rem;">&times;</button>
-      </div>
-      
-      <div class="sidebar-nav">
+    <div class="cascade-menu ${AppState.menuOpen ? 'open' : ''}" id="cascade-menu">
+      <div class="menu-content">
         ${navHTML}
-      </div>
-      
-      <div class="sidebar-footer">
-        <div class="user-info">
-          <div class="user-avatar">${initials}</div>
-          <div class="user-details">
-            <div class="user-name">${AppState.currentUser.nome}</div>
-            <div class="user-role">${roleLabels[AppState.currentUser.cargo] || AppState.currentUser.cargo}</div>
+        
+        <div class="menu-footer">
+          <div class="user-info-brief">
+            <div class="user-avatar-sm">${initials}</div>
+            <div class="user-details-sm">
+              <div class="user-name-sm">${AppState.currentUser.nome}</div>
+            </div>
           </div>
+          <button class="btn btn-danger btn-sm" id="logout-btn" style="width: 100%; margin-top: 0.5rem;">
+            Sair
+          </button>
         </div>
-        <button class="btn btn-secondary btn-sm" id="logout-btn" style="width: 100%;">
-          Sair
-        </button>
       </div>
     </div>
   `;
+}
+
+function toggleSection(section) {
+  const index = AppState.expandedSections.indexOf(section);
+  if (index > -1) {
+    AppState.expandedSections.splice(index, 1);
+  } else {
+    AppState.expandedSections.push(section);
+  }
+  render();
 }
 
 function renderTopbar() {
@@ -201,12 +211,14 @@ function renderTopbar() {
 
   return `
     <div class="topbar">
-      <div style="display: flex; align-items: center; gap: 1rem;">
-        <button id="menu-toggle" class="mobile-only" style="background: none; border: none; font-size: 1.5rem; color: white; cursor: pointer;">☰</button>
+      <div class="topbar-left">
+        <div id="logo-trigger" class="logo-container-small">
+          <img src="resources/logonova2.png" alt="S" style="height: 35px; width: auto; cursor: pointer;" />
+        </div>
         <h1 class="page-title">${pageTitles[AppState.currentPage] || 'SAMAPEOP'}</h1>
       </div>
-      <div class="topbar-date" style="color: var(--text-muted); font-size: 0.9rem;">
-        ${new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+      <div class="topbar-right">
+        <span class="topbar-date-text">${new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })}</span>
       </div>
     </div>
   `;
@@ -833,41 +845,43 @@ function formatDate(dateString) {
 }
 
 // ==================== EVENT LISTENERS ====================
+// Funções de menu globais
+window.toggleSection = (section) => {
+  const index = AppState.expandedSections.indexOf(section);
+  if (index > -1) {
+    AppState.expandedSections.splice(index, 1);
+  } else {
+    AppState.expandedSections.push(section);
+  }
+  render();
+};
+
 function attachEventListeners() {
   // Navegação
   document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', () => {
       AppState.currentPage = item.dataset.page;
-      AppState.sidebarOpen = false; // Fecha no mobile após clicar
+      AppState.menuOpen = false; // Fecha ao navegar
       render();
     });
   });
 
-  // Toggle Sidebar Mobile
-  const menuToggle = document.getElementById('menu-toggle');
-  if (menuToggle) {
-    menuToggle.addEventListener('click', () => {
-      AppState.sidebarOpen = true;
-      document.querySelector('.sidebar').classList.add('open');
-      document.querySelector('.sidebar-overlay').classList.add('visible');
+  // Toggle Menu Cascata (Logo)
+  const logoTrigger = document.getElementById('logo-trigger');
+  if (logoTrigger) {
+    logoTrigger.addEventListener('click', () => {
+      AppState.menuOpen = !AppState.menuOpen;
+      render();
     });
   }
 
-  const closeSidebar = document.getElementById('close-sidebar');
-  if (closeSidebar) {
-    closeSidebar.addEventListener('click', () => {
-      AppState.sidebarOpen = false;
-      document.querySelector('.sidebar').classList.remove('open');
-      document.querySelector('.sidebar-overlay').classList.remove('visible');
-    });
-  }
-
-  const overlay = document.getElementById('sidebar-overlay');
+  // Overlay para fechar menu
+  const overlay = document.getElementById('menu-overlay');
   if (overlay) {
+    if (AppState.menuOpen) overlay.classList.add('visible');
     overlay.addEventListener('click', () => {
-      AppState.sidebarOpen = false;
-      document.querySelector('.sidebar').classList.remove('open');
-      overlay.classList.remove('visible');
+      AppState.menuOpen = false;
+      render();
     });
   }
 
