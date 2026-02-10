@@ -249,7 +249,12 @@ app.get('/api/maquinas', authenticateToken, async (req, res) => {
 // Criar máquina
 app.post('/api/maquinas', authenticateToken, async (req, res) => {
     try {
-        const { cliente_id, tipo, modelo, numero_serie, ano_fabricacao, horas_uso, observacoes } = req.body;
+        const { cliente_id, modelo, numero_serie, observacoes } = req.body;
+
+        // Mapeamento de campos do Front-end para o Banco
+        const tipo = req.body.tipo || 'Geral';
+        const ano_fabricacao = req.body.ano_fabricacao || req.body.ano || null;
+        const horas_uso = req.body.horas_uso || 0;
 
         const result = await pool.query(
             `INSERT INTO maquinas (cliente_id, tipo, modelo, numero_serie, ano_fabricacao, horas_uso, observacoes)
@@ -261,7 +266,7 @@ app.post('/api/maquinas', authenticateToken, async (req, res) => {
         res.json({ success: true, maquina: result.rows[0] });
     } catch (error) {
         console.error('Erro ao criar máquina:', error);
-        res.status(500).json({ success: false, message: 'Erro no servidor' });
+        res.status(500).json({ success: false, message: 'Erro no servidor: ' + error.message });
     }
 });
 
@@ -347,9 +352,19 @@ app.post('/api/ordens', authenticateToken, async (req, res) => {
     try {
         const {
             cliente_id, maquina_id, mecanico_id, status, prioridade,
-            descricao_problema, diagnostico, servicos_realizados,
-            valor_mao_obra, valor_pecas, valor_total, observacoes
+            descricao_problema, diagnostico, observacoes
         } = req.body;
+
+        // Mapeamento de campos do front-end
+        const servicos_realizados = req.body.servicos_realizados || req.body.solucao || '';
+        const valor_mao_obra = parseFloat(req.body.valor_mao_obra) || 0;
+        const valor_pecas = parseFloat(req.body.valor_pecas) || 0;
+
+        // Cálculo de valor total se necessário
+        const km_ida = parseFloat(req.body.km_ida) || 0;
+        const km_volta = parseFloat(req.body.km_volta) || 0;
+        const valor_por_km = parseFloat(req.body.valor_por_km) || 0;
+        const valor_total = req.body.valor_total || (valor_mao_obra + valor_pecas + ((km_ida + km_volta) * valor_por_km));
 
         // Gerar número da OS se não fornecido
         let numero_os = req.body.numero_os;
@@ -372,13 +387,13 @@ app.post('/api/ordens', authenticateToken, async (req, res) => {
        RETURNING *`,
             [numero_os, cliente_id, maquina_id, mecanico_id, status || 'ABERTA', prioridade || 'MEDIA',
                 descricao_problema, diagnostico, servicos_realizados,
-                valor_mao_obra || 0, valor_pecas || 0, valor_total || 0, observacoes]
+                valor_mao_obra, valor_pecas, valor_total, observacoes]
         );
 
         res.json({ success: true, ordem: result.rows[0], numero_os });
     } catch (error) {
         console.error('Erro ao criar ordem:', error);
-        res.status(500).json({ success: false, message: 'Erro no servidor' });
+        res.status(500).json({ success: false, message: 'Erro no servidor: ' + error.message });
     }
 });
 
