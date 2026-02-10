@@ -6,7 +6,8 @@
     "bin": "main.js",
     "scripts": {
         "start": "electron .",
-        "build": "electron-builder --win --x64",
+        "build": "echo 'Build skiped for cloud deployment'",
+        "build:electron": "electron-builder --win --x64",
         "build-portable": "electron-builder --win portable"
     },
     "keywords": [
