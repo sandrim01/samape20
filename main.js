@@ -2,82 +2,18 @@ const { app, BrowserWindow, ipcMain, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
+const { Pool } = require('pg');
+require('dotenv').config();
 
 let mainWindow;
-let dbPath;
-let db;
 
-// Inicializar caminhos
-function initializePaths() {
-  if (!dbPath) {
-    dbPath = path.join(app.getPath('userData'), 'samapeop-data.json');
+// Configurar PostgreSQL
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:kbrfMrFmPcFTAFpoZGxNHYbHWiWOaSUQ@shinkansen.proxy.rlwy.net:47179/railway',
+  ssl: {
+    rejectUnauthorized: false
   }
-}
-
-// Estrutura inicial do banco de dados
-const initialDB = {
-  usuarios: [],
-  clientes: [],
-  maquinas: [],
-  ordens_servico: [],
-  pecas: [],
-  vendas_pecas: [],
-  itens_venda: [],
-  itens_os: [],
-  contas_receber: [],
-  contas_pagar: [],
-  counters: {
-    usuarios: 0,
-    clientes: 0,
-    maquinas: 0,
-    ordens_servico: 0,
-    pecas: 0,
-    vendas_pecas: 0,
-    itens_venda: 0,
-    itens_os: 0,
-    contas_receber: 0,
-    contas_pagar: 0
-  }
-};
-
-// Carregar banco de dados
-function loadDatabase() {
-  try {
-    if (fs.existsSync(dbPath)) {
-      const data = fs.readFileSync(dbPath, 'utf8');
-      db = JSON.parse(data);
-      console.log('Banco de dados carregado');
-    } else {
-      db = JSON.parse(JSON.stringify(initialDB));
-      // Criar usuário admin padrão
-      const hashedPassword = bcrypt.hashSync('admin123', 10);
-      db.usuarios.push({
-        id: 1,
-        nome: 'Administrador',
-        email: 'admin@samapeop.com',
-        senha: hashedPassword,
-        cargo: 'ADMIN',
-        ativo: 1,
-        criado_em: new Date().toISOString()
-      });
-      db.counters.usuarios = 1;
-      saveDatabase();
-      console.log('Banco de dados criado com usuário admin');
-    }
-  } catch (error) {
-    console.error('Erro ao carregar banco:', error);
-    db = JSON.parse(JSON.stringify(initialDB));
-  }
-}
-
-// Salvar banco de dados
-function saveDatabase() {
-  try {
-    fs.writeFileSync(dbPath, JSON.stringify(db, null, 2), 'utf8');
-  } catch (error) {
-    console.error('Erro ao salvar banco de dados:', error);
-  }
-}
+});
 
 // Criar janela principal
 function createWindow() {
@@ -95,8 +31,8 @@ function createWindow() {
 
   mainWindow.loadFile('www/index.html');
 
-  // Abrir DevTools em desenvolvimento (Desabilitar para produção se desejar)
-  mainWindow.webContents.openDevTools();
+  // Abrir DevTools em desenvolvimento
+  // mainWindow.webContents.openDevTools();
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -105,8 +41,6 @@ function createWindow() {
 
 // Quando o Electron estiver pronto
 app.whenReady().then(() => {
-  initializePaths();
-  loadDatabase();
   createWindow();
 
   // Configurar menu básico
@@ -149,412 +83,335 @@ app.on('window-all-closed', () => {
   }
 });
 
-// ==================== IPC HANDLERS ====================
+// ==================== IPC HANDLERS (PostgreSQL) ====================
 
 // Login
 ipcMain.handle('login', async (event, { email, senha }) => {
-  const usuario = db.usuarios.find(u => u.email === email && u.ativo === 1);
-  if (!usuario) {
-    return { success: false, message: 'Usuário não encontrado ou inativo' };
-  }
-
-  const senhaValida = bcrypt.compareSync(senha, usuario.senha);
-  if (!senhaValida) {
-    return { success: false, message: 'Senha incorreta' };
-  }
-
-  const { senha: _, ...usuarioSemSenha } = usuario;
-  return { success: true, usuario: usuarioSemSenha };
-});
-
-// Criar usuário
-ipcMain.handle('criar-usuario', async (event, dados) => {
-  const hashedPassword = bcrypt.hashSync(dados.senha, 10);
-  const novoUsuario = {
-    id: ++db.counters.usuarios,
-    nome: dados.nome,
-    email: dados.email,
-    senha: hashedPassword,
-    cargo: dados.cargo,
-    ativo: 1,
-    criado_em: new Date().toISOString()
-  };
-
-  db.usuarios.push(novoUsuario);
-  saveDatabase();
-  return { success: true, id: novoUsuario.id };
-});
-
-// Listar usuários
-ipcMain.handle('listar-usuarios', async () => {
-  const usuarios = db.usuarios.map(({ senha, ...u }) => u);
-  return { success: true, usuarios };
-});
-
-// Criar cliente
-ipcMain.handle('criar-cliente', async (event, dados) => {
-  const novoCliente = {
-    id: ++db.counters.clientes,
-    nome: dados.nome,
-    cnpj: dados.cnpj,
-    telefone: dados.telefone,
-    email: dados.email,
-    endereco: dados.endereco,
-    criado_em: new Date().toISOString()
-  };
-
-  db.clientes.push(novoCliente);
-  saveDatabase();
-  return { success: true, id: novoCliente.id };
-});
-
-// Listar clientes
-ipcMain.handle('listar-clientes', async () => {
-  const clientes = [...db.clientes].sort((a, b) => a.nome.localeCompare(b.nome));
-  return { success: true, clientes };
-});
-
-// Criar máquina
-ipcMain.handle('criar-maquina', async (event, dados) => {
-  const novaMaquina = {
-    id: ++db.counters.maquinas,
-    cliente_id: parseInt(dados.cliente_id),
-    modelo: dados.modelo,
-    numero_serie: dados.numero_serie,
-    ano: dados.ano ? parseInt(dados.ano) : null,
-    observacoes: dados.observacoes,
-    criado_em: new Date().toISOString()
-  };
-
-  db.maquinas.push(novaMaquina);
-  saveDatabase();
-  return { success: true, id: novaMaquina.id };
-});
-
-// Listar máquinas
-ipcMain.handle('listar-maquinas', async (event, cliente_id) => {
-  let maquinas = db.maquinas.map(m => {
-    const cliente = db.clientes.find(c => c.id === m.cliente_id);
-    return {
-      ...m,
-      cliente_nome: cliente ? cliente.nome : null
-    };
-  });
-
-  if (cliente_id) {
-    maquinas = maquinas.filter(m => m.cliente_id === cliente_id);
-  }
-
-  return { success: true, maquinas };
-});
-
-// Criar OS
-ipcMain.handle('criar-os', async (event, dados) => {
-  const ano = new Date().getFullYear();
-  const ordensDoAno = db.ordens_servico.filter(os =>
-    os.numero_os.startsWith(`OS-${ano}-`)
-  );
-  const numeroSequencial = ordensDoAno.length + 1;
-  const numero_os = `OS-${ano}-${numeroSequencial.toString().padStart(5, '0')}`;
-
-  const novaOS = {
-    id: ++db.counters.ordens_servico,
-    numero_os,
-    // Informações do cliente
-    cliente_id: parseInt(dados.cliente_id),
-    // Informações da máquina
-    maquina_id: parseInt(dados.maquina_id),
-    // Informações do mecânico
-    mecanico_id: parseInt(dados.mecanico_id),
-    // Descrição do problema
-    descricao_problema: dados.descricao_problema || '',
-    diagnostico: dados.diagnostico || null,
-    solucao: dados.solucao || null,
-    // Controle de deslocamento
-    km_ida: parseFloat(dados.km_ida) || 0,
-    km_volta: parseFloat(dados.km_volta) || 0,
-    km_total: 0, // Calculado automaticamente
-    valor_por_km: parseFloat(dados.valor_por_km) || 0,
-    valor_deslocamento: 0, // Calculado automaticamente
-    // Valores do serviço
-    valor_mao_obra: parseFloat(dados.valor_mao_obra) || 0,
-    valor_pecas: parseFloat(dados.valor_pecas) || 0,
-    valor_total: 0, // Calculado automaticamente
-    // Controle de status
-    status: 'ABERTA',
-    data_abertura: new Date().toISOString(),
-    data_fechamento: null,
-    observacoes: dados.observacoes || ''
-  };
-
-  // Calcular valores automaticamente
-  novaOS.km_total = novaOS.km_ida + novaOS.km_volta;
-  novaOS.valor_deslocamento = novaOS.km_total * novaOS.valor_por_km;
-  novaOS.valor_total = novaOS.valor_mao_obra + novaOS.valor_pecas + novaOS.valor_deslocamento;
-
-  db.ordens_servico.push(novaOS);
-  saveDatabase();
-  return { success: true, id: novaOS.id, numero_os };
-});
-
-// Atualizar OS
-ipcMain.handle('atualizar-os', async (event, { id, dados }) => {
-  const index = db.ordens_servico.findIndex(os => os.id === id);
-  if (index === -1) {
-    return { success: false, message: 'Ordem de serviço não encontrada' };
-  }
-
-  const os = db.ordens_servico[index];
-
-  // Atualizar campos
-  if (dados.descricao_problema !== undefined) os.descricao_problema = dados.descricao_problema;
-  if (dados.diagnostico !== undefined) os.diagnostico = dados.diagnostico;
-  if (dados.solucao !== undefined) os.solucao = dados.solucao;
-  if (dados.km_ida !== undefined) os.km_ida = parseFloat(dados.km_ida) || 0;
-  if (dados.km_volta !== undefined) os.km_volta = parseFloat(dados.km_volta) || 0;
-  if (dados.valor_por_km !== undefined) os.valor_por_km = parseFloat(dados.valor_por_km) || 0;
-  if (dados.valor_mao_obra !== undefined) os.valor_mao_obra = parseFloat(dados.valor_mao_obra) || 0;
-  if (dados.valor_pecas !== undefined) os.valor_pecas = parseFloat(dados.valor_pecas) || 0;
-  if (dados.observacoes !== undefined) os.observacoes = dados.observacoes;
-  if (dados.status !== undefined) os.status = dados.status;
-
-  // Recalcular valores
-  os.km_total = os.km_ida + os.km_volta;
-  os.valor_deslocamento = os.km_total * os.valor_por_km;
-  os.valor_total = os.valor_mao_obra + os.valor_pecas + os.valor_deslocamento;
-
-  // Se estiver fechando a OS
-  if (dados.status === 'FECHADA' && os.status !== 'FECHADA') {
-    os.data_fechamento = new Date().toISOString();
-  }
-
-  saveDatabase();
-  return { success: true, os };
-});
-
-// Listar OS
-ipcMain.handle('listar-os', async (event, filtros = {}) => {
-  let ordens = db.ordens_servico.map(os => {
-    const cliente = db.clientes.find(c => c.id === os.cliente_id);
-    const maquina = db.maquinas.find(m => m.id === os.maquina_id);
-    const mecanico = db.usuarios.find(u => u.id === os.mecanico_id);
-
-    return {
-      ...os,
-      cliente_nome: cliente ? cliente.nome : null,
-      maquina_modelo: maquina ? maquina.modelo : null,
-      mecanico_nome: mecanico ? mecanico.nome : null
-    };
-  });
-
-  if (filtros.status) {
-    ordens = ordens.filter(os => os.status === filtros.status);
-  }
-
-  ordens.sort((a, b) => new Date(b.data_abertura) - new Date(a.data_abertura));
-  return { success: true, ordens };
-});
-
-// Obter OS específica
-ipcMain.handle('obter-os', async (event, id) => {
-  const os = db.ordens_servico.find(o => o.id === id);
-  if (!os) {
-    return { success: false, message: 'Ordem de serviço não encontrada' };
-  }
-
-  const cliente = db.clientes.find(c => c.id === os.cliente_id);
-  const maquina = db.maquinas.find(m => m.id === os.maquina_id);
-  const mecanico = db.usuarios.find(u => u.id === os.mecanico_id);
-
-  return {
-    success: true,
-    os: {
-      ...os,
-      cliente_nome: cliente ? cliente.nome : null,
-      cliente_cnpj: cliente ? cliente.cnpj : null,
-      cliente_telefone: cliente ? cliente.telefone : null,
-      cliente_endereco: cliente ? cliente.endereco : null,
-      maquina_modelo: maquina ? maquina.modelo : null,
-      maquina_serie: maquina ? maquina.numero_serie : null,
-      maquina_ano: maquina ? maquina.ano : null,
-      mecanico_nome: mecanico ? mecanico.nome : null,
-      mecanico_email: mecanico ? mecanico.email : null
+  try {
+    const result = await pool.query('SELECT * FROM usuarios WHERE email = $1 AND ativo = true', [email]);
+    if (result.rows.length === 0) {
+      return { success: false, message: 'Usuário não encontrado ou inativo' };
     }
-  };
+
+    const usuario = result.rows[0];
+    const senhaValida = bcrypt.compareSync(senha, usuario.senha);
+    if (!senhaValida) {
+      return { success: false, message: 'Senha incorreta' };
+    }
+
+    const { senha: _, ...usuarioSemSenha } = usuario;
+    return { success: true, usuario: usuarioSemSenha };
+  } catch (error) {
+    console.error('Erro no login:', error);
+    return { success: false, message: 'Erro no banco de dados: ' + error.message };
+  }
 });
 
-// Criar peça
+// Usuários
+ipcMain.handle('criar-usuario', async (event, dados) => {
+  try {
+    const hashedPassword = bcrypt.hashSync(dados.senha, 10);
+    const result = await pool.query(
+      'INSERT INTO usuarios (nome, email, senha, cargo, ativo) VALUES ($1, $2, $3, $4, true) RETURNING id',
+      [dados.nome, dados.email, hashedPassword, dados.cargo]
+    );
+    return { success: true, id: result.rows[0].id };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('listar-usuarios', async () => {
+  try {
+    const result = await pool.query('SELECT id, nome, email, cargo, ativo, created_at FROM usuarios ORDER BY nome');
+    return { success: true, usuarios: result.rows };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+// Clientes
+ipcMain.handle('criar-cliente', async (event, dados) => {
+  try {
+    const result = await pool.query(
+      'INSERT INTO clientes (nome, cnpj, telefone, email, endereco, ativo) VALUES ($1, $2, $3, $4, $5, true) RETURNING id',
+      [dados.nome, dados.cnpj, dados.telefone, dados.email, dados.endereco]
+    );
+    return { success: true, id: result.rows[0].id };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('listar-clientes', async () => {
+  try {
+    const result = await pool.query('SELECT * FROM clientes WHERE ativo = true ORDER BY nome');
+    return { success: true, clientes: result.rows };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('obter-cliente', async (event, id) => {
+  try {
+    const result = await pool.query('SELECT * FROM clientes WHERE id = $1', [id]);
+    return { success: true, cliente: result.rows[0] };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('atualizar-cliente', async (event, id, dados) => {
+  try {
+    await pool.query(
+      'UPDATE clientes SET nome = $1, cnpj = $2, telefone = $3, email = $4, endereco = $5, updated_at = CURRENT_TIMESTAMP WHERE id = $6',
+      [dados.nome, dados.cnpj, dados.telefone, dados.email, dados.endereco, id]
+    );
+    return { success: true };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('excluir-cliente', async (event, id) => {
+  try {
+    await pool.query('UPDATE clientes SET ativo = false WHERE id = $1', [id]);
+    return { success: true };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+// Máquinas
+ipcMain.handle('criar-maquina', async (event, dados) => {
+  try {
+    const result = await pool.query(
+      'INSERT INTO maquinas (cliente_id, modelo, numero_serie, ano_fabricacao, observacoes, ativo) VALUES ($1, $2, $3, $4, $5, true) RETURNING id',
+      [parseInt(dados.cliente_id), dados.modelo, dados.numero_serie, parseInt(dados.ano), dados.observacoes]
+    );
+    return { success: true, id: result.rows[0].id };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('listar-maquinas', async (event, cliente_id) => {
+  try {
+    let query = `
+      SELECT m.*, c.nome as cliente_nome 
+      FROM maquinas m
+      JOIN clientes c ON m.cliente_id = c.id
+      WHERE m.ativo = true
+    `;
+    const params = [];
+    if (cliente_id) {
+      query += ' AND m.cliente_id = $1';
+      params.push(cliente_id);
+    }
+    query += ' ORDER BY m.modelo';
+    const result = await pool.query(query, params);
+    return { success: true, maquinas: result.rows };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('obter-maquina', async (event, id) => {
+  try {
+    const result = await pool.query('SELECT * FROM maquinas WHERE id = $1', [id]);
+    return { success: true, maquina: result.rows[0] };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('atualizar-maquina', async (event, id, dados) => {
+  try {
+    await pool.query(
+      'UPDATE maquinas SET cliente_id = $1, modelo = $2, numero_serie = $3, ano_fabricacao = $4, observacoes = $5, updated_at = CURRENT_TIMESTAMP WHERE id = $6',
+      [parseInt(dados.cliente_id), dados.modelo, dados.numero_serie, parseInt(dados.ano), dados.observacoes, id]
+    );
+    return { success: true };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+// Ordens de Serviço
+ipcMain.handle('criar-os', async (event, dados) => {
+  try {
+    const resCount = await pool.query('SELECT COUNT(*) FROM ordens_servico');
+    const count = parseInt(resCount.rows[0].count) + 1;
+    const ano = new Date().getFullYear();
+    const numero_os = `OS-${ano}-${count.toString().padStart(5, '0')}`;
+
+    const valor_total = (parseFloat(dados.valor_mao_obra) || 0) + (parseFloat(dados.valor_pecas) || 0) + ((parseFloat(dados.km_ida) || 0 + parseFloat(dados.km_volta) || 0) * (parseFloat(dados.valor_por_km) || 0));
+
+    const result = await pool.query(
+      `INSERT INTO ordens_servico 
+      (numero_os, cliente_id, maquina_id, mecanico_id, status, prioridade, descricao_problema, diagnostico, km_ida, km_volta, valor_por_km, valor_mao_obra, valor_pecas, valor_total, observacoes)
+      VALUES ($1, $2, $3, $4, 'ABERTA', 'MEDIA', $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id`,
+      [numero_os, parseInt(dados.cliente_id), parseInt(dados.maquina_id), parseInt(dados.mecanico_id), dados.descricao_problema, dados.diagnostico, parseFloat(dados.km_ida), parseFloat(dados.km_volta), parseFloat(dados.valor_por_km), parseFloat(dados.valor_mao_obra), parseFloat(dados.valor_pecas), valor_total, dados.observacoes]
+    );
+    return { success: true, id: result.rows[0].id, numero_os };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('listar-os', async (event, filtros = {}) => {
+  try {
+    let query = `
+      SELECT os.*, c.nome as cliente_nome, m.modelo as maquina_modelo, u.nome as mecanico_nome
+      FROM ordens_servico os
+      JOIN clientes c ON os.cliente_id = c.id
+      JOIN maquinas m ON os.maquina_id = m.id
+      JOIN usuarios u ON os.mecanico_id = u.id
+    `;
+    const params = [];
+    if (filtros.status) {
+      query += ' WHERE os.status = $1';
+      params.push(filtros.status);
+    }
+    query += ' ORDER BY os.data_abertura DESC';
+    const result = await pool.query(query, params);
+    return { success: true, ordens: result.rows };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('obter-os', async (event, id) => {
+  try {
+    const query = `
+      SELECT os.*, 
+             c.nome as cliente_nome, c.cnpj as cliente_cnpj, c.telefone as cliente_telefone, c.endereco as cliente_endereco,
+             m.modelo as maquina_modelo, m.numero_serie as maquina_serie, m.ano_fabricacao as maquina_ano,
+             u.nome as mecanico_nome, u.email as mecanico_email
+      FROM ordens_servico os
+      JOIN clientes c ON os.cliente_id = c.id
+      JOIN maquinas m ON os.maquina_id = m.id
+      JOIN usuarios u ON os.mecanico_id = u.id
+      WHERE os.id = $1
+    `;
+    const result = await pool.query(query, [id]);
+    return { success: true, os: result.rows[0] };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+// Peças
 ipcMain.handle('criar-peca', async (event, dados) => {
-  const novaPeca = {
-    id: ++db.counters.pecas,
-    codigo: dados.codigo,
-    descricao: dados.descricao,
-    preco_custo: parseFloat(dados.preco_custo) || 0,
-    preco_venda: parseFloat(dados.preco_venda) || 0,
-    estoque_atual: parseInt(dados.estoque_atual) || 0,
-    estoque_minimo: parseInt(dados.estoque_minimo) || 0,
-    criado_em: new Date().toISOString()
-  };
-
-  db.pecas.push(novaPeca);
-  saveDatabase();
-  return { success: true, id: novaPeca.id };
+  try {
+    const result = await pool.query(
+      'INSERT INTO pecas (codigo, nome, preco_custo, preco_venda, quantidade_estoque, estoque_minimo, ativo) VALUES ($1, $2, $3, $4, $5, $6, true) RETURNING id',
+      [dados.codigo, dados.descricao, parseFloat(dados.preco_custo), parseFloat(dados.preco_venda), parseInt(dados.estoque_atual), parseInt(dados.estoque_minimo)]
+    );
+    return { success: true, id: result.rows[0].id };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
 });
 
-// Listar peças
 ipcMain.handle('listar-pecas', async () => {
-  const pecas = [...db.pecas].sort((a, b) => a.descricao.localeCompare(b.descricao));
-  return { success: true, pecas };
-});
-
-// Criar conta a pagar
-ipcMain.handle('criar-conta-pagar', async (event, dados) => {
-  const novaConta = {
-    id: ++db.counters.contas_pagar,
-    fornecedor: dados.fornecedor,
-    descricao: dados.descricao,
-    valor: parseFloat(dados.valor),
-    data_vencimento: dados.data_vencimento,
-    data_pagamento: null,
-    status: 'PENDENTE',
-    categoria: dados.categoria,
-    observacoes: dados.observacoes
-  };
-
-  db.contas_pagar.push(novaConta);
-  saveDatabase();
-  return { success: true, id: novaConta.id };
-});
-
-// Listar contas a pagar
-ipcMain.handle('listar-contas-pagar', async (event, filtros = {}) => {
-  let contas = [...db.contas_pagar];
-
-  if (filtros.status) {
-    contas = contas.filter(c => c.status === filtros.status);
+  try {
+    const result = await pool.query('SELECT * FROM pecas WHERE ativo = true ORDER BY nome');
+    return { success: true, pecas: result.rows };
+  } catch (error) {
+    return { success: false, message: error.message };
   }
-
-  contas.sort((a, b) => new Date(a.data_vencimento) - new Date(b.data_vencimento));
-  return { success: true, contas };
 });
 
-// Listar contas a receber
-ipcMain.handle('listar-contas-receber', async (event, filtros = {}) => {
-  let contas = db.contas_receber.map(c => {
-    const cliente = db.clientes.find(cl => cl.id === c.cliente_id);
-    return {
-      ...c,
-      cliente_nome: cliente ? cliente.nome : null
-    };
-  });
-
-  if (filtros.status) {
-    contas = contas.filter(c => c.status === filtros.status);
-  }
-
-  contas.sort((a, b) => new Date(a.data_vencimento) - new Date(b.data_vencimento));
-  return { success: true, contas };
-});
-
-// Registrar pagamento (pagar)
-ipcMain.handle('registrar-pagamento-pagar', async (event, { id, data_pagamento }) => {
-  const index = db.contas_pagar.findIndex(c => c.id === id);
-  if (index === -1) {
-    return { success: false, message: 'Conta não encontrada' };
-  }
-
-  db.contas_pagar[index].status = 'PAGO';
-  db.contas_pagar[index].data_pagamento = data_pagamento;
-  saveDatabase();
-  return { success: true };
-});
-
-// Registrar pagamento (receber)
-ipcMain.handle('registrar-pagamento-receber', async (event, { id, data_pagamento }) => {
-  const index = db.contas_receber.findIndex(c => c.id === id);
-  if (index === -1) {
-    return { success: false, message: 'Conta não encontrada' };
-  }
-
-  db.contas_receber[index].status = 'PAGO';
-  db.contas_receber[index].data_pagamento = data_pagamento;
-  saveDatabase();
-  return { success: true };
-});
-
-// Listar vendas
+// Vendas e Financeiro
 ipcMain.handle('listar-vendas', async () => {
-  const vendas = db.vendas_pecas.map(v => {
-    const cliente = db.clientes.find(c => c.id === v.cliente_id);
-    const vendedor = db.usuarios.find(u => u.id === v.vendedor_id);
+  try {
+    const result = await pool.query(`
+      SELECT v.*, c.nome as cliente_nome, u.nome as vendedor_nome
+      FROM vendas v
+      JOIN clientes c ON v.cliente_id = c.id
+      JOIN usuarios u ON v.vendedor_id = u.id
+      ORDER BY v.data_venda DESC
+    `);
+    return { success: true, vendas: result.rows };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('listar-contas-receber', async (event, filtros = {}) => {
+  try {
+    let query = 'SELECT cr.*, c.nome as cliente_nome FROM contas_receber cr JOIN clientes c ON cr.cliente_id = c.id';
+    const params = [];
+    if (filtros.status) {
+      query += ' WHERE cr.status = $1';
+      params.push(filtros.status);
+    }
+    query += ' ORDER BY cr.data_vencimento';
+    const result = await pool.query(query, params);
+    return { success: true, contas: result.rows };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('listar-contas-pagar', async (event, filtros = {}) => {
+  try {
+    let query = 'SELECT * FROM contas_pagar';
+    const params = [];
+    if (filtros.status) {
+      query += ' WHERE status = $1';
+      params.push(filtros.status);
+    }
+    query += ' ORDER BY data_vencimento';
+    const result = await pool.query(query, params);
+    return { success: true, contas: result.rows };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+// Estatísticas para o Dashboard
+ipcMain.handle('obter-estatisticas', async () => {
+  try {
+    const osAbertas = await pool.query("SELECT COUNT(*) FROM ordens_servico WHERE status = 'ABERTA'");
+    const osAndamento = await pool.query("SELECT COUNT(*) FROM ordens_servico WHERE status = 'EM_ANDAMENTO'");
+    const pecasBaixas = await pool.query("SELECT COUNT(*) FROM pecas WHERE quantidade_estoque <= estoque_minimo AND ativo = true");
+
+    const hoje = new Date();
+    const mes = hoje.getMonth() + 1;
+    const ano = hoje.getFullYear();
+    const vendasMes = await pool.query("SELECT COUNT(*), SUM(valor_final) FROM vendas WHERE EXTRACT(MONTH FROM data_venda) = $1 AND EXTRACT(YEAR FROM data_venda) = $2", [mes, ano]);
 
     return {
-      ...v,
-      cliente_nome: cliente ? cliente.nome : null,
-      vendedor_nome: vendedor ? vendedor.nome : null
+      success: true,
+      stats: {
+        os_abertas: parseInt(osAbertas.rows[0].count),
+        os_em_andamento: parseInt(osAndamento.rows[0].count),
+        pecas_estoque_baixo: parseInt(pecasBaixas.rows[0].count),
+        vendas_mes: {
+          count: parseInt(vendasMes.rows[0].count),
+          total: parseFloat(vendasMes.rows[0].sum) || 0
+        }
+      }
     };
-  }).sort((a, b) => new Date(b.data_venda) - new Date(a.data_venda));
-
-  return { success: true, vendas };
-});
-
-// Obter estatísticas
-ipcMain.handle('obter-estatisticas', async () => {
-  const stats = {
-    os_abertas: db.ordens_servico.filter(os => os.status === 'ABERTA').length,
-    os_em_andamento: db.ordens_servico.filter(os => os.status === 'EM_ANDAMENTO').length,
-    contas_receber_pendentes: {
-      count: db.contas_receber.filter(c => c.status === 'PENDENTE').length,
-      total: db.contas_receber.filter(c => c.status === 'PENDENTE').reduce((sum, c) => sum + c.valor, 0)
-    },
-    contas_pagar_pendentes: {
-      count: db.contas_pagar.filter(c => c.status === 'PENDENTE').length,
-      total: db.contas_pagar.filter(c => c.status === 'PENDENTE').reduce((sum, c) => sum + c.valor, 0)
-    },
-    pecas_estoque_baixo: db.pecas.filter(p => p.estoque_atual <= p.estoque_minimo).length,
-    vendas_mes: (() => {
-      const hoje = new Date();
-      const mesAtual = hoje.getMonth();
-      const anoAtual = hoje.getFullYear();
-      const vendasMes = db.vendas_pecas.filter(v => {
-        const dataVenda = new Date(v.data_venda);
-        return dataVenda.getMonth() === mesAtual && dataVenda.getFullYear() === anoAtual;
-      });
-      return {
-        count: vendasMes.length,
-        total: vendasMes.reduce((sum, v) => sum + v.valor_total, 0)
-      };
-    })()
-  };
-
-  return { success: true, stats };
-});
-
-// Handlers adicionais para compatibilidade com o preload.js
-ipcMain.handle('atualizar-usuario', async (event, { id, dados }) => {
-  const index = db.usuarios.findIndex(u => u.id === id);
-  if (index === -1) return { success: false, message: 'Usuário não encontrado' };
-  if (dados.senha) dados.senha = bcrypt.hashSync(dados.senha, 10);
-  db.usuarios[index] = { ...db.usuarios[index], ...dados };
-  saveDatabase();
-  return { success: true };
-});
-
-ipcMain.handle('atualizar-estoque', async (event, { id, quantidade }) => {
-  const index = db.pecas.findIndex(p => p.id === id);
-  if (index === -1) return { success: false, message: 'Peça não encontrada' };
-  db.pecas[index].estoque_atual += quantidade;
-  saveDatabase();
-  return { success: true };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
 });
 
 ipcMain.handle('criar-venda', async (event, dados) => {
-  const novaVenda = {
-    id: ++db.counters.vendas_pecas,
-    ...dados,
-    data_venda: new Date().toISOString()
-  };
-  db.vendas_pecas.push(novaVenda);
-  saveDatabase();
-  return { success: true, id: novaVenda.id };
+  try {
+    const resCount = await pool.query('SELECT COUNT(*) FROM vendas');
+    const count = parseInt(resCount.rows[0].count) + 1;
+    const numero_venda = `VEN-${new Date().getFullYear()}-${count.toString().padStart(5, '0')}`;
+    const result = await pool.query(
+      `INSERT INTO vendas (numero_venda, cliente_id, vendedor_id, valor_total, valor_final, status, data_venda) 
+       VALUES ($1, $2, $3, $4, $4, 'PENDENTE', CURRENT_TIMESTAMP) RETURNING id`,
+      [numero_venda, parseInt(dados.cliente_id), parseInt(dados.vendedor_id), parseFloat(dados.valor_total)]
+    );
+    return { success: true, id: result.rows[0].id };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
 });

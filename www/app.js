@@ -11,8 +11,6 @@ const AppState = {
     pecas: [],
     vendas: [],
     usuarios: [],
-    contasReceber: [],
-    contasPagar: [],
     stats: {}
   }
 };
@@ -126,15 +124,12 @@ function renderSidebar() {
     { section: 'Operacional' },
     { id: 'ordens-servico', label: 'Ordens de Serviço', icon: '🔧', permission: 'operacional' },
     { id: 'maquinas', label: 'Máquinas', icon: '🚜', permission: 'operacional' },
-    { section: 'Vendas' },
+    { section: 'Vendas e Estoque' },
     { id: 'vendas', label: 'Vendas de Peças', icon: '🛒', permission: 'vendas' },
     { id: 'pecas', label: 'Estoque de Peças', icon: '📦', permission: 'pecas' },
-    { section: 'Financeiro' },
-    { id: 'contas-receber', label: 'Contas a Receber', icon: '💰', permission: 'financeiro' },
-    { id: 'contas-pagar', label: 'Contas a Pagar', icon: '💸', permission: 'financeiro' },
     { section: 'Cadastros' },
     { id: 'clientes', label: 'Clientes', icon: '👥', permission: 'clientes' },
-    { section: 'Administração' },
+    { section: 'Sistema' },
     { id: 'usuarios', label: 'Usuários', icon: '👤', permission: '*' }
   ];
 
@@ -214,10 +209,6 @@ function renderTopbar() {
     'dashboard': 'Dashboard',
     'ordens-servico': 'Ordens de Serviço',
     'maquinas': 'Máquinas',
-    'vendas': 'Vendas de Peças',
-    'pecas': 'Estoque de Peças',
-    'contas-receber': 'Contas a Receber',
-    'contas-pagar': 'Contas a Pagar',
     'clientes': 'Clientes',
     'usuarios': 'Usuários'
   };
@@ -257,76 +248,103 @@ function renderDashboard() {
   const stats = AppState.data.stats;
 
   return `
+    <div class="dashboard-welcome">
+      <div class="welcome-text">
+        <h2 style="margin: 0; color: var(--primary);">Olá, ${AppState.currentUser.nome.split(' ')[0]}!</h2>
+        <p style="margin: 0; color: var(--text-muted);">Bem-vindo ao painel de controle do SAMAPEOP.</p>
+      </div>
+      <div class="quick-actions-bar">
+        <button class="btn btn-primary btn-sm" onclick="showNovaOSModal()">+ Nova OS</button>
+        <button class="btn btn-secondary btn-sm" onclick="showNovaVendaModal()">+ Venda</button>
+      </div>
+    </div>
+
     <div class="stats-grid">
-      <div class="stat-card">
+      <div class="stat-card premium">
         <div class="stat-header">
-          <span class="stat-label">OS Abertas</span>
-          <div class="stat-icon warning">🔧</div>
+          <span class="stat-label">Ordens Abertas</span>
+          <div class="stat-icon-bg warning">🔧</div>
         </div>
-        <div class="stat-value">${stats.os_abertas || 0}</div>
-        <div class="stat-description">Aguardando atendimento</div>
+        <div class="stat-value-large">${stats.os_abertas || 0}</div>
+        <div class="stat-progress-bar">
+          <div class="progress" style="width: ${(stats.os_abertas / (stats.os_abertas + stats.os_em_andamento + 1) * 100)}%; background: var(--warning);"></div>
+        </div>
+        <div class="stat-footer">Aguardando início</div>
       </div>
 
-      <div class="stat-card">
+      <div class="stat-card premium">
         <div class="stat-header">
-          <span class="stat-label">OS em Andamento</span>
-          <div class="stat-icon primary">⚙️</div>
+          <span class="stat-label">Em Execução</span>
+          <div class="stat-icon-bg primary">⚙️</div>
         </div>
-        <div class="stat-value">${stats.os_em_andamento || 0}</div>
-        <div class="stat-description">Sendo executadas</div>
+        <div class="stat-value-large">${stats.os_em_andamento || 0}</div>
+         <div class="stat-progress-bar">
+          <div class="progress" style="width: ${(stats.os_em_andamento / (stats.os_abertas + stats.os_em_andamento + 1) * 100)}%; background: var(--primary);"></div>
+        </div>
+        <div class="stat-footer">Serviços ativos</div>
       </div>
-
-      ${hasPermission('financeiro') ? `
-        <div class="stat-card">
-          <div class="stat-header">
-            <span class="stat-label">A Receber</span>
-            <div class="stat-icon success">💰</div>
-          </div>
-          <div class="stat-value">R$ ${formatMoney(stats.contas_receber_pendentes?.total || 0)}</div>
-          <div class="stat-description">${stats.contas_receber_pendentes?.count || 0} contas pendentes</div>
-        </div>
-
-        <div class="stat-card">
-          <div class="stat-header">
-            <span class="stat-label">A Pagar</span>
-            <div class="stat-icon danger">💸</div>
-          </div>
-          <div class="stat-value">R$ ${formatMoney(stats.contas_pagar_pendentes?.total || 0)}</div>
-          <div class="stat-description">${stats.contas_pagar_pendentes?.count || 0} contas pendentes</div>
-        </div>
-      ` : ''}
 
       ${hasPermission('pecas') ? `
-        <div class="stat-card">
+        <div class="stat-card premium">
           <div class="stat-header">
-            <span class="stat-label">Estoque Baixo</span>
-            <div class="stat-icon warning">📦</div>
+            <span class="stat-label">Crítico de Estoque</span>
+            <div class="stat-icon-bg warning">📦</div>
           </div>
-          <div class="stat-value">${stats.pecas_estoque_baixo || 0}</div>
-          <div class="stat-description">Peças abaixo do mínimo</div>
+          <div class="stat-value-large">${stats.pecas_estoque_baixo || 0}</div>
+          <div class="stat-footer">Peças abaixo do comum</div>
         </div>
       ` : ''}
 
       ${hasPermission('vendas') ? `
-        <div class="stat-card">
+        <div class="stat-card premium">
           <div class="stat-header">
             <span class="stat-label">Vendas do Mês</span>
-            <div class="stat-icon success">🛒</div>
+            <div class="stat-icon-bg info">🛒</div>
           </div>
-          <div class="stat-value">R$ ${formatMoney(stats.vendas_mes?.total || 0)}</div>
-          <div class="stat-description">${stats.vendas_mes?.count || 0} vendas realizadas</div>
+          <div class="stat-value-large">R$ ${formatMoney(stats.vendas_mes?.total || 0)}</div>
+          <div class="stat-footer">${stats.vendas_mes?.count || 0} pedidos realizados</div>
         </div>
       ` : ''}
     </div>
 
-    ${hasPermission('operacional') ? `
+    <div class="dashboard-grid-two">
       <div class="card">
         <div class="card-header">
-          <h2 class="card-title">Ordens de Serviço Recentes</h2>
+          <h2 class="card-title">Ordens Recentes</h2>
+          <span class="card-link" onclick="AppState.currentPage = 'ordens-servico'; render();">Ver todas →</span>
         </div>
         ${renderOrdensTable(AppState.data.ordens.slice(0, 5))}
       </div>
-    ` : ''}
+
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Resumo de Atividades</h2>
+        </div>
+        <div class="activity-list">
+          <div class="activity-item">
+            <div class="activity-icon info">📝</div>
+            <div class="activity-body">
+              <div class="activity-title">Sistema Operacional</div>
+              <div class="activity-time">Conectado ao PostgreSQL Railway</div>
+            </div>
+          </div>
+          <div class="activity-item">
+            <div class="activity-icon success">🏢</div>
+            <div class="activity-body">
+              <div class="activity-title">${AppState.data.clientes.length} Clientes Ativos</div>
+              <div class="activity-time">Base de dados sincronizada</div>
+            </div>
+          </div>
+          <div class="activity-item">
+            <div class="activity-icon primary">🚜</div>
+            <div class="activity-body">
+              <div class="activity-title">${AppState.data.maquinas.length} Máquinas Registradas</div>
+              <div class="activity-time">Frota completa sob gestão</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   `;
 }
 
@@ -597,149 +615,7 @@ function renderVendasTable(vendas) {
     `;
 }
 
-// ==================== CONTAS A RECEBER ====================
-function renderContasReceber() {
-  return `
-    <div class="card" >
-      <div class="card-header">
-        <h2 class="card-title">Contas a Receber</h2>
-        <button class="btn btn-primary btn-sm" id="nova-conta-receber-btn">
-          + Nova Conta
-        </button>
-      </div>
-
-      <div style="margin-bottom: 1.5rem;">
-        <select class="form-input" id="filtro-status-receber" style="max-width: 200px;">
-          <option value="">Todos os Status</option>
-          <option value="PENDENTE">Pendentes</option>
-          <option value="PAGO">Pagas</option>
-        </select>
-      </div>
-
-      ${renderContasReceberTable(AppState.data.contasReceber)}
-    </div>
-    `;
-}
-
-function renderContasReceberTable(contas) {
-  if (!contas || contas.length === 0) {
-    return `
-    <div class="empty-state" >
-        <div class="empty-state-icon">💰</div>
-        <div class="empty-state-title">Nenhuma conta a receber</div>
-      </div>
-    `;
-  }
-
-  return `
-    <div class="table-container">
-      <table>
-        <thead>
-          <tr>
-            <th>Cliente</th>
-            <th>Valor</th>
-            <th>Vencimento</th>
-            <th>Pagamento</th>
-            <th>Status</th>
-            <th>Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${contas.map(conta => `
-            <tr>
-              <td>${conta.cliente_nome || '-'}</td>
-              <td>R$ ${formatMoney(conta.valor)}</td>
-              <td>${formatDate(conta.data_vencimento)}</td>
-              <td>${conta.data_pagamento ? formatDate(conta.data_pagamento) : '-'}</td>
-              <td><span class="badge badge-${conta.status === 'PAGO' ? 'success' : 'warning'}">${conta.status}</span></td>
-              <td>
-                ${conta.status === 'PENDENTE' ? `
-                  <button class="btn btn-success btn-sm" onclick="registrarPagamentoReceber(${conta.id})">
-                    Receber
-                  </button>
-                ` : '-'}
-              </td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    </div>
-    `;
-}
-
-// ==================== CONTAS A PAGAR ====================
-function renderContasPagar() {
-  return `
-    <div class="card" >
-      <div class="card-header">
-        <h2 class="card-title">Contas a Pagar</h2>
-        <button class="btn btn-primary btn-sm" id="nova-conta-pagar-btn">
-          + Nova Conta
-        </button>
-      </div>
-
-      <div style="margin-bottom: 1.5rem;">
-        <select class="form-input" id="filtro-status-pagar" style="max-width: 200px;">
-          <option value="">Todos os Status</option>
-          <option value="PENDENTE">Pendentes</option>
-          <option value="PAGO">Pagas</option>
-        </select>
-      </div>
-
-      ${renderContasPagarTable(AppState.data.contasPagar)}
-    </div>
-    `;
-}
-
-function renderContasPagarTable(contas) {
-  if (!contas || contas.length === 0) {
-    return `
-    <div class="empty-state" >
-        <div class="empty-state-icon">💸</div>
-        <div class="empty-state-title">Nenhuma conta a pagar</div>
-      </div>
-    `;
-  }
-
-  return `
-    <div class="table-container">
-      <table>
-        <thead>
-          <tr>
-            <th>Fornecedor</th>
-            <th>Descrição</th>
-            <th>Valor</th>
-            <th>Vencimento</th>
-            <th>Pagamento</th>
-            <th>Status</th>
-            <th>Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${contas.map(conta => `
-            <tr>
-              <td>${conta.fornecedor}</td>
-              <td>${conta.descricao || '-'}</td>
-              <td>R$ ${formatMoney(conta.valor)}</td>
-              <td>${formatDate(conta.data_vencimento)}</td>
-              <td>${conta.data_pagamento ? formatDate(conta.data_pagamento) : '-'}</td>
-              <td><span class="badge badge-${conta.status === 'PAGO' ? 'success' : 'warning'}">${conta.status}</span></td>
-              <td>
-                ${conta.status === 'PENDENTE' ? `
-                  <button class="btn btn-success btn-sm" onclick="registrarPagamentoPagar(${conta.id})">
-                    Pagar
-                  </button>
-                ` : '-'}
-              </td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    </div>
-    `;
-}
-
-// ==================== CLIENTES ====================
+// ==================== USUÁRIOS ====================
 function renderClientes() {
   return `
     <div class="card" >
@@ -975,18 +851,18 @@ async function showNovoClienteModal(clienteId = null) {
   }
 
   showModal(isEdicao ? 'Editar Cliente' : 'Novo Cliente', `
-    <div class="form-group" >
+    <div class="form-group">
       <label class="form-label">Nome *</label>
       <input type="text" class="form-input" id="modal-cliente-nome" value="${clienteData?.nome || ''}" required />
     </div>
     <div class="form-grid">
       <div class="form-group">
         <label class="form-label">CNPJ</label>
-        <input type="text" class="form-input" id="modal-cliente-cnpj" />
+        <input type="text" class="form-input" id="modal-cliente-cnpj" value="${clienteData?.cnpj || ''}" />
       </div>
       <div class="form-group">
         <label class="form-label">Telefone</label>
-        <input type="text" class="form-input" id="modal-cliente-telefone" />
+        <input type="text" class="form-input" id="modal-cliente-telefone" value="${clienteData?.telefone || ''}" />
       </div>
     </div>
     <div class="form-group">
@@ -1001,8 +877,7 @@ async function showNovoClienteModal(clienteId = null) {
     <div style="margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 1rem;">
       <button class="btn btn-danger btn-sm" onclick="excluirCliente(${clienteId})">Excluir Cliente</button>
     </div>
-    ` : ''
-    }
+    ` : ''}
   `, async () => {
     const dados = {
       nome: document.getElementById('modal-cliente-nome').value,
@@ -1047,11 +922,11 @@ async function showNovaMaquinaModal(maquinaId = null) {
     if (result.success) maquinaData = result.maquina;
   }
   const clientesOptions = AppState.data.clientes.map(c =>
-    `< option value = "${c.id}">${c.nome}</option> `
+    `<option value="${c.id}" ${maquinaData?.cliente_id == c.id ? 'selected' : ''}>${c.nome}</option>`
   ).join('');
 
   showModal(isEdicao ? 'Editar Máquina' : 'Nova Máquina', `
-    <div class="form-group" >
+    <div class="form-group">
       <label class="form-label">Cliente *</label>
       <select class="form-input" id="modal-maquina-cliente" required>
         <option value="">Selecione...</option>
@@ -1098,7 +973,7 @@ async function showNovaMaquinaModal(maquinaId = null) {
       closeModal();
       render();
     } else {
-      alert('Erro ao criar máquina: ' + result.message);
+      alert('Erro ao salvar máquina: ' + result.message);
     }
   });
 }
@@ -1117,26 +992,26 @@ async function showNovaPecaModal(pecaId = null) {
   }
 
   showModal(isEdicao ? 'Editar Peça' : 'Nova Peça', `
-    <div class="form-grid" >
+    <div class="form-grid">
       <div class="form-group">
         <label class="form-label">Código *</label>
-        <input type="text" class="form-input" id="modal-peca-codigo" required />
+        <input type="text" class="form-input" id="modal-peca-codigo" value="${pecaData?.codigo || ''}" required />
       </div>
       <div class="form-group form-group-full">
-        <label class="form-label">Descrição *</label>
-        <input type="text" class="form-input" id="modal-peca-descricao" required />
+        <label class="form-label">Nome / Descrição *</label>
+        <input type="text" class="form-input" id="modal-peca-descricao" value="${pecaData?.nome || pecaData?.descricao || ''}" required />
       </div>
       <div class="form-group">
         <label class="form-label">Preço Custo</label>
-        <input type="number" step="0.01" class="form-input" id="modal-peca-custo" />
+        <input type="number" step="0.01" class="form-input" id="modal-peca-custo" value="${pecaData?.preco_custo || 0}" />
       </div>
       <div class="form-group">
         <label class="form-label">Preço Venda</label>
-        <input type="number" step="0.01" class="form-input" id="modal-peca-venda" />
+        <input type="number" step="0.01" class="form-input" id="modal-peca-venda" value="${pecaData?.preco_venda || 0}" />
       </div>
       <div class="form-group">
         <label class="form-label">Estoque Atual</label>
-        <input type="number" class="form-input" id="modal-peca-estoque" value="0" />
+        <input type="number" class="form-input" id="modal-peca-estoque" value="${pecaData?.quantidade_estoque || pecaData?.estoque_atual || 0}" />
       </div>
       <div class="form-group">
         <label class="form-label">Estoque Mínimo</label>
@@ -1166,17 +1041,82 @@ async function showNovaPecaModal(pecaId = null) {
       closeModal();
       render();
     } else {
-      alert('Erro ao criar peça: ' + result.message);
+      alert('Erro ao salvar peça: ' + result.message);
     }
   });
 }
 
-function showNovaVendaModal() {
-  alert('Funcionalidade de venda em desenvolvimento. Use o backend para criar vendas.');
+async function showNovaVendaModal() {
+  const clientesOptions = AppState.data.clientes.map(c =>
+    `<option value="${c.id}">${c.nome}</option>`
+  ).join('');
+
+  showModal('Nova Venda de Peças', `
+    <div class="form-group">
+      <label class="form-label">Cliente *</label>
+      <select class="form-input" id="modal-venda-cliente" required>
+        <option value="">Selecione...</option>
+        ${clientesOptions}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Valor Total (R$) *</label>
+      <input type="number" step="0.01" class="form-input" id="modal-venda-valor" required />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Observações</label>
+      <textarea class="form-input" id="modal-venda-obs" placeholder="Peças vendidas, forma de pagamento..."></textarea>
+    </div>
+  `, async () => {
+    const dados = {
+      cliente_id: document.getElementById('modal-venda-cliente').value,
+      vendedor_id: AppState.currentUser.id,
+      valor_total: parseFloat(document.getElementById('modal-venda-valor').value)
+    };
+
+    const result = await window.api.criarVenda(dados);
+    if (result.success) {
+      await loadVendas();
+      await loadStats();
+      closeModal();
+      render();
+    } else {
+      alert('Erro ao registrar venda: ' + result.message);
+    }
+  });
 }
 
 function showNovaContaReceberModal() {
-  alert('Funcionalidade em desenvolvimento. Use o backend para criar contas.');
+  const clientesOptions = AppState.data.clientes.map(c =>
+    `<option value="${c.id}">${c.nome}</option>`
+  ).join('');
+
+  showModal('Nova Conta a Receber', `
+    <div class="form-group">
+      <label class="form-label">Cliente *</label>
+      <select class="form-input" id="modal-receber-cliente" required>
+        <option value="">Selecione...</option>
+        ${clientesOptions}
+      </select>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">Valor *</label>
+        <input type="number" step="0.01" class="form-input" id="modal-receber-valor" required />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Data Vencimento *</label>
+        <input type="date" class="form-input" id="modal-receber-vencimento" required />
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Descrição</label>
+      <input type="text" class="form-input" id="modal-receber-descricao" />
+    </div>
+  `, async () => {
+    // Implementar criarContaReceber na API se necessário, por enquanto usamos os dados locais
+    alert('Esta funcionalidade requer integração adicional com o endpoint de contas a receber.');
+  });
 }
 
 function showNovaContaPagarModal() {
@@ -1318,30 +1258,6 @@ window.editarOS = async (id) => {
   mostrarModalOS(id);
 };
 
-window.registrarPagamentoReceber = async (id) => {
-  const data = new Date().toISOString().split('T')[0];
-  const result = await window.api.registrarPagamentoReceber(id, data);
-  if (result.success) {
-    await loadContasReceber();
-    await loadStats();
-    render();
-  } else {
-    alert('Erro ao registrar pagamento: ' + result.message);
-  }
-};
-
-window.registrarPagamentoPagar = async (id) => {
-  const data = new Date().toISOString().split('T')[0];
-  const result = await window.api.registrarPagamentoPagar(id, data);
-  if (result.success) {
-    await loadContasPagar();
-    await loadStats();
-    render();
-  } else {
-    alert('Erro ao registrar pagamento: ' + result.message);
-  }
-};
-
 // ==================== CARREGAMENTO DE DADOS ====================
 async function loadAllData() {
   await Promise.all([
@@ -1351,8 +1267,6 @@ async function loadAllData() {
     loadPecas(),
     loadVendas(),
     loadUsuarios(),
-    loadContasReceber(),
-    loadContasPagar(),
     loadStats()
   ]);
 }
@@ -1385,16 +1299,6 @@ async function loadVendas() {
 async function loadUsuarios() {
   const result = await window.api.listarUsuarios();
   if (result.success) AppState.data.usuarios = result.usuarios;
-}
-
-async function loadContasReceber(filtros = {}) {
-  const result = await window.api.listarContasReceber(filtros);
-  if (result.success) AppState.data.contasReceber = result.contas;
-}
-
-async function loadContasPagar(filtros = {}) {
-  const result = await window.api.listarContasPagar(filtros);
-  if (result.success) AppState.data.contasPagar = result.contas;
 }
 
 async function loadStats() {
@@ -1435,7 +1339,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const app = document.getElementById('app');
       if (app) {
         app.innerHTML = `
-    <div style = "padding: 2rem; color: #ef4444; background: #fee2e2; border: 1px solid #fca5a5; border-radius: 0.5rem; margin: 1rem;" >
+    <div style="padding: 2rem; color: #ef4444; background: #fee2e2; border: 1px solid #fca5a5; border-radius: 0.5rem; margin: 1rem;">
             <h3>Erro de Inicialização</h3>
             <p>${err.message}</p>
             <button onclick="window.location.reload()" class="btn btn-primary" style="margin-top: 1rem;">Tentar Novamente</button>
