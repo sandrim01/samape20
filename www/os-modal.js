@@ -465,7 +465,25 @@ async function gerarPDFOS(osId) {
       return;
     }
 
-    const os = result.os;
+    // Normalizar valores para evitar erros de toFixed em nulos
+    const normalizedOS = { ...os };
+    normalizedOS.km_ida = parseFloat(os.km_ida) || 0;
+    normalizedOS.km_volta = parseFloat(os.km_volta) || 0;
+    normalizedOS.km_total = normalizedOS.km_ida + normalizedOS.km_volta;
+    normalizedOS.valor_por_km = parseFloat(os.valor_por_km) || 0;
+    normalizedOS.valor_deslocamento = (normalizedOS.km_total * normalizedOS.valor_por_km);
+    normalizedOS.valor_mao_obra = parseFloat(os.valor_mao_obra) || 0;
+    normalizedOS.valor_pecas = parseFloat(os.valor_pecas) || 0;
+    normalizedOS.valor_total = parseFloat(os.valor_total) || (normalizedOS.valor_mao_obra + normalizedOS.valor_pecas + normalizedOS.valor_deslocamento);
+    normalizedOS.solucao = os.solucao || os.servicos_realizados || '';
+
+    // Garantir que campos de texto não sejam null
+    normalizedOS.descricao_problema = os.descricao_problema || '';
+    normalizedOS.diagnostico = os.diagnostico || '';
+    normalizedOS.observacoes = os.observacoes || '';
+    normalizedOS.cliente_nome = os.cliente_nome || 'Não informado';
+    normalizedOS.maquina_modelo = os.maquina_modelo || 'Não informado';
+    normalizedOS.mecanico_nome = os.mecanico_nome || 'Não informado';
 
     // Criar conteúdo HTML profissional para impressão
     const printContent = `
@@ -473,7 +491,7 @@ async function gerarPDFOS(osId) {
       <html>
       <head>
         <meta charset="UTF-8">
-        <title>OS ${os.numero_os} - SAMAPEOP</title>
+        <title>OS ${normalizedOS.numero_os} - SAMAPEOP</title>
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
           
@@ -797,12 +815,12 @@ async function gerarPDFOS(osId) {
           <div class="company-tagline">Sistema de Gerenciamento de Manutenção</div>
           
           <div class="os-title">ORDEM DE SERVIÇO</div>
-          <div class="os-number">${os.numero_os}</div>
+          <div class="os-number">${normalizedOS.numero_os}</div>
           
           <div class="os-dates">
-            <span><strong>Abertura:</strong> ${formatDate(os.data_abertura)}</span>
-            ${os.data_fechamento ? `<span><strong>Fechamento:</strong> ${formatDate(os.data_fechamento)}</span>` : ''}
-            <span><strong>Status:</strong> <span style="color: ${os.status === 'FECHADA' ? '#10b981' : os.status === 'EM_ANDAMENTO' ? '#f59e0b' : '#2563eb'}; font-weight: 700;">${os.status.replace('_', ' ')}</span></span>
+            <span><strong>Abertura:</strong> ${formatDate(normalizedOS.data_abertura)}</span>
+            ${normalizedOS.data_fechamento ? `<span><strong>Fechamento:</strong> ${formatDate(normalizedOS.data_fechamento)}</span>` : ''}
+            <span><strong>Status:</strong> <span style="color: ${normalizedOS.status === 'FECHADA' ? '#10b981' : normalizedOS.status === 'EM_ANDAMENTO' ? '#f59e0b' : '#2563eb'}; font-weight: 700;">${(normalizedOS.status || '').replace('_', ' ')}</span></span>
           </div>
         </div>
 
@@ -816,23 +834,23 @@ async function gerarPDFOS(osId) {
             <div class="info-grid">
               <div class="info-item">
                 <div class="info-label">Nome / Razão Social</div>
-                <div class="info-value">${os.cliente_nome}</div>
+                <div class="info-value">${normalizedOS.cliente_nome}</div>
               </div>
               <div class="info-item">
                 <div class="info-label">CNPJ</div>
-                <div class="info-value">${os.cliente_cnpj || 'Não informado'}</div>
+                <div class="info-value">${normalizedOS.cliente_cnpj || 'Não informado'}</div>
               </div>
               <div class="info-item">
                 <div class="info-label">Telefone</div>
-                <div class="info-value">${os.cliente_telefone || 'Não informado'}</div>
+                <div class="info-value">${normalizedOS.cliente_telefone || 'Não informado'}</div>
               </div>
               <div class="info-item">
                 <div class="info-label">E-mail</div>
-                <div class="info-value">${os.cliente_email || 'Não informado'}</div>
+                <div class="info-value">${normalizedOS.cliente_email || 'Não informado'}</div>
               </div>
               <div class="info-item info-grid-full">
                 <div class="info-label">Endereço Completo</div>
-                <div class="info-value">${os.cliente_endereco || 'Não informado'}</div>
+                <div class="info-value">${normalizedOS.cliente_endereco || 'Não informado'}</div>
               </div>
             </div>
           </div>
@@ -848,19 +866,19 @@ async function gerarPDFOS(osId) {
             <div class="info-grid">
               <div class="info-item">
                 <div class="info-label">Modelo</div>
-                <div class="info-value">${os.maquina_modelo}</div>
+                <div class="info-value">${normalizedOS.maquina_modelo}</div>
               </div>
               <div class="info-item">
                 <div class="info-label">Número de Série</div>
-                <div class="info-value">${os.maquina_serie || 'Não informado'}</div>
+                <div class="info-value">${normalizedOS.maquina_serie || 'Não informado'}</div>
               </div>
               <div class="info-item">
                 <div class="info-label">Ano de Fabricação</div>
-                <div class="info-value">${os.maquina_ano || 'Não informado'}</div>
+                <div class="info-value">${normalizedOS.maquina_ano || 'Não informado'}</div>
               </div>
               <div class="info-item">
                 <div class="info-label">Tipo</div>
-                <div class="info-value">${os.maquina_tipo || 'Não informado'}</div>
+                <div class="info-value">${normalizedOS.maquina_tipo || 'Não informado'}</div>
               </div>
             </div>
           </div>
@@ -876,7 +894,7 @@ async function gerarPDFOS(osId) {
             <div class="info-grid">
               <div class="info-item">
                 <div class="info-label">Nome do Mecânico</div>
-                <div class="info-value">${os.mecanico_nome}</div>
+                <div class="info-value">${normalizedOS.mecanico_nome}</div>
               </div>
             </div>
           </div>
@@ -892,19 +910,19 @@ async function gerarPDFOS(osId) {
             <div class="info-grid">
               <div class="info-item">
                 <div class="info-label">KM Ida</div>
-                <div class="info-value">${os.km_ida.toFixed(1)} km</div>
+                <div class="info-value">${normalizedOS.km_ida.toFixed(1)} km</div>
               </div>
               <div class="info-item">
                 <div class="info-label">KM Volta</div>
-                <div class="info-value">${os.km_volta.toFixed(1)} km</div>
+                <div class="info-value">${normalizedOS.km_volta.toFixed(1)} km</div>
               </div>
               <div class="info-item">
                 <div class="info-label">KM Total</div>
-                <div class="info-value">${os.km_total.toFixed(1)} km</div>
+                <div class="info-value">${normalizedOS.km_total.toFixed(1)} km</div>
               </div>
               <div class="info-item">
                 <div class="info-label">Valor por KM</div>
-                <div class="info-value">R$ ${formatMoney(os.valor_por_km)}</div>
+                <div class="info-value">R$ ${formatMoney(normalizedOS.valor_por_km)}</div>
               </div>
             </div>
           </div>
@@ -919,18 +937,18 @@ async function gerarPDFOS(osId) {
           <div class="section-body">
             <div class="info-item" style="margin-bottom: 15px;">
               <div class="info-label">Problema Reportado</div>
-              <textarea class="text-area" readonly>${os.descricao_problema}</textarea>
+              <textarea class="text-area" readonly>${normalizedOS.descricao_problema}</textarea>
             </div>
-            ${os.diagnostico ? `
+            ${normalizedOS.diagnostico ? `
               <div class="info-item" style="margin-bottom: 15px;">
                 <div class="info-label">Diagnóstico Técnico</div>
-                <textarea class="text-area" readonly>${os.diagnostico}</textarea>
+                <textarea class="text-area" readonly>${normalizedOS.diagnostico}</textarea>
               </div>
             ` : ''}
-            ${os.solucao ? `
+            ${normalizedOS.solucao ? `
               <div class="info-item">
                 <div class="info-label">Solução Aplicada</div>
-                <textarea class="text-area" readonly>${os.solucao}</textarea>
+                <textarea class="text-area" readonly>${normalizedOS.solucao}</textarea>
               </div>
             ` : ''}
           </div>
@@ -946,15 +964,15 @@ async function gerarPDFOS(osId) {
             <div class="values-summary">
               <div class="value-row">
                 <span class="value-label">Mão de Obra</span>
-                <span class="value-amount">R$ ${formatMoney(os.valor_mao_obra)}</span>
+                <span class="value-amount">R$ ${formatMoney(normalizedOS.valor_mao_obra)}</span>
               </div>
               <div class="value-row">
                 <span class="value-label">Peças e Materiais</span>
-                <span class="value-amount">R$ ${formatMoney(os.valor_pecas)}</span>
+                <span class="value-amount">R$ ${formatMoney(normalizedOS.valor_pecas)}</span>
               </div>
               <div class="value-row">
-                <span class="value-label">Deslocamento (${os.km_total.toFixed(1)} km × R$ ${formatMoney(os.valor_por_km)})</span>
-                <span class="value-amount">R$ ${formatMoney(os.valor_deslocamento)}</span>
+                <span class="value-label">Deslocamento (${normalizedOS.km_total.toFixed(1)} km × R$ ${formatMoney(normalizedOS.valor_por_km)})</span>
+                <span class="value-amount">R$ ${formatMoney(normalizedOS.valor_deslocamento)}</span>
               </div>
             </div>
           </div>
@@ -963,10 +981,10 @@ async function gerarPDFOS(osId) {
         <!-- TOTAL -->
         <div class="total-box">
           <div class="total-label">VALOR TOTAL DO SERVIÇO</div>
-          <div class="total-amount">R$ ${formatMoney(os.valor_total)}</div>
+          <div class="total-amount">R$ ${formatMoney(normalizedOS.valor_total)}</div>
         </div>
 
-        ${os.observacoes ? `
+        ${normalizedOS.observacoes ? `
           <!-- OBSERVAÇÕES -->
           <div class="section">
             <div class="section-header">
@@ -974,7 +992,7 @@ async function gerarPDFOS(osId) {
               <span>Observações</span>
             </div>
             <div class="section-body">
-              <textarea class="text-area" readonly>${os.observacoes}</textarea>
+              <textarea class="text-area" readonly>${normalizedOS.observacoes}</textarea>
             </div>
           </div>
         ` : ''}
@@ -1012,8 +1030,12 @@ async function gerarPDFOS(osId) {
 
     // Abrir em nova janela para impressão
     const printWindow = window.open('', '_blank', 'width=900,height=800');
-    printWindow.document.write(printContent);
-    printWindow.document.close();
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+    } else {
+      showAlert('Bloqueador de pop-ups detectado. Por favor, permita pop-ups para gerar o PDF.', 'warning');
+    }
 
   } catch (error) {
     console.error('Erro ao gerar PDF:', error);
