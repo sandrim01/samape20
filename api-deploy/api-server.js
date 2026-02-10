@@ -250,10 +250,12 @@ app.get('/api/maquinas', authenticateToken, async (req, res) => {
 // Criar máquina
 app.post('/api/maquinas', authenticateToken, async (req, res) => {
     try {
-        const { cliente_id, modelo, numero_serie, observacoes } = req.body;
+        const { cliente_id, modelo } = req.body;
 
-        // Mapeamento de campos do Front-end para o Banco
+        // Mapeamento de campos do Front-end para o Banco com fallbacks para evitar erros de NOT NULL
         const tipo = req.body.tipo || 'Geral';
+        const numero_serie = req.body.numero_serie || '';
+        const observacoes = req.body.observacoes || '';
         const ano_fabricacao = req.body.ano_fabricacao || req.body.ano || null;
         const horas_uso = req.body.horas_uso || 0;
 
