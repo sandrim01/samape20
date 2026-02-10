@@ -10,16 +10,31 @@ const API_CONFIG = {
 
     // Dados do usuário
     getUser: () => {
-        const user = localStorage.getItem('user_info');
-        return user ? JSON.parse(user) : null;
+        try {
+            const user = localStorage.getItem('user_info');
+            return user ? JSON.parse(user) : null;
+        } catch (e) {
+            console.error('⚠️ Erro ao processar dados do usuário salvos:', e);
+            localStorage.removeItem('user_info');
+            return null;
+        }
     },
-    setUser: (user) => localStorage.setItem('user_info', JSON.stringify(user)),
+    setUser: (user) => {
+        if (user) {
+            localStorage.setItem('user_info', JSON.stringify(user));
+        }
+    },
     clearUser: () => localStorage.removeItem('user_info'),
 
     // Logout completo
     logout: () => {
-        API_CONFIG.clearToken();
-        API_CONFIG.clearUser();
+        try {
+            API_CONFIG.clearToken();
+            API_CONFIG.clearUser();
+            console.log('🚪 Sessão encerrada e limpa.');
+        } catch (e) {
+            console.error('Erro ao limpar sessão:', e);
+        }
     },
 
     // Headers padrão

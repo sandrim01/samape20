@@ -1324,20 +1324,51 @@ async function loadStats() {
 }
 
 // ==================== INICIALIZAÇÃO ====================
-document.addEventListener('DOMContentLoaded', async () => {
-  // Verificar se há uma sessão salva
-  const savedUser = window.api.getUser();
-  if (savedUser) {
-    console.log('📦 Recuperando sessão salva:', savedUser.nome);
-    AppState.currentUser = savedUser;
-    render();
-    await loadAllData();
-    render();
-  } else {
-    render();
-  }
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('🚀 DOM Carregado. Iniciando SAMAPEOP...');
 
-  // Event listener para login
+  // Função de inicialização assíncrona separada para maior compatibilidade
+  const init = async () => {
+    try {
+      if (!window.api) {
+        throw new Error('API não carregada. Verifique o arquivo api-client.js');
+      }
+
+      // Verificar se há uma sessão salva
+      const savedUser = window.api.getUser();
+      if (savedUser) {
+        console.log('📦 Sessão recuperada:', savedUser.nome);
+        AppState.currentUser = savedUser;
+        render(); // Renderiza interface inicial
+
+        try {
+          await loadAllData();
+          render(); // Atualiza com dados carregados
+        } catch (dataError) {
+          console.warn('⚠️ Erro ao carregar dados iniciais:', dataError);
+          // Mesmo com erro nos dados, já renderizamos a estrutura
+        }
+      } else {
+        render(); // Renderiza tela de login
+      }
+    } catch (err) {
+      console.error('❌ Erro crítico na inicialização:', err);
+      const app = document.getElementById('app');
+      if (app) {
+        app.innerHTML = `
+          <div style="padding: 2rem; color: #ef4444; background: #fee2e2; border: 1px solid #fca5a5; border-radius: 0.5rem; margin: 1rem;">
+            <h3>Erro de Inicialização</h3>
+            <p>${err.message}</p>
+            <button onclick="window.location.reload()" class="btn btn-primary" style="margin-top: 1rem;">Tentar Novamente</button>
+          </div>
+        `;
+      }
+    }
+  };
+
+  init();
+
+  // Event listener para login usando delegação de evento no documento
   document.addEventListener('submit', async (e) => {
     if (e.target.id === 'login-form') {
       e.preventDefault();
@@ -1347,17 +1378,23 @@ document.addEventListener('DOMContentLoaded', async () => {
       const alertDiv = document.getElementById('login-alert');
       const btnText = document.getElementById('login-btn-text');
 
-      btnText.innerHTML = '<span class="loading"></span>';
+      if (btnText) btnText.innerHTML = '<span class="loading"></span>';
 
-      const result = await window.api.login({ email, senha });
+      try {
+        const result = await window.api.login({ email, senha });
 
-      if (result.success) {
-        AppState.currentUser = result.usuario;
-        await loadAllData();
-        render();
-      } else {
-        alertDiv.innerHTML = `<div class="alert alert-error">${result.message}</div>`;
-        btnText.textContent = 'Entrar';
+        if (result.success) {
+          AppState.currentUser = result.usuario;
+          await loadAllData();
+          render();
+        } else {
+          if (alertDiv) alertDiv.innerHTML = `<div class="alert alert-error">${result.message}</div>`;
+          if (btnText) btnText.textContent = 'Entrar';
+        }
+      } catch (loginError) {
+        console.error('Erro no login:', loginError);
+        if (alertDiv) alertDiv.innerHTML = `<div class="alert alert-error">Erro de conexão: ${loginError.message}</div>`;
+        if (btnText) btnText.textContent = 'Entrar';
       }
     }
   });
