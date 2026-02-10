@@ -1,6 +1,9 @@
 {
     "name": "samapeop",
     "version": "1.0.0",
+    "engines": {
+        "node": ">=18.0.0"
+    },
     "description": "Sistema de Gerenciamento de Manutenção de Maquinário Pesado",
     "main": "main.js",
     "bin": "main.js",
@@ -58,7 +61,7 @@
                     ]
                 }
             ],
-            "icon": "resources/icon.ico"
+            "icon": "resources/icon_fixed.ico"
         },
         "portable": {
             "artifactName": "SAMAPEOP-Portable.exe"
