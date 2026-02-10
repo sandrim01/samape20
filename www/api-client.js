@@ -8,6 +8,20 @@ const API_CONFIG = {
     setToken: (token) => localStorage.setItem('auth_token', token),
     clearToken: () => localStorage.removeItem('auth_token'),
 
+    // Dados do usuário
+    getUser: () => {
+        const user = localStorage.getItem('user_info');
+        return user ? JSON.parse(user) : null;
+    },
+    setUser: (user) => localStorage.setItem('user_info', JSON.stringify(user)),
+    clearUser: () => localStorage.removeItem('user_info'),
+
+    // Logout completo
+    logout: () => {
+        API_CONFIG.clearToken();
+        API_CONFIG.clearUser();
+    },
+
     // Headers padrão
     getHeaders: () => {
         const headers = {
@@ -88,10 +102,15 @@ const WebAPI = {
 
         if (data.success && data.token) {
             API_CONFIG.setToken(data.token);
+            API_CONFIG.setUser(data.user);
             // Mapeamento importante: o app.js espera 'usuario', a API retorna 'user'
             data.usuario = data.user;
         }
         return data;
+    },
+
+    async logout() {
+        API_CONFIG.logout();
     },
 
     // Usuários

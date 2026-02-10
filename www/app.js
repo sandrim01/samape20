@@ -899,7 +899,8 @@ function attachEventListeners() {
   // Logout
   const logoutBtn = document.getElementById('logout-btn');
   if (logoutBtn) {
-    logoutBtn.addEventListener('click', () => {
+    logoutBtn.addEventListener('click', async () => {
+      await window.api.logout();
       AppState.currentUser = null;
       render();
     });
@@ -1323,8 +1324,18 @@ async function loadStats() {
 }
 
 // ==================== INICIALIZAÇÃO ====================
-document.addEventListener('DOMContentLoaded', () => {
-  render();
+document.addEventListener('DOMContentLoaded', async () => {
+  // Verificar se há uma sessão salva
+  const savedUser = window.api.getUser();
+  if (savedUser) {
+    console.log('📦 Recuperando sessão salva:', savedUser.nome);
+    AppState.currentUser = savedUser;
+    render();
+    await loadAllData();
+    render();
+  } else {
+    render();
+  }
 
   // Event listener para login
   document.addEventListener('submit', async (e) => {

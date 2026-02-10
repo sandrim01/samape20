@@ -407,27 +407,64 @@ app.put('/api/ordens/:id', authenticateToken, async (req, res) => {
         const { id } = req.params;
         const {
             status, prioridade, descricao_problema, diagnostico,
-            servicos_realizados, valor_mao_obra, valor_pecas, valor_total,
             observacoes, data_fechamento
         } = req.body;
+
+        // Mapeamento de campos do front-end
+        const client_id = req.body.cliente_id;
+        const machine_id = req.body.maquina_id;
+        const mechanic_id = req.body.mecanico_id;
+        const servicos_realizados = req.body.servicos_realizados || req.body.solucao || '';
+        const valor_mao_obra = parseFloat(req.body.valor_mao_obra) || 0;
+        const valor_pecas = parseFloat(req.body.valor_pecas) || 0;
+
+        // Dados de deslocamento
+        const km_ida = parseFloat(req.body.km_ida) || 0;
+        const km_volta = parseFloat(req.body.km_volta) || 0;
+        const valor_por_km = parseFloat(req.body.valor_por_km) || 0;
+
+        // Cálculo de valor total
+        const valor_total = req.body.valor_total || (valor_mao_obra + valor_pecas + ((km_ida + km_volta) * valor_por_km));
 
         const result = await pool.query(
             `UPDATE ordens_servico 
        SET status = $1, prioridade = $2, descricao_problema = $3, 
            diagnostico = $4, servicos_realizados = $5, valor_mao_obra = $6, 
            valor_pecas = $7, valor_total = $8, observacoes = $9, 
-           data_fechamento = $10, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $11
+           data_fechamento = $10, cliente_id = $11, maquina_id = $12,
+           mecanico_id = $13, km_ida = $14, km_volta = $15, valor_por_km = $16,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $17
        RETURNING *`,
-            [status, prioridade, descricao_problema, diagnostico,
-                servicos_realizados, valor_mao_obra, valor_pecas, valor_total,
-                observacoes, data_fechamento, id]
+            [
+                status || 'ABERTA',
+                prioridade || 'MEDIA',
+                descricao_problema,
+                diagnostico,
+                servicos_realizados,
+                valor_mao_obra,
+                valor_pecas,
+                valor_total,
+                observacoes,
+                data_fechamento,
+                client_id,
+                machine_id,
+                mechanic_id,
+                km_ida,
+                km_volta,
+                valor_por_km,
+                id
+            ]
         );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Ordem de serviço não encontrada' });
+        }
 
         res.json({ success: true, ordem: result.rows[0] });
     } catch (error) {
         console.error('Erro ao atualizar ordem:', error);
-        res.status(500).json({ success: false, message: 'Erro no servidor' });
+        res.status(500).json({ success: false, message: 'Erro no servidor: ' + error.message });
     }
 });
 
