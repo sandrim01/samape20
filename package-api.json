@@ -1,0 +1,30 @@
+{
+    "name": "samapeop-api",
+    "version": "1.0.0",
+    "description": "API REST para SAMAPE ÍNDIO - Sistema de Gerenciamento de Manutenção",
+    "main": "api-server.js",
+    "scripts": {
+        "start": "node api-server.js",
+        "dev": "node api-server.js"
+    },
+    "engines": {
+        "node": ">=18.0.0"
+    },
+    "keywords": [
+        "api",
+        "rest",
+        "samapeop",
+        "manutencao"
+    ],
+    "author": "SAMAPE ÍNDIO",
+    "license": "MIT",
+    "dependencies": {
+        "express": "^4.18.2",
+        "cors": "^2.8.5",
+        "body-parser": "^1.20.2",
+        "pg": "^8.11.3",
+        "bcryptjs": "^2.4.3",
+        "jsonwebtoken": "^9.0.2",
+        "dotenv": "^16.3.1"
+    }
+}

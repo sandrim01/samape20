@@ -1,0 +1,17 @@
+{
+    "appId": "com.samapeindio.app",
+    "appName": "SAMAPE INDIO",
+    "webDir": "www",
+    "server": {
+        "androidScheme": "https"
+    },
+    "android": {
+        "buildOptions": {
+            "keystorePath": "",
+            "keystorePassword": "",
+            "keystoreAlias": "",
+            "keystoreAliasPassword": "",
+            "releaseType": "APK"
+        }
+    }
+}

@@ -1,0 +1,34 @@
+{
+  "usuarios": [
+    {
+      "id": 1,
+      "nome": "Administrador",
+      "email": "admin@samapeop.com",
+      "senha": "$2a$10$wDNgqtx8kFDOa5.IOk2t4ORx8lnAajYf9n94krOupreIm3Ks5BlX6",
+      "cargo": "ADMIN",
+      "ativo": 1,
+      "criado_em": "2026-02-09T04:35:32.319Z"
+    }
+  ],
+  "clientes": [],
+  "maquinas": [],
+  "ordens_servico": [],
+  "pecas": [],
+  "vendas_pecas": [],
+  "itens_venda": [],
+  "itens_os": [],
+  "contas_receber": [],
+  "contas_pagar": [],
+  "counters": {
+    "usuarios": 1,
+    "clientes": 0,
+    "maquinas": 0,
+    "ordens_servico": 0,
+    "pecas": 0,
+    "vendas_pecas": 0,
+    "itens_venda": 0,
+    "itens_os": 0,
+    "contas_receber": 0,
+    "contas_pagar": 0
+  }
+}
