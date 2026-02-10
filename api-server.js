@@ -265,6 +265,29 @@ app.post('/api/maquinas', authenticateToken, async (req, res) => {
     }
 });
 
+// Atualizar máquina
+app.put('/api/maquinas/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { cliente_id, tipo, modelo, numero_serie, ano_fabricacao, horas_uso, observacoes } = req.body;
+
+        const result = await pool.query(
+            `UPDATE maquinas 
+       SET cliente_id = $1, tipo = $2, modelo = $3, numero_serie = $4, 
+           ano_fabricacao = $5, horas_uso = $6, observacoes = $7,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $8
+       RETURNING *`,
+            [cliente_id, tipo, modelo, numero_serie, ano_fabricacao, horas_uso, observacoes, id]
+        );
+
+        res.json({ success: true, maquina: result.rows[0] });
+    } catch (error) {
+        console.error('Erro ao atualizar máquina:', error);
+        res.status(500).json({ success: false, message: 'Erro no servidor' });
+    }
+});
+
 // ==================== ROTAS DE ORDENS DE SERVIÇO ====================
 
 // Listar ordens de serviço
@@ -359,6 +382,36 @@ app.post('/api/ordens', authenticateToken, async (req, res) => {
     }
 });
 
+// Atualizar ordem de serviço
+app.put('/api/ordens/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const {
+            status, prioridade, descricao_problema, diagnostico,
+            servicos_realizados, valor_mao_obra, valor_pecas, valor_total,
+            observacoes, data_fechamento
+        } = req.body;
+
+        const result = await pool.query(
+            `UPDATE ordens_servico 
+       SET status = $1, prioridade = $2, descricao_problema = $3, 
+           diagnostico = $4, servicos_realizados = $5, valor_mao_obra = $6, 
+           valor_pecas = $7, valor_total = $8, observacoes = $9, 
+           data_fechamento = $10, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $11
+       RETURNING *`,
+            [status, prioridade, descricao_problema, diagnostico,
+                servicos_realizados, valor_mao_obra, valor_pecas, valor_total,
+                observacoes, data_fechamento, id]
+        );
+
+        res.json({ success: true, ordem: result.rows[0] });
+    } catch (error) {
+        console.error('Erro ao atualizar ordem:', error);
+        res.status(500).json({ success: false, message: 'Erro no servidor' });
+    }
+});
+
 // ==================== ROTAS DE PEÇAS ====================
 
 // Listar peças
@@ -370,6 +423,38 @@ app.get('/api/pecas', authenticateToken, async (req, res) => {
         res.json({ success: true, pecas: result.rows });
     } catch (error) {
         console.error('Erro ao listar peças:', error);
+        res.status(500).json({ success: false, message: 'Erro no servidor' });
+    }
+});
+
+// Criar peça
+app.post('/api/pecas', authenticateToken, async (req, res) => {
+    try {
+        const { codigo, nome, descricao, categoria, fabricante, quantidade_estoque, estoque_minimo, preco_custo, preco_venda } = req.body;
+        const result = await pool.query(
+            `INSERT INTO pecas (codigo, nome, descricao, categoria, fabricante, quantidade_estoque, estoque_minimo, preco_custo, preco_venda)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+            [codigo, nome, descricao, categoria, fabricante, quantidade_estoque, estoque_minimo, preco_custo, preco_venda]
+        );
+        res.json({ success: true, peca: result.rows[0] });
+    } catch (error) {
+        console.error('Erro ao criar peça:', error);
+        res.status(500).json({ success: false, message: 'Erro no servidor' });
+    }
+});
+
+// Atualizar estoque
+app.patch('/api/pecas/:id/estoque', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { quantidade } = req.body;
+        const result = await pool.query(
+            'UPDATE pecas SET quantidade_estoque = quantidade_estoque + $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
+            [quantidade, id]
+        );
+        res.json({ success: true, peca: result.rows[0] });
+    } catch (error) {
+        console.error('Erro ao atualizar estoque:', error);
         res.status(500).json({ success: false, message: 'Erro no servidor' });
     }
 });
@@ -393,6 +478,26 @@ app.get('/api/vendas', authenticateToken, async (req, res) => {
     }
 });
 
+// Criar venda
+app.post('/api/vendas', authenticateToken, async (req, res) => {
+    try {
+        const { cliente_id, vendedor_id, valor_total, desconto, valor_final, forma_pagamento, observacoes, itens } = req.body;
+
+        const numero_venda = 'VEN-' + Date.now();
+
+        const result = await pool.query(
+            `INSERT INTO vendas (numero_venda, cliente_id, vendedor_id, valor_total, desconto, valor_final, forma_pagamento, status)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, 'PAGO') RETURNING *`,
+            [numero_venda, cliente_id, vendedor_id, valor_total, desconto, valor_final, forma_pagamento]
+        );
+
+        res.json({ success: true, venda: result.rows[0] });
+    } catch (error) {
+        console.error('Erro ao criar venda:', error);
+        res.status(500).json({ success: false, message: 'Erro no servidor' });
+    }
+});
+
 // ==================== ROTAS DE CONTAS ====================
 
 // Listar contas a receber
@@ -411,6 +516,22 @@ app.get('/api/contas-receber', authenticateToken, async (req, res) => {
     }
 });
 
+// Registrar pagamento a receber
+app.post('/api/contas-receber/:id/pagar', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { data_pagamento } = req.body;
+        const result = await pool.query(
+            "UPDATE contas_receber SET status = 'PAGO', data_pagamento = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *",
+            [data_pagamento || new Date(), id]
+        );
+        res.json({ success: true, conta: result.rows[0] });
+    } catch (error) {
+        console.error('Erro ao pagar conta a receber:', error);
+        res.status(500).json({ success: false, message: 'Erro no servidor' });
+    }
+});
+
 // Listar contas a pagar
 app.get('/api/contas-pagar', authenticateToken, async (req, res) => {
     try {
@@ -420,6 +541,38 @@ app.get('/api/contas-pagar', authenticateToken, async (req, res) => {
         res.json({ success: true, contas: result.rows });
     } catch (error) {
         console.error('Erro ao listar contas a pagar:', error);
+        res.status(500).json({ success: false, message: 'Erro no servidor' });
+    }
+});
+
+// Criar conta a pagar
+app.post('/api/contas-pagar', authenticateToken, async (req, res) => {
+    try {
+        const { fornecedor, descricao, categoria, valor, data_vencimento, observacoes } = req.body;
+        const result = await pool.query(
+            `INSERT INTO contas_pagar (fornecedor, descricao, categoria, valor, data_vencimento, status)
+             VALUES ($1, $2, $3, $4, $5, 'PENDENTE') RETURNING *`,
+            [fornecedor, descricao, categoria, valor, data_vencimento]
+        );
+        res.json({ success: true, conta: result.rows[0] });
+    } catch (error) {
+        console.error('Erro ao criar conta a pagar:', error);
+        res.status(500).json({ success: false, message: 'Erro no servidor' });
+    }
+});
+
+// Registrar pagamento a pagar
+app.post('/api/contas-pagar/:id/pagar', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { data_pagamento } = req.body;
+        const result = await pool.query(
+            "UPDATE contas_pagar SET status = 'PAGO', data_pagamento = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *",
+            [data_pagamento || new Date(), id]
+        );
+        res.json({ success: true, conta: result.rows[0] });
+    } catch (error) {
+        console.error('Erro ao pagar conta a pagar:', error);
         res.status(500).json({ success: false, message: 'Erro no servidor' });
     }
 });
