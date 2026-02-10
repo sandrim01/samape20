@@ -11,6 +11,7 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'samapeop-secret-key-2026';
+// Version: 2026-02-10 12:35
 
 // Configurar PostgreSQL
 const pool = new Pool({
