@@ -174,6 +174,44 @@ app.get('/api/clientes', authenticateToken, async (req, res) => {
     }
 });
 
+// Obter cliente por ID
+app.get('/api/clientes/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query('SELECT * FROM clientes WHERE id = $1', [id]);
+        if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Cliente não encontrado' });
+        res.json({ success: true, cliente: result.rows[0] });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Atualizar cliente
+app.put('/api/clientes/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { nome, cnpj, telefone, email, endereco } = req.body;
+        const result = await pool.query(
+            'UPDATE clientes SET nome=$1, cnpj=$2, telefone=$3, email=$4, endereco=$5, updated_at=CURRENT_TIMESTAMP WHERE id=$6 RETURNING *',
+            [nome, cnpj, telefone, email, endereco, id]
+        );
+        res.json({ success: true, cliente: result.rows[0] });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Excluir cliente
+app.delete('/api/clientes/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        await pool.query('UPDATE clientes SET ativo = false WHERE id = $1', [id]);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 // Criar cliente
 app.post('/api/clientes', authenticateToken, async (req, res) => {
     try {
@@ -244,6 +282,44 @@ app.get('/api/maquinas', authenticateToken, async (req, res) => {
     } catch (error) {
         console.error('Erro ao listar máquinas:', error);
         res.status(500).json({ success: false, message: 'Erro no servidor' });
+    }
+});
+
+// Obter máquina por ID
+app.get('/api/maquinas/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query('SELECT * FROM maquinas WHERE id = $1', [id]);
+        if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Máquina não encontrada' });
+        res.json({ success: true, maquina: result.rows[0] });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Atualizar máquina
+app.put('/api/maquinas/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { cliente_id, modelo, numero_serie, ano, observacoes } = req.body;
+        const result = await pool.query(
+            'UPDATE maquinas SET cliente_id=$1, modelo=$2, numero_serie=$3, ano_fabricacao=$4, observacoes=$5, updated_at=CURRENT_TIMESTAMP WHERE id=$6 RETURNING *',
+            [cliente_id, modelo, numero_serie, ano, observacoes, id]
+        );
+        res.json({ success: true, maquina: result.rows[0] });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Excluir máquina
+app.delete('/api/maquinas/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        await pool.query('UPDATE maquinas SET ativo = false WHERE id = $1', [id]);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 
@@ -485,6 +561,44 @@ app.get('/api/pecas', authenticateToken, async (req, res) => {
     }
 });
 
+// Obter peça por ID
+app.get('/api/pecas/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query('SELECT * FROM pecas WHERE id = $1', [id]);
+        if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Peça não encontrada' });
+        res.json({ success: true, peca: result.rows[0] });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Atualizar peça
+app.put('/api/pecas/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { codigo, descricao, preco_custo, preco_venda, estoque_atual, estoque_minimo } = req.body;
+        const result = await pool.query(
+            'UPDATE pecas SET codigo=$1, nome=$2, preco_custo=$3, preco_venda=$4, quantidade_estoque=$5, estoque_minimo=$6, updated_at=CURRENT_TIMESTAMP WHERE id=$7 RETURNING *',
+            [codigo, descricao, preco_custo, preco_venda, estoque_atual, estoque_minimo, id]
+        );
+        res.json({ success: true, peca: result.rows[0] });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Excluir peça
+app.delete('/api/pecas/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        await pool.query('UPDATE pecas SET ativo = false WHERE id = $1', [id]);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 // Criar peça
 app.post('/api/pecas', authenticateToken, async (req, res) => {
     try {
@@ -653,13 +767,46 @@ app.get('/api/stats', authenticateToken, async (req, res) => {
         const osResult = await pool.query('SELECT COUNT(*) FROM ordens_servico');
         stats.totalOrdens = parseInt(osResult.rows[0].count);
 
-        // OS abertas
-        const osAbertasResult = await pool.query("SELECT COUNT(*) FROM ordens_servico WHERE status IN ('ABERTA', 'EM_ANDAMENTO')");
+        // OS abertas e em andamento (separadas)
+        const osAbertasResult = await pool.query("SELECT COUNT(*) FROM ordens_servico WHERE status = 'ABERTA'");
         stats.ordensAbertas = parseInt(osAbertasResult.rows[0].count);
 
-        // Receita total
+        const osEmAndamentoResult = await pool.query("SELECT COUNT(*) FROM ordens_servico WHERE status = 'EM_ANDAMENTO'");
+        stats.ordensEmAndamento = parseInt(osEmAndamentoResult.rows[0].count);
+
+        // Receita total (OS Fechadas)
         const receitaResult = await pool.query('SELECT COALESCE(SUM(valor_total), 0) as total FROM ordens_servico WHERE status = $1', ['FECHADA']);
         stats.receitaTotal = parseFloat(receitaResult.rows[0].total);
+
+        // Contas a Receber (Pendentes)
+        const receberResult = await pool.query("SELECT COALESCE(SUM(valor), 0) as total, COUNT(*) as count FROM contas_receber WHERE status = 'PENDENTE'");
+        stats.contasReceber = {
+            total: parseFloat(receberResult.rows[0].total),
+            count: parseInt(receberResult.rows[0].count)
+        };
+
+        // Contas a Pagar (Pendentes)
+        const pagarResult = await pool.query("SELECT COALESCE(SUM(valor), 0) as total, COUNT(*) as count FROM contas_pagar WHERE status = 'PENDENTE'");
+        stats.contasPagar = {
+            total: parseFloat(pagarResult.rows[0].total),
+            count: parseInt(pagarResult.rows[0].count)
+        };
+
+        // Peças com Estoque Baixo
+        const estoqueResult = await pool.query('SELECT COUNT(*) FROM pecas WHERE quantidade_estoque <= estoque_minimo AND ativo = true');
+        stats.pecasEstoqueBaixo = parseInt(estoqueResult.rows[0].count);
+
+        // Vendas do Mês
+        const vendasResult = await pool.query(`
+            SELECT COALESCE(SUM(valor_final), 0) as total, COUNT(*) as count 
+            FROM vendas 
+            WHERE EXTRACT(MONTH FROM data_venda) = EXTRACT(MONTH FROM CURRENT_DATE)
+            AND EXTRACT(YEAR FROM data_venda) = EXTRACT(YEAR FROM CURRENT_DATE)
+        `);
+        stats.vendasMes = {
+            total: parseFloat(vendasResult.rows[0].total),
+            count: parseInt(vendasResult.rows[0].count)
+        };
 
         res.json({ success: true, stats });
     } catch (error) {

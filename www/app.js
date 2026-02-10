@@ -64,37 +64,37 @@ function renderLogin() {
         <div class="login-header">
           <img src="resources/logonova2.png" alt="SAMAPE ÍNDIO" style="width: 200px; height: auto; margin-bottom: 1rem;" />
         </div>
-        
+
         <div id="login-alert"></div>
-        
+
         <form id="login-form">
           <div class="form-group">
             <label class="form-label">E-mail</label>
-            <input 
-              type="email" 
-              class="form-input" 
-              id="login-email" 
+            <input
+              type="email"
+              class="form-input"
+              id="login-email"
               placeholder="seu@email.com"
               required
             />
           </div>
-          
+
           <div class="form-group">
             <label class="form-label">Senha</label>
-            <input 
-              type="password" 
-              class="form-input" 
-              id="login-password" 
+            <input
+              type="password"
+              class="form-input"
+              id="login-password"
               placeholder="••••••••"
               required
             />
           </div>
-          
+
           <button type="submit" class="btn btn-primary">
             <span id="login-btn-text">Entrar</span>
           </button>
         </form>
-        
+
         <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border); text-align: center; color: var(--text-muted); font-size: 0.85rem;">
           <p><strong>Usuário padrão:</strong> admin@samapeop.com</p>
           <p><strong>Senha:</strong> admin123</p>
@@ -182,7 +182,7 @@ function renderSidebar() {
     <div class="cascade-menu ${AppState.menuOpen ? 'open' : ''}" id="cascade-menu">
       <div class="menu-content">
         ${navHTML}
-        
+
         <div class="menu-footer">
           <div class="user-info-brief">
             <div class="user-avatar-sm">${initials}</div>
@@ -266,7 +266,7 @@ function renderDashboard() {
         <div class="stat-value">${stats.os_abertas || 0}</div>
         <div class="stat-description">Aguardando atendimento</div>
       </div>
-      
+
       <div class="stat-card">
         <div class="stat-header">
           <span class="stat-label">OS em Andamento</span>
@@ -275,7 +275,7 @@ function renderDashboard() {
         <div class="stat-value">${stats.os_em_andamento || 0}</div>
         <div class="stat-description">Sendo executadas</div>
       </div>
-      
+
       ${hasPermission('financeiro') ? `
         <div class="stat-card">
           <div class="stat-header">
@@ -285,7 +285,7 @@ function renderDashboard() {
           <div class="stat-value">R$ ${formatMoney(stats.contas_receber_pendentes?.total || 0)}</div>
           <div class="stat-description">${stats.contas_receber_pendentes?.count || 0} contas pendentes</div>
         </div>
-        
+
         <div class="stat-card">
           <div class="stat-header">
             <span class="stat-label">A Pagar</span>
@@ -295,7 +295,7 @@ function renderDashboard() {
           <div class="stat-description">${stats.contas_pagar_pendentes?.count || 0} contas pendentes</div>
         </div>
       ` : ''}
-      
+
       ${hasPermission('pecas') ? `
         <div class="stat-card">
           <div class="stat-header">
@@ -306,7 +306,7 @@ function renderDashboard() {
           <div class="stat-description">Peças abaixo do mínimo</div>
         </div>
       ` : ''}
-      
+
       ${hasPermission('vendas') ? `
         <div class="stat-card">
           <div class="stat-header">
@@ -318,7 +318,7 @@ function renderDashboard() {
         </div>
       ` : ''}
     </div>
-    
+
     ${hasPermission('operacional') ? `
       <div class="card">
         <div class="card-header">
@@ -340,7 +340,7 @@ function renderOrdensServico() {
           + Nova OS
         </button>
       </div>
-      
+
       <div style="margin-bottom: 1.5rem; display: flex; gap: 1rem;">
         <select class="form-input" id="filtro-status-os" style="max-width: 200px;">
           <option value="">Todos os Status</option>
@@ -349,7 +349,7 @@ function renderOrdensServico() {
           <option value="FECHADA">Fechadas</option>
         </select>
       </div>
-      
+
       ${renderOrdensTable(AppState.data.ordens)}
     </div>
   `;
@@ -446,6 +446,7 @@ function renderMaquinasTable(maquinas) {
             <th>Número de Série</th>
             <th>Ano</th>
             <th>Observações</th>
+            <th>Ações</th>
           </tr>
         </thead>
         <tbody>
@@ -454,8 +455,13 @@ function renderMaquinasTable(maquinas) {
               <td>${maq.cliente_nome || '-'}</td>
               <td><strong>${maq.modelo}</strong></td>
               <td>${maq.numero_serie || '-'}</td>
-              <td>${maq.ano || '-'}</td>
+              <td>${maq.ano_fabricacao || maq.ano || '-'}</td>
               <td>${maq.observacoes || '-'}</td>
+              <td>
+                <button class="btn btn-secondary btn-sm" onclick="showNovaMaquinaModal(${maq.id})">
+                  Editar
+                </button>
+              </td>
             </tr>
           `).join('')}
         </tbody>
@@ -499,26 +505,32 @@ function renderPecasTable(pecas) {
             <th>Descrição</th>
             <th>Preço Custo</th>
             <th>Preço Venda</th>
-            <th>Estoque Atual</th>
-            <th>Estoque Mínimo</th>
+            <th>Estoque</th>
+            <th>Mínimo</th>
             <th>Status</th>
+            <th>Ações</th>
           </tr>
         </thead>
         <tbody>
           ${pecas.map(peca => {
-    const estoqueBaixo = peca.estoque_atual <= peca.estoque_minimo;
+    const estoqueBaixo = (peca.quantidade_estoque || peca.estoque_atual || 0) <= (peca.estoque_minimo || 0);
     return `
               <tr>
                 <td><strong>${peca.codigo}</strong></td>
-                <td>${peca.descricao}</td>
+                <td>${peca.nome || peca.descricao}</td>
                 <td>R$ ${formatMoney(peca.preco_custo)}</td>
                 <td>R$ ${formatMoney(peca.preco_venda)}</td>
-                <td>${peca.estoque_atual}</td>
-                <td>${peca.estoque_minimo}</td>
+                <td>${peca.quantidade_estoque || peca.estoque_atual || 0}</td>
+                <td>${peca.estoque_minimo || 0}</td>
                 <td>
                   ${estoqueBaixo
         ? '<span class="badge badge-danger">Baixo</span>'
         : '<span class="badge badge-success">OK</span>'}
+                </td>
+                <td>
+                  <button class="btn btn-secondary btn-sm" onclick="showNovaPecaModal(${peca.id})">
+                    Editar
+                  </button>
                 </td>
               </tr>
             `;
@@ -582,20 +594,20 @@ function renderVendasTable(vendas) {
         </tbody>
       </table>
     </div>
-  `;
+    `;
 }
 
 // ==================== CONTAS A RECEBER ====================
 function renderContasReceber() {
   return `
-    <div class="card">
+    <div class="card" >
       <div class="card-header">
         <h2 class="card-title">Contas a Receber</h2>
         <button class="btn btn-primary btn-sm" id="nova-conta-receber-btn">
           + Nova Conta
         </button>
       </div>
-      
+
       <div style="margin-bottom: 1.5rem;">
         <select class="form-input" id="filtro-status-receber" style="max-width: 200px;">
           <option value="">Todos os Status</option>
@@ -603,16 +615,16 @@ function renderContasReceber() {
           <option value="PAGO">Pagas</option>
         </select>
       </div>
-      
+
       ${renderContasReceberTable(AppState.data.contasReceber)}
     </div>
-  `;
+    `;
 }
 
 function renderContasReceberTable(contas) {
   if (!contas || contas.length === 0) {
     return `
-      <div class="empty-state">
+    <div class="empty-state" >
         <div class="empty-state-icon">💰</div>
         <div class="empty-state-title">Nenhuma conta a receber</div>
       </div>
@@ -643,7 +655,7 @@ function renderContasReceberTable(contas) {
               <td>
                 ${conta.status === 'PENDENTE' ? `
                   <button class="btn btn-success btn-sm" onclick="registrarPagamentoReceber(${conta.id})">
-                    Registrar Pagamento
+                    Receber
                   </button>
                 ` : '-'}
               </td>
@@ -652,20 +664,20 @@ function renderContasReceberTable(contas) {
         </tbody>
       </table>
     </div>
-  `;
+    `;
 }
 
 // ==================== CONTAS A PAGAR ====================
 function renderContasPagar() {
   return `
-    <div class="card">
+    <div class="card" >
       <div class="card-header">
         <h2 class="card-title">Contas a Pagar</h2>
         <button class="btn btn-primary btn-sm" id="nova-conta-pagar-btn">
           + Nova Conta
         </button>
       </div>
-      
+
       <div style="margin-bottom: 1.5rem;">
         <select class="form-input" id="filtro-status-pagar" style="max-width: 200px;">
           <option value="">Todos os Status</option>
@@ -673,16 +685,16 @@ function renderContasPagar() {
           <option value="PAGO">Pagas</option>
         </select>
       </div>
-      
+
       ${renderContasPagarTable(AppState.data.contasPagar)}
     </div>
-  `;
+    `;
 }
 
 function renderContasPagarTable(contas) {
   if (!contas || contas.length === 0) {
     return `
-      <div class="empty-state">
+    <div class="empty-state" >
         <div class="empty-state-icon">💸</div>
         <div class="empty-state-title">Nenhuma conta a pagar</div>
       </div>
@@ -715,7 +727,7 @@ function renderContasPagarTable(contas) {
               <td>
                 ${conta.status === 'PENDENTE' ? `
                   <button class="btn btn-success btn-sm" onclick="registrarPagamentoPagar(${conta.id})">
-                    Registrar Pagamento
+                    Pagar
                   </button>
                 ` : '-'}
               </td>
@@ -724,13 +736,13 @@ function renderContasPagarTable(contas) {
         </tbody>
       </table>
     </div>
-  `;
+    `;
 }
 
 // ==================== CLIENTES ====================
 function renderClientes() {
   return `
-    <div class="card">
+    <div class="card" >
       <div class="card-header">
         <h2 class="card-title">Clientes</h2>
         <button class="btn btn-primary btn-sm" id="novo-cliente-btn">
@@ -739,13 +751,13 @@ function renderClientes() {
       </div>
       ${renderClientesTable(AppState.data.clientes)}
     </div>
-  `;
+    `;
 }
 
 function renderClientesTable(clientes) {
   if (!clientes || clientes.length === 0) {
     return `
-      <div class="empty-state">
+    <div class="empty-state" >
         <div class="empty-state-icon">👥</div>
         <div class="empty-state-title">Nenhum cliente cadastrado</div>
         <div class="empty-state-description">Cadastre um novo cliente para começar</div>
@@ -763,6 +775,7 @@ function renderClientesTable(clientes) {
             <th>Telefone</th>
             <th>E-mail</th>
             <th>Endereço</th>
+            <th>Ações</th>
           </tr>
         </thead>
         <tbody>
@@ -773,18 +786,24 @@ function renderClientesTable(clientes) {
               <td>${cliente.telefone || '-'}</td>
               <td>${cliente.email || '-'}</td>
               <td>${cliente.endereco || '-'}</td>
+              <td>
+                <button class="btn btn-secondary btn-sm" onclick="showNovoClienteModal(${cliente.id})">
+                  Editar
+                </button>
+              </td>
             </tr>
           `).join('')}
         </tbody>
       </table>
     </div>
-  `;
+    `;
 }
 
 // ==================== USUÁRIOS ====================
+// ==================== USUÁRIOS ====================
 function renderUsuarios() {
   return `
-    <div class="card">
+    <div class="card" >
       <div class="card-header">
         <h2 class="card-title">Usuários do Sistema</h2>
         <button class="btn btn-primary btn-sm" id="novo-usuario-btn">
@@ -793,13 +812,13 @@ function renderUsuarios() {
       </div>
       ${renderUsuariosTable(AppState.data.usuarios)}
     </div>
-  `;
+    `;
 }
 
 function renderUsuariosTable(usuarios) {
   if (!usuarios || usuarios.length === 0) {
     return `
-      <div class="empty-state">
+    <div class="empty-state" >
         <div class="empty-state-icon">👤</div>
         <div class="empty-state-title">Nenhum usuário cadastrado</div>
       </div>
@@ -843,7 +862,7 @@ function renderUsuariosTable(usuarios) {
         </tbody>
       </table>
     </div>
-  `;
+    `;
 }
 
 // ==================== FUNÇÕES AUXILIARES ====================
@@ -946,11 +965,19 @@ function attachSelectListener(id, handler) {
 }
 
 // ==================== MODAIS (Simplificados - implementação completa seria muito extensa) ====================
-function showNovoClienteModal() {
-  showModal('Novo Cliente', `
-    <div class="form-group">
+async function showNovoClienteModal(clienteId = null) {
+  const isEdicao = clienteId !== null;
+  let clienteData = null;
+
+  if (isEdicao) {
+    const result = await window.api.obterCliente(clienteId);
+    if (result.success) clienteData = result.cliente;
+  }
+
+  showModal(isEdicao ? 'Editar Cliente' : 'Novo Cliente', `
+    <div class="form-group" >
       <label class="form-label">Nome *</label>
-      <input type="text" class="form-input" id="modal-cliente-nome" required />
+      <input type="text" class="form-input" id="modal-cliente-nome" value="${clienteData?.nome || ''}" required />
     </div>
     <div class="form-grid">
       <div class="form-group">
@@ -964,12 +991,18 @@ function showNovoClienteModal() {
     </div>
     <div class="form-group">
       <label class="form-label">E-mail</label>
-      <input type="email" class="form-input" id="modal-cliente-email" />
+      <input type="email" class="form-input" id="modal-cliente-email" value="${clienteData?.email || ''}" />
     </div>
     <div class="form-group">
       <label class="form-label">Endereço</label>
-      <textarea class="form-input" id="modal-cliente-endereco"></textarea>
+      <textarea class="form-input" id="modal-cliente-endereco">${clienteData?.endereco || ''}</textarea>
     </div>
+    ${isEdicao ? `
+    <div style="margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+      <button class="btn btn-danger btn-sm" onclick="excluirCliente(${clienteId})">Excluir Cliente</button>
+    </div>
+    ` : ''
+    }
   `, async () => {
     const dados = {
       nome: document.getElementById('modal-cliente-nome').value,
@@ -979,24 +1012,46 @@ function showNovoClienteModal() {
       endereco: document.getElementById('modal-cliente-endereco').value
     };
 
-    const result = await window.api.criarCliente(dados);
+    const result = isEdicao
+      ? await window.api.atualizarCliente(clienteId, dados)
+      : await window.api.criarCliente(dados);
+
     if (result.success) {
       await loadClientes();
       closeModal();
       render();
     } else {
-      alert('Erro ao criar cliente: ' + result.message);
+      alert('Erro ao salvar cliente: ' + result.message);
     }
   });
 }
 
-function showNovaMaquinaModal() {
+window.excluirCliente = async (id) => {
+  if (confirm('Tem certeza que deseja excluir este cliente?')) {
+    const result = await window.api.excluirCliente(id);
+    if (result.success) {
+      await loadClientes();
+      render();
+    } else {
+      alert('Erro ao excluir cliente: ' + result.message);
+    }
+  }
+};
+
+async function showNovaMaquinaModal(maquinaId = null) {
+  const isEdicao = maquinaId !== null;
+  let maquinaData = null;
+
+  if (isEdicao) {
+    const result = await window.api.obterMaquina(maquinaId);
+    if (result.success) maquinaData = result.maquina;
+  }
   const clientesOptions = AppState.data.clientes.map(c =>
-    `<option value="${c.id}">${c.nome}</option>`
+    `< option value = "${c.id}">${c.nome}</option> `
   ).join('');
 
-  showModal('Nova Máquina', `
-    <div class="form-group">
+  showModal(isEdicao ? 'Editar Máquina' : 'Nova Máquina', `
+    <div class="form-group" >
       <label class="form-label">Cliente *</label>
       <select class="form-input" id="modal-maquina-cliente" required>
         <option value="">Selecione...</option>
@@ -1006,21 +1061,26 @@ function showNovaMaquinaModal() {
     <div class="form-grid">
       <div class="form-group">
         <label class="form-label">Modelo *</label>
-        <input type="text" class="form-input" id="modal-maquina-modelo" required />
+        <input type="text" class="form-input" id="modal-maquina-modelo" value="${maquinaData?.modelo || ''}" required />
       </div>
       <div class="form-group">
         <label class="form-label">Número de Série</label>
-        <input type="text" class="form-input" id="modal-maquina-serie" />
+        <input type="text" class="form-input" id="modal-maquina-serie" value="${maquinaData?.numero_serie || ''}" />
       </div>
       <div class="form-group">
         <label class="form-label">Ano</label>
-        <input type="number" class="form-input" id="modal-maquina-ano" />
+        <input type="number" class="form-input" id="modal-maquina-ano" value="${maquinaData?.ano_fabricacao || maquinaData?.ano || ''}" />
       </div>
     </div>
     <div class="form-group">
       <label class="form-label">Observações</label>
-      <textarea class="form-input" id="modal-maquina-obs"></textarea>
+      <textarea class="form-input" id="modal-maquina-obs">${maquinaData?.observacoes || ''}</textarea>
     </div>
+    ${isEdicao ? `
+    <div style="margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+      <button class="btn btn-danger btn-sm" onclick="excluirMaquina(${maquinaId})">Excluir Máquina</button>
+    </div>
+    ` : ''}
   `, async () => {
     const dados = {
       cliente_id: document.getElementById('modal-maquina-cliente').value,
@@ -1030,7 +1090,9 @@ function showNovaMaquinaModal() {
       observacoes: document.getElementById('modal-maquina-obs').value
     };
 
-    const result = await window.api.criarMaquina(dados);
+    const result = isEdicao
+      ? await window.api.atualizarMaquina(maquinaId, dados)
+      : await window.api.criarMaquina(dados);
     if (result.success) {
       await loadMaquinas();
       closeModal();
@@ -1045,9 +1107,17 @@ function showNovaOSModal() {
   mostrarModalOS();
 }
 
-function showNovaPecaModal() {
-  showModal('Nova Peça', `
-    <div class="form-grid">
+async function showNovaPecaModal(pecaId = null) {
+  const isEdicao = pecaId !== null;
+  let pecaData = null;
+
+  if (isEdicao) {
+    const result = await window.api.obterPeca(pecaId);
+    if (result.success) pecaData = result.peca;
+  }
+
+  showModal(isEdicao ? 'Editar Peça' : 'Nova Peça', `
+    <div class="form-grid" >
       <div class="form-group">
         <label class="form-label">Código *</label>
         <input type="text" class="form-input" id="modal-peca-codigo" required />
@@ -1070,10 +1140,15 @@ function showNovaPecaModal() {
       </div>
       <div class="form-group">
         <label class="form-label">Estoque Mínimo</label>
-        <input type="number" class="form-input" id="modal-peca-minimo" value="0" />
+        <input type="number" class="form-input" id="modal-peca-minimo" value="${pecaData?.estoque_minimo || 0}" />
       </div>
     </div>
-  `, async () => {
+    ${isEdicao ? `
+    <div style="margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+      <button class="btn btn-danger btn-sm" onclick="excluirPeca(${pecaId})">Excluir Peça</button>
+    </div>
+    ` : ''}
+    `, async () => {
     const dados = {
       codigo: document.getElementById('modal-peca-codigo').value,
       descricao: document.getElementById('modal-peca-descricao').value,
@@ -1083,7 +1158,9 @@ function showNovaPecaModal() {
       estoque_minimo: parseInt(document.getElementById('modal-peca-minimo').value) || 0
     };
 
-    const result = await window.api.criarPeca(dados);
+    const result = isEdicao
+      ? await window.api.atualizarPeca(pecaId, dados)
+      : await window.api.criarPeca(dados);
     if (result.success) {
       await loadPecas();
       closeModal();
@@ -1106,7 +1183,7 @@ function showNovaContaPagarModal() {
   const categorias = ['Fornecedores', 'Salários', 'Aluguel', 'Energia', 'Água', 'Internet', 'Impostos', 'Outros'];
 
   showModal('Nova Conta a Pagar', `
-    <div class="form-grid">
+    <div class="form-grid" >
       <div class="form-group">
         <label class="form-label">Fornecedor *</label>
         <input type="text" class="form-input" id="modal-pagar-fornecedor" required />
@@ -1134,7 +1211,7 @@ function showNovaContaPagarModal() {
         <textarea class="form-input" id="modal-pagar-obs"></textarea>
       </div>
     </div>
-  `, async () => {
+    `, async () => {
     const dados = {
       fornecedor: document.getElementById('modal-pagar-fornecedor').value,
       categoria: document.getElementById('modal-pagar-categoria').value,
@@ -1157,7 +1234,7 @@ function showNovaContaPagarModal() {
 
 function showNovoUsuarioModal() {
   showModal('Novo Usuário', `
-    <div class="form-group">
+    <div class="form-group" >
       <label class="form-label">Nome *</label>
       <input type="text" class="form-input" id="modal-usuario-nome" required />
     </div>
@@ -1205,7 +1282,7 @@ function showModal(title, bodyHTML, onSave) {
   const modal = document.createElement('div');
   modal.className = 'modal-overlay';
   modal.innerHTML = `
-    <div class="modal">
+    <div class="modal" >
       <div class="modal-header">
         <h3 class="modal-title">${title}</h3>
         <button class="modal-close" id="modal-close-btn">&times;</button>
@@ -1218,7 +1295,7 @@ function showModal(title, bodyHTML, onSave) {
         <button class="btn btn-primary" id="modal-save-btn">Salvar</button>
       </div>
     </div>
-  `;
+    `;
 
   document.body.appendChild(modal);
 
@@ -1358,12 +1435,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const app = document.getElementById('app');
       if (app) {
         app.innerHTML = `
-          <div style="padding: 2rem; color: #ef4444; background: #fee2e2; border: 1px solid #fca5a5; border-radius: 0.5rem; margin: 1rem;">
+    <div style = "padding: 2rem; color: #ef4444; background: #fee2e2; border: 1px solid #fca5a5; border-radius: 0.5rem; margin: 1rem;" >
             <h3>Erro de Inicialização</h3>
             <p>${err.message}</p>
             <button onclick="window.location.reload()" class="btn btn-primary" style="margin-top: 1rem;">Tentar Novamente</button>
           </div>
-        `;
+    `;
       }
     }
   };
@@ -1390,12 +1467,12 @@ document.addEventListener('DOMContentLoaded', () => {
           await loadAllData();
           render();
         } else {
-          if (alertDiv) alertDiv.innerHTML = `<div class="alert alert-error">${result.message}</div>`;
+          if (alertDiv) alertDiv.innerHTML = `<div class="alert alert-error">${result.message}</div> `;
           if (btnText) btnText.textContent = 'Entrar';
         }
       } catch (loginError) {
         console.error('Erro no login:', loginError);
-        if (alertDiv) alertDiv.innerHTML = `<div class="alert alert-error">Erro de conexão: ${loginError.message}</div>`;
+        if (alertDiv) alertDiv.innerHTML = `<div class="alert alert-error">Erro de conexão: ${loginError.message}</div> `;
         if (btnText) btnText.textContent = 'Entrar';
       }
     }

@@ -283,11 +283,11 @@ const WebAPI = {
                 success: true,
                 stats: {
                     os_abertas: data.stats.ordensAbertas || 0,
-                    os_em_andamento: 0, // A API unificou, mas o app espera separado
-                    contas_receber_pendentes: { total: data.stats.receitaTotal || 0, count: 0 },
-                    contas_pagar_pendentes: { total: 0, count: 0 },
-                    pecas_estoque_baixo: 0,
-                    vendas_mes: { total: 0, count: 0 }
+                    os_em_andamento: data.stats.ordensEmAndamento || 0,
+                    contas_receber_pendentes: data.stats.contasReceber || { total: 0, count: 0 },
+                    contas_pagar_pendentes: data.stats.contasPagar || { total: 0, count: 0 },
+                    pecas_estoque_baixo: data.stats.pecasEstoqueBaixo || 0,
+                    vendas_mes: data.stats.vendasMes || { total: 0, count: 0 }
                 }
             };
         }
