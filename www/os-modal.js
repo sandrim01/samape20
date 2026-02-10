@@ -465,6 +465,12 @@ async function gerarPDFOS(osId) {
       return;
     }
 
+    const os = result.os;
+    if (!os) {
+      showAlert('Dados da OS não encontrados', 'danger');
+      return;
+    }
+
     // Normalizar valores para evitar erros de toFixed em nulos
     const normalizedOS = { ...os };
     normalizedOS.km_ida = parseFloat(os.km_ida) || 0;
