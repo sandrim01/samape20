@@ -185,13 +185,17 @@ ipcMain.handle('excluir-cliente', async (event, id) => {
 // Máquinas
 ipcMain.handle('criar-maquina', async (event, dados) => {
   try {
+    const clienteId = parseInt(dados.cliente_id);
+    const ano = parseInt(dados.ano) || null;
+
     const result = await pool.query(
       'INSERT INTO maquinas (cliente_id, modelo, numero_serie, ano_fabricacao, observacoes, ativo) VALUES ($1, $2, $3, $4, $5, true) RETURNING id',
-      [parseInt(dados.cliente_id), dados.modelo, dados.numero_serie, parseInt(dados.ano), dados.observacoes]
+      [clienteId, dados.modelo, dados.numero_serie, ano, dados.observacoes]
     );
     return { success: true, id: result.rows[0].id };
   } catch (error) {
-    return { success: false, message: error.message };
+    console.error('Erro ao criar máquina:', error);
+    return { success: false, message: 'Erro no servidor: ' + error.message };
   }
 });
 
@@ -227,10 +231,23 @@ ipcMain.handle('obter-maquina', async (event, id) => {
 
 ipcMain.handle('atualizar-maquina', async (event, id, dados) => {
   try {
+    const clienteId = parseInt(dados.cliente_id);
+    const ano = parseInt(dados.ano) || null;
+
     await pool.query(
       'UPDATE maquinas SET cliente_id = $1, modelo = $2, numero_serie = $3, ano_fabricacao = $4, observacoes = $5, updated_at = CURRENT_TIMESTAMP WHERE id = $6',
-      [parseInt(dados.cliente_id), dados.modelo, dados.numero_serie, parseInt(dados.ano), dados.observacoes, id]
+      [clienteId, dados.modelo, dados.numero_serie, ano, dados.observacoes, id]
     );
+    return { success: true };
+  } catch (error) {
+    console.error('Erro ao atualizar máquina:', error);
+    return { success: false, message: 'Erro no servidor: ' + error.message };
+  }
+});
+
+ipcMain.handle('excluir-maquina', async (event, id) => {
+  try {
+    await pool.query('UPDATE maquinas SET ativo = false WHERE id = $1', [id]);
     return { success: true };
   } catch (error) {
     return { success: false, message: error.message };
@@ -318,6 +335,36 @@ ipcMain.handle('listar-pecas', async () => {
   try {
     const result = await pool.query('SELECT * FROM pecas WHERE ativo = true ORDER BY nome');
     return { success: true, pecas: result.rows };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('obter-peca', async (event, id) => {
+  try {
+    const result = await pool.query('SELECT * FROM pecas WHERE id = $1', [id]);
+    return { success: true, peca: result.rows[0] };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('atualizar-peca', async (event, id, dados) => {
+  try {
+    await pool.query(
+      'UPDATE pecas SET codigo = $1, nome = $2, preco_custo = $3, preco_venda = $4, quantidade_estoque = $5, estoque_minimo = $6, updated_at = CURRENT_TIMESTAMP WHERE id = $7',
+      [dados.codigo, dados.descricao, parseFloat(dados.preco_custo), parseFloat(dados.preco_venda), parseInt(dados.estoque_atual), parseInt(dados.estoque_minimo), id]
+    );
+    return { success: true };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('excluir-peca', async (event, id) => {
+  try {
+    await pool.query('UPDATE pecas SET ativo = false WHERE id = $1', [id]);
+    return { success: true };
   } catch (error) {
     return { success: false, message: error.message };
   }

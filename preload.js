@@ -12,10 +12,16 @@ contextBridge.exposeInMainWorld('api', {
     // Clientes
     criarCliente: (dados) => ipcRenderer.invoke('criar-cliente', dados),
     listarClientes: () => ipcRenderer.invoke('listar-clientes'),
+    obterCliente: (id) => ipcRenderer.invoke('obter-cliente', id),
+    atualizarCliente: (id, dados) => ipcRenderer.invoke('atualizar-cliente', id, dados),
+    excluirCliente: (id) => ipcRenderer.invoke('excluir-cliente', id),
 
     // Máquinas
     criarMaquina: (dados) => ipcRenderer.invoke('criar-maquina', dados),
     listarMaquinas: (cliente_id) => ipcRenderer.invoke('listar-maquinas', cliente_id),
+    obterMaquina: (id) => ipcRenderer.invoke('obter-maquina', id),
+    atualizarMaquina: (id, dados) => ipcRenderer.invoke('atualizar-maquina', id, dados),
+    excluirMaquina: (id) => ipcRenderer.invoke('excluir-maquina', id),
 
     // Ordens de Serviço
     criarOS: (dados) => ipcRenderer.invoke('criar-os', dados),
@@ -26,6 +32,9 @@ contextBridge.exposeInMainWorld('api', {
     // Peças
     criarPeca: (dados) => ipcRenderer.invoke('criar-peca', dados),
     listarPecas: () => ipcRenderer.invoke('listar-pecas'),
+    obterPeca: (id) => ipcRenderer.invoke('obter-peca', id),
+    atualizarPeca: (id, dados) => ipcRenderer.invoke('atualizar-peca', id, dados),
+    excluirPeca: (id) => ipcRenderer.invoke('excluir-peca', id),
     atualizarEstoque: (id, quantidade) => ipcRenderer.invoke('atualizar-estoque', { id, quantidade }),
 
     // Vendas
