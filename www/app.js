@@ -830,6 +830,32 @@ function attachEventListeners() {
   });
 }
 
+// Expor funções para serem usadas no HTML (onclick)
+window.showNovoClienteModal = showNovoClienteModal;
+window.showNovaMaquinaModal = showNovaMaquinaModal;
+window.showNovaPecaModal = showNovaPecaModal;
+window.showNovaOSModal = showNovaOSModal;
+window.showNovaVendaModal = showNovaVendaModal;
+window.showNovaContaReceberModal = showNovaContaReceberModal;
+window.showNovaContaPagarModal = showNovaContaPagarModal;
+window.showNovoUsuarioModal = showNovoUsuarioModal;
+window.closeModal = closeModal;
+window.render = render;
+
+window.loadOrdens = loadOrdensServico;
+window.fecharModal = (id) => {
+  const modal = document.getElementById(id);
+  if (modal) modal.remove();
+  else closeModal();
+};
+window.formatMoney = formatMoney;
+window.formatDate = formatDate;
+window.showAlert = (msg, type) => alert(msg);
+window.refreshPage = () => render();
+window.loadClientes = loadClientes;
+window.loadMaquinas = loadMaquinas;
+window.loadPecas = loadPecas;
+
 function attachButtonListener(id, handler) {
   const btn = document.getElementById(id);
   if (btn) btn.addEventListener('click', handler);
@@ -840,8 +866,9 @@ function attachSelectListener(id, handler) {
   if (select) select.addEventListener('change', (e) => handler(e.target.value));
 }
 
-// ==================== MODAIS (Simplificados - implementação completa seria muito extensa) ====================
+// ==================== MODAIS ====================
 async function showNovoClienteModal(clienteId = null) {
+  if (clienteId instanceof Event) clienteId = null;
   const isEdicao = clienteId !== null;
   let clienteData = null;
 
@@ -914,6 +941,7 @@ window.excluirCliente = async (id) => {
 };
 
 async function showNovaMaquinaModal(maquinaId = null) {
+  if (maquinaId instanceof Event) maquinaId = null;
   const isEdicao = maquinaId !== null;
   let maquinaData = null;
 
@@ -978,11 +1006,25 @@ async function showNovaMaquinaModal(maquinaId = null) {
   });
 }
 
+window.excluirMaquina = async (id) => {
+  if (confirm('Tem certeza que deseja excluir esta máquina?')) {
+    const result = await window.api.excluirMaquina(id);
+    if (result.success) {
+      await loadMaquinas();
+      closeModal();
+      render();
+    } else {
+      alert('Erro ao excluir máquina: ' + result.message);
+    }
+  }
+};
+
 function showNovaOSModal() {
   mostrarModalOS();
 }
 
 async function showNovaPecaModal(pecaId = null) {
+  if (pecaId instanceof Event) pecaId = null;
   const isEdicao = pecaId !== null;
   let pecaData = null;
 
@@ -1045,6 +1087,19 @@ async function showNovaPecaModal(pecaId = null) {
     }
   });
 }
+
+window.excluirPeca = async (id) => {
+  if (confirm('Tem certeza que deseja excluir esta peça?')) {
+    const result = await window.api.excluirPeca(id);
+    if (result.success) {
+      await loadPecas();
+      closeModal();
+      render();
+    } else {
+      alert('Erro ao excluir peça: ' + result.message);
+    }
+  }
+};
 
 async function showNovaVendaModal() {
   const clientesOptions = AppState.data.clientes.map(c =>

@@ -174,6 +174,14 @@ const WebAPI = {
         return await apiFetch(`/clientes/${id}`, { method: 'PUT', body: JSON.stringify(dados) });
     },
 
+    async obterCliente(id) {
+        return await apiFetch(`/clientes/${id}`);
+    },
+
+    async excluirCliente(id) {
+        return await apiFetch(`/clientes/${id}`, { method: 'DELETE' });
+    },
+
     // Máquinas
     async criarMaquina(dados) {
         return await apiFetch('/maquinas', { method: 'POST', body: JSON.stringify(dados) });
@@ -184,6 +192,18 @@ const WebAPI = {
         if (cliente_id) url += `?cliente_id=${cliente_id}`;
         const data = await apiFetch(url);
         return data || { success: true, maquinas: [] };
+    },
+
+    async obterMaquina(id) {
+        return await apiFetch(`/maquinas/${id}`);
+    },
+
+    async atualizarMaquina(id, dados) {
+        return await apiFetch(`/maquinas/${id}`, { method: 'PUT', body: JSON.stringify(dados) });
+    },
+
+    async excluirMaquina(id) {
+        return await apiFetch(`/maquinas/${id}`, { method: 'DELETE' });
     },
 
     // Ordens de Serviço
@@ -218,6 +238,18 @@ const WebAPI = {
     async listarPecas() {
         const data = await apiFetch('/pecas');
         return data || { success: true, pecas: [] };
+    },
+
+    async obterPeca(id) {
+        return await apiFetch(`/pecas/${id}`);
+    },
+
+    async excluirPeca(id) {
+        return await apiFetch(`/pecas/${id}`, { method: 'DELETE' });
+    },
+
+    async atualizarPeca(id, dados) {
+        return await apiFetch(`/pecas/${id}`, { method: 'PUT', body: JSON.stringify(dados) });
     },
 
     async atualizarEstoque(id, quantidade) {
