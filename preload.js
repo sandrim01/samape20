@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('api', {
     // Usuários
     criarUsuario: (dados) => ipcRenderer.invoke('criar-usuario', dados),
     listarUsuarios: () => ipcRenderer.invoke('listar-usuarios'),
+    obterUsuario: (id) => ipcRenderer.invoke('obter-usuario', id),
     atualizarUsuario: (id, dados) => ipcRenderer.invoke('atualizar-usuario', { id, dados }),
 
     // Clientes

@@ -153,6 +153,10 @@ const WebAPI = {
         return data || { success: true, usuarios: [] };
     },
 
+    async obterUsuario(id) {
+        return await apiFetch(`/usuarios/${id}`);
+    },
+
     async atualizarUsuario(id, dados) {
         return await apiFetch(`/usuarios/${id}`, {
             method: 'PUT',

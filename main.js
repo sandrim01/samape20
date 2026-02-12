@@ -130,6 +130,33 @@ ipcMain.handle('listar-usuarios', async () => {
   }
 });
 
+ipcMain.handle('obter-usuario', async (event, id) => {
+  try {
+    const result = await pool.query('SELECT id, nome, email, cargo, ativo FROM usuarios WHERE id = $1', [id]);
+    return { success: true, usuario: result.rows[0] };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('atualizar-usuario', async (event, { id, dados }) => {
+  try {
+    let query, params;
+    if (dados.senha) {
+      const hashedPassword = bcrypt.hashSync(dados.senha, 10);
+      query = 'UPDATE usuarios SET nome = $1, email = $2, cargo = $3, ativo = $4, senha = $5, updated_at = CURRENT_TIMESTAMP WHERE id = $6';
+      params = [dados.nome, dados.email, dados.cargo, dados.ativo, hashedPassword, id];
+    } else {
+      query = 'UPDATE usuarios SET nome = $1, email = $2, cargo = $3, ativo = $4, updated_at = CURRENT_TIMESTAMP WHERE id = $5';
+      params = [dados.nome, dados.email, dados.cargo, dados.ativo, id];
+    }
+    await pool.query(query, params);
+    return { success: true };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
 // Clientes
 ipcMain.handle('criar-cliente', async (event, dados) => {
   try {

@@ -92,11 +92,6 @@ function renderLogin() {
             <span id="login-btn-text">Entrar</span>
           </button>
         </form>
-
-        <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border); text-align: center; color: var(--text-muted); font-size: 0.85rem;">
-          <p><strong>Usuário padrão:</strong> admin@samapeop.com</p>
-          <p><strong>Senha:</strong> admin123</p>
-        </div>
       </div>
     </div>
   `;
@@ -719,6 +714,7 @@ function renderUsuariosTable(usuarios) {
             <th>Cargo</th>
             <th>Status</th>
             <th>Cadastrado em</th>
+            <th>Ações</th>
           </tr>
         </thead>
         <tbody>
@@ -733,6 +729,9 @@ function renderUsuariosTable(usuarios) {
                 </span>
               </td>
               <td>${formatDate(usuario.criado_em)}</td>
+              <td>
+                <button class="btn btn-secondary btn-sm" onclick="showNovoUsuarioModal(${usuario.id})">Editar</button>
+              </td>
             </tr>
           `).join('')}
         </tbody>
@@ -1227,48 +1226,70 @@ function showNovaContaPagarModal() {
   });
 }
 
-function showNovoUsuarioModal() {
-  showModal('Novo Usuário', `
+async function showNovoUsuarioModal(usuarioId = null) {
+  if (usuarioId instanceof Event) usuarioId = null;
+  const isEdicao = usuarioId !== null;
+  let usuarioData = null;
+
+  if (isEdicao) {
+    const result = await window.api.obterUsuario(usuarioId);
+    if (result.success) usuarioData = result.usuario;
+  }
+
+  showModal(isEdicao ? 'Editar Usuário' : 'Novo Usuário', `
     <div class="form-group" >
       <label class="form-label">Nome *</label>
-      <input type="text" class="form-input" id="modal-usuario-nome" required />
+      <input type="text" class="form-input" id="modal-usuario-nome" value="${usuarioData?.nome || ''}" required />
     </div>
     <div class="form-grid">
       <div class="form-group">
         <label class="form-label">E-mail *</label>
-        <input type="email" class="form-input" id="modal-usuario-email" required />
+        <input type="email" class="form-input" id="modal-usuario-email" value="${usuarioData?.email || ''}" required />
       </div>
       <div class="form-group">
         <label class="form-label">Cargo *</label>
         <select class="form-input" id="modal-usuario-cargo" required>
           <option value="">Selecione...</option>
-          <option value="ADMIN">Administrador</option>
-          <option value="DIRETOR">Diretor</option>
-          <option value="FINANCEIRO">Financeiro</option>
-          <option value="VENDAS">Vendas</option>
-          <option value="MECANICO">Mecânico</option>
+          <option value="ADMIN" ${usuarioData?.cargo === 'ADMIN' ? 'selected' : ''}>Administrador</option>
+          <option value="DIRETOR" ${usuarioData?.cargo === 'DIRETOR' ? 'selected' : ''}>Diretor</option>
+          <option value="FINANCEIRO" ${usuarioData?.cargo === 'FINANCEIRO' ? 'selected' : ''}>Financeiro</option>
+          <option value="VENDAS" ${usuarioData?.cargo === 'VENDAS' ? 'selected' : ''}>Vendas</option>
+          <option value="MECANICO" ${usuarioData?.cargo === 'MECANICO' ? 'selected' : ''}>Mecânico</option>
         </select>
       </div>
       <div class="form-group">
-        <label class="form-label">Senha *</label>
-        <input type="password" class="form-input" id="modal-usuario-senha" required />
+        <label class="form-label">${isEdicao ? 'Nova Senha (deixe em branco para manter)' : 'Senha *'}</label>
+        <input type="password" class="form-input" id="modal-usuario-senha" ${isEdicao ? '' : 'required'} />
       </div>
+      ${isEdicao ? `
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select class="form-input" id="modal-usuario-ativo">
+          <option value="true" ${usuarioData?.ativo ? 'selected' : ''}>Ativo</option>
+          <option value="false" ${!usuarioData?.ativo ? 'selected' : ''}>Inativo</option>
+        </select>
+      </div>
+      ` : ''}
     </div>
   `, async () => {
     const dados = {
       nome: document.getElementById('modal-usuario-nome').value,
       email: document.getElementById('modal-usuario-email').value,
       cargo: document.getElementById('modal-usuario-cargo').value,
-      senha: document.getElementById('modal-usuario-senha').value
+      senha: document.getElementById('modal-usuario-senha').value,
+      ativo: isEdicao ? document.getElementById('modal-usuario-ativo').value === 'true' : true
     };
 
-    const result = await window.api.criarUsuario(dados);
+    const result = isEdicao
+      ? await window.api.atualizarUsuario(usuarioId, dados)
+      : await window.api.criarUsuario(dados);
+
     if (result.success) {
       await loadUsuarios();
       closeModal();
       render();
     } else {
-      alert('Erro ao criar usuário: ' + result.message);
+      alert('Erro ao salvar usuário: ' + result.message);
     }
   });
 }
