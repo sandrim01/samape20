@@ -4,27 +4,44 @@ const API_CONFIG = {
     BASE_URL: 'https://samape20-estudioio.up.railway.app/api',
 
     // Token de autenticação
-    getToken: () => localStorage.getItem('auth_token'),
-    setToken: (token) => localStorage.setItem('auth_token', token),
-    clearToken: () => localStorage.removeItem('auth_token'),
+    getToken: () => localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token'),
+    setToken: (token, persistent = true) => {
+        if (persistent) {
+            localStorage.setItem('auth_token', token);
+        } else {
+            sessionStorage.setItem('auth_token', token);
+        }
+    },
+    clearToken: () => {
+        localStorage.removeItem('auth_token');
+        sessionStorage.removeItem('auth_token');
+    },
 
     // Dados do usuário
     getUser: () => {
         try {
-            const user = localStorage.getItem('user_info');
+            const user = localStorage.getItem('user_info') || sessionStorage.getItem('user_info');
             return user ? JSON.parse(user) : null;
         } catch (e) {
             console.error('⚠️ Erro ao processar dados do usuário salvos:', e);
             localStorage.removeItem('user_info');
+            sessionStorage.removeItem('user_info');
             return null;
         }
     },
-    setUser: (user) => {
+    setUser: (user, persistent = true) => {
         if (user) {
-            localStorage.setItem('user_info', JSON.stringify(user));
+            if (persistent) {
+                localStorage.setItem('user_info', JSON.stringify(user));
+            } else {
+                sessionStorage.setItem('user_info', JSON.stringify(user));
+            }
         }
     },
-    clearUser: () => localStorage.removeItem('user_info'),
+    clearUser: () => {
+        localStorage.removeItem('user_info');
+        sessionStorage.removeItem('user_info');
+    },
 
     // Logout completo
     logout: () => {
@@ -109,15 +126,15 @@ async function apiFetch(endpoint, options = {}) {
 // Interface API que imita o bridge do Electron (preload.js)
 const WebAPI = {
     // Autenticação
-    async login(dados) {
+    async login(dados, manterLogado = true) {
         const data = await apiFetch('/login', {
             method: 'POST',
             body: JSON.stringify(dados)
         });
 
         if (data.success && data.token) {
-            API_CONFIG.setToken(data.token);
-            API_CONFIG.setUser(data.user);
+            API_CONFIG.setToken(data.token, manterLogado);
+            API_CONFIG.setUser(data.user, manterLogado);
             // Mapeamento importante: o app.js espera 'usuario', a API retorna 'user'
             data.usuario = data.user;
         }

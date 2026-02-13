@@ -88,6 +88,11 @@ function renderLogin() {
             />
           </div>
 
+          <div class="form-group" style="display: flex; align-items: center; gap: 0.5rem; margin-top: -0.5rem; margin-bottom: 1.5rem; cursor: pointer;">
+            <input type="checkbox" id="login-remember" style="width: 18px; height: 18px; cursor: pointer;" checked />
+            <label for="login-remember" style="font-size: 0.9rem; color: var(--text-secondary); cursor: pointer; user-select: none;">Mantenha-me logado</label>
+          </div>
+
           <button type="submit" class="btn btn-primary">
             <span id="login-btn-text">Entrar</span>
           </button>
@@ -1440,7 +1445,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (btnText) btnText.innerHTML = '<span class="loading"></span>';
 
       try {
-        const result = await window.api.login({ email, senha });
+        const remember = document.getElementById('login-remember')?.checked;
+        const result = await window.api.login({ email, senha }, remember);
 
         if (result.success) {
           AppState.currentUser = result.usuario;
