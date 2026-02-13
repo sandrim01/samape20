@@ -624,21 +624,25 @@ async function gerarPDFOS(osId) {
             background: white;
             border-radius: 3px;
             border: 1px solid #e2e8f0;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
           }
           
           /* TEXTAREA */
           .text-area {
             width: 100%;
-            min-height: 60px;
-            padding: 8px;
+            min-height: 50px;
+            padding: 10px;
             border: 1px solid #cbd5e1;
             border-radius: 4px;
             font-family: inherit;
-            font-size: 0.85em;
-            line-height: 1.4;
-            resize: none;
+            font-size: 0.9em;
+            line-height: 1.5;
             background: white;
             color: #1e293b;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
           }
           
           /* BOX DE VALORES */
@@ -943,18 +947,18 @@ async function gerarPDFOS(osId) {
           <div class="section-body">
             <div class="info-item" style="margin-bottom: 15px;">
               <div class="info-label">Problema Reportado</div>
-              <textarea class="text-area" readonly>${normalizedOS.descricao_problema}</textarea>
+              <div class="text-area">${normalizedOS.descricao_problema}</div>
             </div>
             ${normalizedOS.diagnostico ? `
               <div class="info-item" style="margin-bottom: 15px;">
                 <div class="info-label">Diagnóstico Técnico</div>
-                <textarea class="text-area" readonly>${normalizedOS.diagnostico}</textarea>
+                <div class="text-area">${normalizedOS.diagnostico}</div>
               </div>
             ` : ''}
             ${normalizedOS.solucao ? `
               <div class="info-item">
                 <div class="info-label">Solução Aplicada</div>
-                <textarea class="text-area" readonly>${normalizedOS.solucao}</textarea>
+                <div class="text-area">${normalizedOS.solucao}</div>
               </div>
             ` : ''}
           </div>
@@ -998,7 +1002,7 @@ async function gerarPDFOS(osId) {
               <span>Observações</span>
             </div>
             <div class="section-body">
-              <textarea class="text-area" readonly>${normalizedOS.observacoes}</textarea>
+              <div class="text-area">${normalizedOS.observacoes}</div>
             </div>
           </div>
         ` : ''}
