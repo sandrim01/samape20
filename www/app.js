@@ -305,6 +305,15 @@ function renderDashboard() {
           <div class="stat-footer">${stats.vendas_mes?.count || 0} pedidos realizados</div>
         </div>
       ` : ''}
+
+      <div class="stat-card premium">
+        <div class="stat-header">
+          <span class="stat-label">Saúde do Serviço (Méd.)</span>
+          <div class="stat-icon-bg" style="background: ${getHealthColor(stats.tempo_medio_os)}22; color: ${getHealthColor(stats.tempo_medio_os)};">⚡</div>
+        </div>
+        <div class="stat-value-large" style="color: ${getHealthColor(stats.tempo_medio_os)};">${formatAverageTime(stats.tempo_medio_os)}</div>
+        <div class="stat-footer">Tempo médio de conclusão</div>
+      </div>
     </div>
 
     <div class="dashboard-grid-two">
@@ -754,6 +763,22 @@ function formatDate(dateString) {
   if (!dateString) return '-';
   const date = new Date(dateString);
   return date.toLocaleDateString('pt-BR');
+}
+
+function formatAverageTime(hours) {
+  if (!hours || hours === 0) return 'N/A';
+  if (hours < 1) return '< 1 hora';
+  if (hours < 24) return `${Math.round(hours)} horas`;
+  const days = Math.floor(hours / 24);
+  const remainingHours = Math.round(hours % 24);
+  return `${days}d ${remainingHours}h`;
+}
+
+function getHealthColor(hours) {
+  if (!hours || hours === 0) return 'var(--text-muted)';
+  if (hours <= 24) return 'var(--success)'; // Até 1 dia
+  if (hours <= 72) return 'var(--warning)'; // Até 3 dias
+  return 'var(--danger)'; // Mais de 3 dias
 }
 
 // ==================== EVENT LISTENERS ====================

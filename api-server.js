@@ -840,6 +840,17 @@ app.get('/api/stats', authenticateToken, async (req, res) => {
             count: parseInt(vendasResult.rows[0].count)
         };
 
+        // Tempo Médio de Execução (Health Check)
+        const tempoMedioResult = await pool.query(`
+            SELECT 
+                EXTRACT(EPOCH FROM AVG(data_fechamento - data_abertura)) / 3600 as media_horas
+            FROM ordens_servico 
+            WHERE status = 'FECHADA' 
+            AND data_fechamento IS NOT NULL 
+            AND data_abertura IS NOT NULL
+        `);
+        stats.tempoMedioOS = parseFloat(tempoMedioResult.rows[0].media_horas || 0);
+
         res.json({ success: true, stats });
     } catch (error) {
         console.error('Erro ao obter estatísticas:', error);

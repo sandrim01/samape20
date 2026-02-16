@@ -340,7 +340,8 @@ const WebAPI = {
                     contas_receber_pendentes: data.stats.contasReceber || { total: 0, count: 0 },
                     contas_pagar_pendentes: data.stats.contasPagar || { total: 0, count: 0 },
                     pecas_estoque_baixo: data.stats.pecasEstoqueBaixo || 0,
-                    vendas_mes: data.stats.vendasMes || { total: 0, count: 0 }
+                    vendas_mes: data.stats.vendasMes || { total: 0, count: 0 },
+                    tempo_medio_os: data.stats.tempoMedioOS || 0
                 }
             };
         }
