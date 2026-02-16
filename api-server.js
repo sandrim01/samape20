@@ -652,21 +652,53 @@ app.get('/api/vendas', authenticateToken, async (req, res) => {
 
 // Criar venda
 app.post('/api/vendas', authenticateToken, async (req, res) => {
+    const client = await pool.connect();
     try {
         const { cliente_id, vendedor_id, valor_total, desconto, valor_final, forma_pagamento, observacoes, itens } = req.body;
 
+        await client.query('BEGIN');
+
         const numero_venda = 'VEN-' + Date.now();
 
-        const result = await pool.query(
-            `INSERT INTO vendas (numero_venda, cliente_id, vendedor_id, valor_total, desconto, valor_final, forma_pagamento, status)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, 'PAGO') RETURNING *`,
-            [numero_venda, cliente_id, vendedor_id, valor_total, desconto, valor_final, forma_pagamento]
+        // 1. Criar a venda
+        const vendaResult = await client.query(
+            `INSERT INTO vendas (numero_venda, cliente_id, vendedor_id, valor_total, desconto, valor_final, forma_pagamento, status, observacoes)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, 'PAGO', $8) RETURNING *`,
+            [numero_venda, cliente_id, vendedor_id, valor_total, desconto || 0, valor_final || valor_total, forma_pagamento || 'DINHEIRO', observacoes]
         );
 
-        res.json({ success: true, venda: result.rows[0] });
+        const vendaId = vendaResult.rows[0].id;
+
+        // 2. Processar itens se houver
+        if (itens && Array.isArray(itens)) {
+            for (const item of itens) {
+                const { peca_id, quantidade, preco_unitario } = item;
+                const preco_total = quantidade * preco_unitario;
+
+                // Salvar item da venda
+                await client.query(
+                    `INSERT INTO venda_itens (venda_id, peca_id, quantidade, preco_unitario, preco_total)
+                     VALUES ($1, $2, $3, $4, $5)`,
+                    [vendaId, peca_id, quantidade, preco_unitario, preco_total]
+                );
+
+                // Abater do estoque
+                await client.query(
+                    `UPDATE pecas SET quantidade_estoque = quantidade_estoque - $1, updated_at = CURRENT_TIMESTAMP 
+                     WHERE id = $2`,
+                    [quantidade, peca_id]
+                );
+            }
+        }
+
+        await client.query('COMMIT');
+        res.json({ success: true, venda: vendaResult.rows[0] });
     } catch (error) {
+        await client.query('ROLLBACK');
         console.error('Erro ao criar venda:', error);
-        res.status(500).json({ success: false, message: 'Erro no servidor' });
+        res.status(500).json({ success: false, message: 'Erro no servidor: ' + error.message });
+    } finally {
+        client.release();
     }
 });
 

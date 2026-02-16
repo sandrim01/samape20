@@ -1106,36 +1106,180 @@ window.excluirPeca = async (id) => {
 };
 
 async function showNovaVendaModal() {
+  await loadPecas(); // Garantir que o estoque está atualizado
   const clientesOptions = AppState.data.clientes.map(c =>
     `<option value="${c.id}">${c.nome}</option>`
   ).join('');
+
+  const pecasDisponiveis = AppState.data.pecas.filter(p => p.quantidade_estoque > 0);
+
+  let itensVenda = [];
+
+  const atualizarTabelaItens = () => {
+    const tbody = document.getElementById('venda-itens-body');
+    if (!tbody) return;
+
+    if (itensVenda.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 2rem; color: var(--text-secondary);">Nenhum item adicionado</td></tr>';
+    } else {
+      tbody.innerHTML = itensVenda.map((item, index) => {
+        const peca = AppState.data.pecas.find(p => p.id == item.peca_id);
+        return `
+          <tr>
+            <td>${peca ? peca.nome : 'Peça não encontrada'}</td>
+            <td>R$ ${formatMoney(item.preco_unitario)}</td>
+            <td>${item.quantidade}</td>
+            <td>R$ ${formatMoney(item.quantidade * item.preco_unitario)}</td>
+            <td style="text-align: right;">
+              <button class="btn btn-danger btn-sm" onclick="window.removerItemVenda(${index})">&times;</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Calcular total
+    const total = itensVenda.reduce((sum, item) => sum + (item.quantidade * item.preco_unitario), 0);
+    const totalInput = document.getElementById('modal-venda-valor');
+    if (totalInput) totalInput.value = total.toFixed(2);
+
+    const totalDisplay = document.getElementById('venda-total-display');
+    if (totalDisplay) totalDisplay.textContent = `Total: R$ ${formatMoney(total)}`;
+  };
+
+  window.removerItemVenda = (index) => {
+    itensVenda.splice(index, 1);
+    atualizarTabelaItens();
+  };
+
+  window.adicionarItemLista = () => {
+    const pecaId = document.getElementById('venda-peca-select').value;
+    const qtd = parseInt(document.getElementById('venda-peca-qtd').value);
+    const preco = parseFloat(document.getElementById('venda-peca-preco').value);
+
+    if (!pecaId || isNaN(qtd) || qtd <= 0 || isNaN(preco)) {
+      alert('Por favor, preencha todos os campos do item corretamente.');
+      return;
+    }
+
+    const peca = AppState.data.pecas.find(p => p.id == pecaId);
+    if (qtd > peca.quantidade_estoque) {
+      alert(`Quantidade em estoque insuficiente. Disponível: ${peca.quantidade_estoque}`);
+      return;
+    }
+
+    itensVenda.push({
+      peca_id: parseInt(pecaId),
+      quantidade: qtd,
+      preco_unitario: preco
+    });
+
+    // Limpar campos
+    document.getElementById('venda-peca-select').value = '';
+    document.getElementById('venda-peca-qtd').value = '1';
+    document.getElementById('venda-peca-preco').value = '';
+
+    atualizarTabelaItens();
+  };
 
   showModal('Nova Venda de Peças', `
     <div class="form-group">
       <label class="form-label">Cliente *</label>
       <select class="form-input" id="modal-venda-cliente" required>
-        <option value="">Selecione...</option>
+        <option value="">Selecione o Cliente...</option>
         ${clientesOptions}
       </select>
     </div>
-    <div class="form-group">
-      <label class="form-label">Valor Total (R$) *</label>
-      <input type="number" step="0.01" class="form-input" id="modal-venda-valor" required />
+
+    <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 0.5rem; border: 1px solid var(--border); margin-bottom: 1rem;">
+      <h4 style="margin-bottom: 0.5rem; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px;">Adicionar Itens</h4>
+      <div class="form-grid" style="grid-template-columns: 2fr 1fr 1.5fr auto; align-items: flex-end; gap: 0.5rem;">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label">Peça</label>
+          <select class="form-input" id="venda-peca-select" onchange="const p = AppState.data.pecas.find(x => x.id == this.value); if(p) document.getElementById('venda-peca-preco').value = p.preco_venda;">
+            <option value="">Selecionar peça...</option>
+            ${pecasDisponiveis.map(p => `<option value="${p.id}">${p.nome} (Estoque: ${p.quantidade_estoque})</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label">Qtd</label>
+          <input type="number" class="form-input" id="venda-peca-qtd" value="1" min="1" />
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label">Preço Unit.</label>
+          <input type="number" step="0.01" class="form-input" id="venda-peca-preco" />
+        </div>
+        <button type="button" class="btn btn-secondary" onclick="adicionarItemLista()" style="padding: 0.5rem 1rem;">+</button>
+      </div>
     </div>
+
+    <div class="table-container" style="max-height: 200px; overflow-y: auto; margin-bottom: 1rem; border: 1px solid var(--border);">
+      <table style="font-size: 0.85rem;">
+        <thead>
+          <tr>
+            <th>Peça</th>
+            <th>Unit.</th>
+            <th>Qtd</th>
+            <th>Total</th>
+            <th style="width: 40px;"></th>
+          </tr>
+        </thead>
+        <tbody id="venda-itens-body">
+          <tr><td colspan="5" style="text-align:center; padding: 2rem; color: var(--text-secondary);">Nenhum item adicionado</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">Total da Venda (R$)</label>
+        <input type="number" step="0.01" class="form-input" id="modal-venda-valor" readonly style="font-weight: bold; font-size: 1.2rem; background: transparent; border: none; padding: 0;" />
+        <div id="venda-total-display" style="font-size: 1.2rem; font-weight: bold; color: var(--primary);">Total: R$ 0,00</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Forma de Pagamento</label>
+        <select class="form-input" id="modal-venda-pagamento">
+          <option value="DINHEIRO">Dinheiro</option>
+          <option value="PIX">PIX</option>
+          <option value="CARTAO_DEBITO">Cartão de Débito</option>
+          <option value="CARTAO_CREDITO">Cartão de Crédito</option>
+          <option value="BOLETO">Boleto</option>
+        </select>
+      </div>
+    </div>
+
     <div class="form-group">
       <label class="form-label">Observações</label>
-      <textarea class="form-input" id="modal-venda-obs" placeholder="Peças vendidas, forma de pagamento..."></textarea>
+      <textarea class="form-input" id="modal-venda-obs" placeholder="Detalhes adicionais..."></textarea>
     </div>
   `, async () => {
+    const cliente_id = document.getElementById('modal-venda-cliente').value;
+    if (!cliente_id) {
+      alert('Selecione um cliente.');
+      return;
+    }
+
+    if (itensVenda.length === 0) {
+      alert('Adicione pelo menos um item à venda.');
+      return;
+    }
+
+    const valor_total = itensVenda.reduce((sum, item) => sum + (item.quantidade * item.preco_unitario), 0);
+
     const dados = {
-      cliente_id: document.getElementById('modal-venda-cliente').value,
+      cliente_id,
       vendedor_id: AppState.currentUser.id,
-      valor_total: parseFloat(document.getElementById('modal-venda-valor').value)
+      valor_total: valor_total,
+      valor_final: valor_total,
+      forma_pagamento: document.getElementById('modal-venda-pagamento').value,
+      observacoes: document.getElementById('modal-venda-obs').value,
+      itens: itensVenda
     };
 
     const result = await window.api.criarVenda(dados);
     if (result.success) {
       await loadVendas();
+      await loadPecas(); // Recarregar peças para atualizar o estoque na lista
       await loadStats();
       closeModal();
       render();
@@ -1143,6 +1287,9 @@ async function showNovaVendaModal() {
       alert('Erro ao registrar venda: ' + result.message);
     }
   });
+
+  // Exportar funções necessárias para o escopo global do modal
+  window.adicionarItemLista = adicionarItemLista;
 }
 
 function showNovaContaReceberModal() {
