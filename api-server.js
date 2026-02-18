@@ -584,6 +584,18 @@ app.put('/api/ordens/:id', authenticateToken, async (req, res) => {
     }
 });
 
+// Excluir ordem de serviço (Apenas Admin)
+app.delete('/api/ordens/:id', authenticateToken, authorize(['ADMIN']), async (req, res) => {
+    try {
+        const { id } = req.params;
+        await pool.query('DELETE FROM ordens_servico WHERE id = $1', [id]);
+        res.json({ success: true, message: 'Ordem de serviço excluída com sucesso' });
+    } catch (error) {
+        console.error('Erro ao excluir ordem:', error);
+        res.status(500).json({ success: false, message: 'Erro ao excluir ordem: ' + error.message });
+    }
+});
+
 // ==================== ROTAS DE PEÇAS ====================
 
 // Listar peças

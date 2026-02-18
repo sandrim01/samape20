@@ -251,6 +251,10 @@ const WebAPI = {
         return await apiFetch(`/ordens/${id}`);
     },
 
+    async excluirOS(id) {
+        return await apiFetch(`/ordens/${id}`, { method: 'DELETE' });
+    },
+
     // Peças
     async criarPeca(dados) {
         return await apiFetch('/pecas', { method: 'POST', body: JSON.stringify(dados) });

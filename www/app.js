@@ -425,9 +425,16 @@ function renderOrdensTable(ordens) {
               <td><span class="badge badge-${statusBadges[os.status]}">${os.status.replace('_', ' ')}</span></td>
               <td>R$ ${formatMoney(os.valor_total)}</td>
               <td>
-                <button class="btn btn-secondary btn-sm" onclick="editarOS(${os.id})">
-                  Editar
-                </button>
+                <div style="display: flex; gap: 0.5rem;">
+                  <button class="btn btn-secondary btn-sm" onclick="editarOS(${os.id})">
+                    Editar
+                  </button>
+                  ${AppState.currentUser.cargo === 'ADMIN' ? `
+                    <button class="btn btn-danger btn-sm" onclick="confirmarExcluirOS(${os.id}, '${os.numero_os}')">
+                      Excluir
+                    </button>
+                  ` : ''}
+                </div>
               </td>
             </tr>
           `).join('')}
@@ -1636,3 +1643,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+
+// Função para excluir OS
+async function confirmarExcluirOS(id, numero) {
+  if (AppState.currentUser.cargo !== 'ADMIN') return alert('Acesso negado');
+
+  if (confirm(`Tem certeza que deseja excluir a Ordem de Serviço ${numero}? Esta ação não pode ser desfeita.`)) {
+    try {
+      const result = await window.api.excluirOS(id);
+      if (result.success) {
+        alert('Ordem de serviço excluída com sucesso!');
+        await loadOrdens(); // Recarregar dados
+        render(); // Re-renderizar interface
+      } else {
+        alert('Erro ao excluir: ' + result.message);
+      }
+    } catch (error) {
+      console.error('Erro na exclusão:', error);
+      alert('Erro de conexão ao excluir ordem');
+    }
+  }
+}

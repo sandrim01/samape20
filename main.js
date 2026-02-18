@@ -359,6 +359,15 @@ ipcMain.handle('obter-os', async (event, id) => {
   }
 });
 
+ipcMain.handle('excluir-os', async (event, id) => {
+  try {
+    await pool.query('DELETE FROM ordens_servico WHERE id = $1', [id]);
+    return { success: true };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
 // Peças
 ipcMain.handle('criar-peca', async (event, dados) => {
   try {

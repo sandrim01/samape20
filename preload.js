@@ -29,6 +29,7 @@ contextBridge.exposeInMainWorld('api', {
     listarOS: (filtros) => ipcRenderer.invoke('listar-os', filtros),
     obterOS: (id) => ipcRenderer.invoke('obter-os', id),
     atualizarOS: (id, dados) => ipcRenderer.invoke('atualizar-os', { id, dados }),
+    excluirOS: (id) => ipcRenderer.invoke('excluir-os', id),
 
     // Peças
     criarPeca: (dados) => ipcRenderer.invoke('criar-peca', dados),
