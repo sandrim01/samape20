@@ -10,8 +10,12 @@ const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET || 'samapeop-secret-key-2026';
-// Version: 2026-02-10 12:35
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+    console.error('ERRO CRÍTICO: JWT_SECRET não definida no arquivo .env');
+    process.exit(1);
+}
 
 // Configurar PostgreSQL
 const pool = new Pool({
@@ -45,6 +49,25 @@ const authenticateToken = (req, res, next) => {
         req.user = user;
         next();
     });
+};
+
+// Middleware de cargo (RBAC)
+const authorize = (allowedRoles = []) => {
+    return (req, res, next) => {
+        if (!req.user) {
+            return res.status(401).json({ success: false, message: 'Não autenticado' });
+        }
+
+        if (allowedRoles.length === 0 || req.user.cargo === 'ADMIN') {
+            return next();
+        }
+
+        if (allowedRoles.includes(req.user.cargo)) {
+            return next();
+        }
+
+        return res.status(403).json({ success: false, message: 'Acesso negado: cargo insuficiente' });
+    };
 };
 
 // ==================== ROTAS DE AUTENTICAÇÃO ====================
@@ -94,8 +117,8 @@ app.post('/api/login', async (req, res) => {
 
 // ==================== ROTAS DE USUÁRIOS ====================
 
-// Listar usuários
-app.get('/api/usuarios', authenticateToken, async (req, res) => {
+// Listar usuários (Apenas Admin)
+app.get('/api/usuarios', authenticateToken, authorize(['ADMIN']), async (req, res) => {
     try {
         const result = await pool.query(
             'SELECT id, nome, email, cargo, ativo, created_at FROM usuarios WHERE ativo = true ORDER BY nome'
@@ -107,8 +130,8 @@ app.get('/api/usuarios', authenticateToken, async (req, res) => {
     }
 });
 
-// Criar usuário
-app.post('/api/usuarios', authenticateToken, async (req, res) => {
+// Criar usuário (Apenas Admin)
+app.post('/api/usuarios', authenticateToken, authorize(['ADMIN']), async (req, res) => {
     try {
         const { nome, email, senha, cargo } = req.body;
 
@@ -133,8 +156,8 @@ app.post('/api/usuarios', authenticateToken, async (req, res) => {
     }
 });
 
-// Atualizar usuário
-app.put('/api/usuarios/:id', authenticateToken, async (req, res) => {
+// Atualizar usuário (Apenas Admin)
+app.put('/api/usuarios/:id', authenticateToken, authorize(['ADMIN']), async (req, res) => {
     try {
         const { id } = req.params;
         const { nome, email, senha, cargo, ativo } = req.body;
@@ -573,8 +596,8 @@ app.get('/api/pecas/:id', authenticateToken, async (req, res) => {
     }
 });
 
-// Atualizar peça
-app.put('/api/pecas/:id', authenticateToken, async (req, res) => {
+// Atualizar peça (Admin, Diretor, Vendas)
+app.put('/api/pecas/:id', authenticateToken, authorize(['ADMIN', 'DIRETOR', 'VENDAS']), async (req, res) => {
     try {
         const { id } = req.params;
         const { codigo, descricao, preco_custo, preco_venda, estoque_atual, estoque_minimo } = req.body;
@@ -588,8 +611,8 @@ app.put('/api/pecas/:id', authenticateToken, async (req, res) => {
     }
 });
 
-// Excluir peça
-app.delete('/api/pecas/:id', authenticateToken, async (req, res) => {
+// Excluir peça (Apenas Admin)
+app.delete('/api/pecas/:id', authenticateToken, authorize(['ADMIN']), async (req, res) => {
     try {
         const { id } = req.params;
         await pool.query('UPDATE pecas SET ativo = false WHERE id = $1', [id]);
@@ -599,8 +622,8 @@ app.delete('/api/pecas/:id', authenticateToken, async (req, res) => {
     }
 });
 
-// Criar peça
-app.post('/api/pecas', authenticateToken, async (req, res) => {
+// Criar peça (Admin, Diretor, Vendas)
+app.post('/api/pecas', authenticateToken, authorize(['ADMIN', 'DIRETOR', 'VENDAS']), async (req, res) => {
     try {
         const { codigo, nome, descricao, categoria, fabricante, quantidade_estoque, estoque_minimo, preco_custo, preco_venda } = req.body;
         const result = await pool.query(
@@ -633,8 +656,8 @@ app.patch('/api/pecas/:id/estoque', authenticateToken, async (req, res) => {
 
 // ==================== ROTAS DE VENDAS ====================
 
-// Listar vendas
-app.get('/api/vendas', authenticateToken, async (req, res) => {
+// Listar vendas (Admin, Diretor, Vendas)
+app.get('/api/vendas', authenticateToken, authorize(['ADMIN', 'DIRETOR', 'VENDAS']), async (req, res) => {
     try {
         const result = await pool.query(
             `SELECT v.*, c.nome as cliente_nome, u.nome as vendedor_nome
@@ -650,8 +673,8 @@ app.get('/api/vendas', authenticateToken, async (req, res) => {
     }
 });
 
-// Criar venda
-app.post('/api/vendas', authenticateToken, async (req, res) => {
+// Criar venda (Admin, Diretor, Vendas)
+app.post('/api/vendas', authenticateToken, authorize(['ADMIN', 'DIRETOR', 'VENDAS']), async (req, res) => {
     const client = await pool.connect();
     try {
         const { cliente_id, vendedor_id, valor_total, desconto, valor_final, forma_pagamento, observacoes, itens } = req.body;
@@ -704,8 +727,8 @@ app.post('/api/vendas', authenticateToken, async (req, res) => {
 
 // ==================== ROTAS DE CONTAS ====================
 
-// Listar contas a receber
-app.get('/api/contas-receber', authenticateToken, async (req, res) => {
+// Listar contas a receber (Admin, Diretor, Financeiro)
+app.get('/api/contas-receber', authenticateToken, authorize(['ADMIN', 'DIRETOR', 'FINANCEIRO']), async (req, res) => {
     try {
         const result = await pool.query(
             `SELECT cr.*, c.nome as cliente_nome
@@ -720,8 +743,8 @@ app.get('/api/contas-receber', authenticateToken, async (req, res) => {
     }
 });
 
-// Registrar pagamento a receber
-app.post('/api/contas-receber/:id/pagar', authenticateToken, async (req, res) => {
+// Registrar pagamento a receber (Admin, Diretor, Financeiro)
+app.post('/api/contas-receber/:id/pagar', authenticateToken, authorize(['ADMIN', 'DIRETOR', 'FINANCEIRO']), async (req, res) => {
     try {
         const { id } = req.params;
         const { data_pagamento } = req.body;
@@ -736,8 +759,8 @@ app.post('/api/contas-receber/:id/pagar', authenticateToken, async (req, res) =>
     }
 });
 
-// Listar contas a pagar
-app.get('/api/contas-pagar', authenticateToken, async (req, res) => {
+// Listar contas a pagar (Admin, Diretor, Financeiro)
+app.get('/api/contas-pagar', authenticateToken, authorize(['ADMIN', 'DIRETOR', 'FINANCEIRO']), async (req, res) => {
     try {
         const result = await pool.query(
             'SELECT * FROM contas_pagar ORDER BY data_vencimento'
@@ -749,8 +772,8 @@ app.get('/api/contas-pagar', authenticateToken, async (req, res) => {
     }
 });
 
-// Criar conta a pagar
-app.post('/api/contas-pagar', authenticateToken, async (req, res) => {
+// Criar conta a pagar (Admin, Diretor, Financeiro)
+app.post('/api/contas-pagar', authenticateToken, authorize(['ADMIN', 'DIRETOR', 'FINANCEIRO']), async (req, res) => {
     try {
         const { fornecedor, descricao, categoria, valor, data_vencimento, observacoes } = req.body;
         const result = await pool.query(
@@ -765,8 +788,8 @@ app.post('/api/contas-pagar', authenticateToken, async (req, res) => {
     }
 });
 
-// Registrar pagamento a pagar
-app.post('/api/contas-pagar/:id/pagar', authenticateToken, async (req, res) => {
+// Registrar pagamento a pagar (Admin, Diretor, Financeiro)
+app.post('/api/contas-pagar/:id/pagar', authenticateToken, authorize(['ADMIN', 'DIRETOR', 'FINANCEIRO']), async (req, res) => {
     try {
         const { id } = req.params;
         const { data_pagamento } = req.body;
@@ -783,7 +806,7 @@ app.post('/api/contas-pagar/:id/pagar', authenticateToken, async (req, res) => {
 
 // ==================== ROTA DE ESTATÍSTICAS ====================
 
-app.get('/api/stats', authenticateToken, async (req, res) => {
+app.get('/api/stats', authenticateToken, authorize(['ADMIN', 'DIRETOR', 'FINANCEIRO', 'VENDAS']), async (req, res) => {
     try {
         const stats = {};
 

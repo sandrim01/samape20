@@ -129,12 +129,12 @@ Host: shinkansen.proxy.rlwy.net
 Port: 47179
 Database: railway
 User: postgres
-Password: kbrfMrFmPcFTAFpoZGxNHYbHWiWOaSUQ
+Password: [PROTEGIDO NO ARQUIVO .ENV]
 ```
 
 ### **Connection String:**
 ```
-postgresql://postgres:kbrfMrFmPcFTAFpoZGxNHYbHWiWOaSUQ@shinkansen.proxy.rlwy.net:47179/railway
+[OCULTADO - USAR VARIÁVEL DATABASE_URL]
 ```
 
 ---
