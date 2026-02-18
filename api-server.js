@@ -542,6 +542,12 @@ app.put('/api/ordens/:id', authenticateToken, async (req, res) => {
         // Cálculo de valor total
         const valor_total = req.body.valor_total || (valor_mao_obra + valor_pecas + ((km_ida + km_volta) * valor_por_km));
 
+        // Se o status for FECHADA e não houver data_fechamento, usar a data atual
+        let finalDataFechamento = data_fechamento;
+        if (status === 'FECHADA' && !finalDataFechamento) {
+            finalDataFechamento = new Date();
+        }
+
         // Construir query dinâmica para atualizar apenas o que foi enviado ou manter integridade
         // Aqui usamos um update completo para simplificar, já que o front envia o objeto quase todo
         const result = await pool.query(
@@ -564,7 +570,7 @@ app.put('/api/ordens/:id', authenticateToken, async (req, res) => {
                 valor_pecas,
                 valor_total,
                 observacoes,
-                data_fechamento,
+                finalDataFechamento,
                 client_id,
                 machine_id,
                 mechanic_id,

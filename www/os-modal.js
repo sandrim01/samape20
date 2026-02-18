@@ -190,6 +190,13 @@ async function mostrarModalOS(osId = null) {
                 </select>
               </div>
 
+              ${isEdicao && osData.status === 'FECHADA' && osData.data_fechamento ? `
+                <div style="padding: 1rem; background: rgba(16, 185, 129, 0.1); border-radius: var(--radius); border-left: 3px solid var(--success); margin-top: -0.5rem; margin-bottom: 1rem;">
+                  <strong style="color: var(--success); font-size: 0.85rem;">✓ Concluída em:</strong> 
+                  <span style="color: var(--text-primary); font-weight: 600; font-size: 0.85rem;">${formatDate(osData.data_fechamento)}</span>
+                </div>
+              ` : ''}
+
               <div class="form-group">
                 <label class="form-label">Observações Internas</label>
                 <textarea class="form-input" id="os-observacoes" rows="3" placeholder="Anotações para controle interno...">${osData && osData.observacoes ? osData.observacoes : ''}</textarea>

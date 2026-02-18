@@ -368,6 +368,52 @@ ipcMain.handle('excluir-os', async (event, id) => {
   }
 });
 
+ipcMain.handle('atualizar-os', async (event, { id, dados }) => {
+  try {
+    // Cálculo do valor total
+    const valor_total = (parseFloat(dados.valor_mao_obra) || 0) +
+      (parseFloat(dados.valor_pecas) || 0) +
+      (((parseFloat(dados.km_ida) || 0) + (parseFloat(dados.km_volta) || 0)) * (parseFloat(dados.valor_por_km) || 0));
+
+    // Se o status for FECHADA e não houver data_fechamento, define como agora
+    let dataFechamento = dados.data_fechamento;
+    if (dados.status === 'FECHADA' && !dataFechamento) {
+      dataFechamento = new Date();
+    }
+
+    await pool.query(
+      `UPDATE ordens_servico 
+       SET cliente_id = $1, maquina_id = $2, mecanico_id = $3, status = $4, 
+           descricao_problema = $5, diagnostico = $6, km_ida = $7, km_volta = $8, 
+           valor_por_km = $9, valor_mao_obra = $10, valor_pecas = $11, 
+           valor_total = $12, observacoes = $13, data_fechamento = $14,
+           updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $15`,
+      [
+        parseInt(dados.cliente_id),
+        parseInt(dados.maquina_id),
+        parseInt(dados.mecanico_id),
+        dados.status,
+        dados.descricao_problema,
+        dados.diagnostico,
+        parseFloat(dados.km_ida) || 0,
+        parseFloat(dados.km_volta) || 0,
+        parseFloat(dados.valor_por_km) || 0,
+        parseFloat(dados.valor_mao_obra) || 0,
+        parseFloat(dados.valor_pecas) || 0,
+        valor_total,
+        dados.observacoes,
+        dataFechamento,
+        id
+      ]
+    );
+    return { success: true };
+  } catch (error) {
+    console.error('Erro ao atualizar OS:', error);
+    return { success: false, message: error.message };
+  }
+});
+
 // Peças
 ipcMain.handle('criar-peca', async (event, dados) => {
   try {
