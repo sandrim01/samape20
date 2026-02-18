@@ -26,9 +26,11 @@ const pool = new Pool({
     }
 });
 
-// Middleware de Segurança
+// Middleware de Segurança - Suavizado para compatibilidade com Mobile/Desktop
 app.use(helmet({
-    contentSecurityPolicy: false, // Desabilitado para facilitar carregamento de scripts externos se necessário
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
 // Proteção contra ataques de força bruta (Rate Limiting)
@@ -914,7 +916,7 @@ app.get('/api/health', (req, res) => {
     res.json({
         success: true,
         message: 'API SAMAPEOP funcionando!',
-        version: 'v1.0.4-fix-persistence-methods',
+        version: 'v1.0.5-fullscreen-sync',
         timestamp: new Date()
     });
 });
