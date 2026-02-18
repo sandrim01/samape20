@@ -138,7 +138,7 @@ app.post('/api/login', async (req, res) => {
 app.get('/api/usuarios', authenticateToken, authorize(['ADMIN']), async (req, res) => {
     try {
         const result = await pool.query(
-            'SELECT id, nome, email, cargo, ativo, created_at FROM usuarios WHERE ativo = true ORDER BY nome'
+            'SELECT id, nome, email, cargo, ativo, created_at FROM usuarios ORDER BY nome'
         );
         res.json({ success: true, users: result.rows });
     } catch (error) {
