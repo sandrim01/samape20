@@ -4,6 +4,8 @@ const bodyParser = require('body-parser');
 const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const path = require('path');
@@ -24,7 +26,21 @@ const pool = new Pool({
     }
 });
 
-// Middleware
+// Middleware de Segurança
+app.use(helmet({
+    contentSecurityPolicy: false, // Desabilitado para facilitar carregamento de scripts externos se necessário
+}));
+
+// Proteção contra ataques de força bruta (Rate Limiting)
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutos
+    max: 100, // limite de 100 requisições por IP por janela
+    message: { success: false, message: 'Muitas requisições deste IP, tente novamente mais tarde.' }
+});
+
+// Aplicar limite apenas na API (não nos arquivos estáticos)
+app.use('/api/', limiter);
+
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
