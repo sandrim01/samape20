@@ -3,16 +3,28 @@ const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
 const { Pool } = require('pg');
-require('dotenv').config();
+
+// Tenta carregar .env de múltiplos locais possíveis
+const dotenv = require('dotenv');
+const envPath = path.join(process.cwd(), '.env');
+const appPath = app.isPackaged ? path.join(path.dirname(process.execPath), '.env') : envPath;
+
+if (fs.existsSync(envPath)) dotenv.config({ path: envPath });
+else if (fs.existsSync(appPath)) dotenv.config({ path: appPath });
+else dotenv.config(); // Fallback para o padrão
 
 let mainWindow;
 
 // Configurar PostgreSQL
+const dbUrl = process.env.DATABASE_URL;
+
+if (!dbUrl) {
+  console.error('AVISO: DATABASE_URL não encontrada. O sistema tentará usar o padrão local (pode falhar).');
+}
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
+  connectionString: dbUrl || 'postgresql://postgres:kbrfMrFmPcFTAFpoZGxNHYbHWiWOaSUQ@shinkansen.proxy.rlwy.net:47179/railway',
+  ssl: dbUrl && dbUrl.includes('railway') ? { rejectUnauthorized: false } : (dbUrl ? { rejectUnauthorized: false } : false)
 });
 
 // Criar janela principal

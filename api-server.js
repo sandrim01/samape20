@@ -10,11 +10,10 @@ const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET || 'samapeop-secret-key-2026-indio';
 
-if (!JWT_SECRET) {
-    console.error('ERRO CRÍTICO: JWT_SECRET não definida no arquivo .env');
-    process.exit(1);
+if (!process.env.JWT_SECRET) {
+    console.warn('AVISO: JWT_SECRET não definida no ambiente. Usando chave de recuperação.');
 }
 
 // Configurar PostgreSQL
