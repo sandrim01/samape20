@@ -18,7 +18,7 @@ if (!process.env.JWT_SECRET) {
 
 // Configurar PostgreSQL
 const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: process.env.DATABASE_URL || 'postgresql://postgres:kbrfMrFmPcFTAFpoZGxNHYbHWiWOaSUQ@shinkansen.proxy.rlwy.net:47179/railway',
     ssl: {
         rejectUnauthorized: false
     }

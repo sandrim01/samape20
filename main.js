@@ -24,7 +24,9 @@ if (!dbUrl) {
 
 const pool = new Pool({
   connectionString: dbUrl || 'postgresql://postgres:kbrfMrFmPcFTAFpoZGxNHYbHWiWOaSUQ@shinkansen.proxy.rlwy.net:47179/railway',
-  ssl: dbUrl && dbUrl.includes('railway') ? { rejectUnauthorized: false } : (dbUrl ? { rejectUnauthorized: false } : false)
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
 
 // Criar janela principal

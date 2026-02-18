@@ -351,7 +351,7 @@ const WebAPI = {
 
 // Expõe a API como global para o app.js
 // No Android/Web, sempre usamos a WebAPI. No Electron, misturamos.
-const finalAPI = { ...(window.api || {}), ...WebAPI };
+const finalAPI = { ...WebAPI, ...(window.api || {}) };
 
 // No Electron, o window.api já tem algumas coisas via preload.js (interação com IPC)
 // Queremos garantir que os métodos de LocalStore/Auth do WebAPI não quebrem o Electron
