@@ -713,6 +713,88 @@ tr:hover {
   gap: 1rem;
 }
 
+@media (max-width: 768px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-container {
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 100vh !important;
+    border-radius: 0 !important;
+  }
+
+  .modal-body {
+    padding: 1rem !important;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .topbar {
+    padding: 0 1rem;
+  }
+
+  .login-box {
+    padding: 2rem;
+  }
+
+  .card {
+    padding: 1rem;
+  }
+
+  /* Mobile Accordion Logic for Stat Cards */
+  .stat-card {
+    cursor: pointer;
+    max-height: 85px;
+    /* Altura aproximada apenas do header */
+    overflow: hidden;
+    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    padding-bottom: 0;
+  }
+
+  .stat-card.expanded {
+    max-height: 200px;
+    /* Altura suficiente para o conteúdo */
+    padding-bottom: 1.5rem;
+    background: var(--bg-tertiary);
+    /* Destaque visual leve quando aberto */
+  }
+
+  .stat-card::after {
+    content: '▼';
+    position: absolute;
+    top: 1.5rem;
+    right: 1rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    transition: transform 0.3s;
+  }
+
+  .stat-card.expanded::after {
+    transform: rotate(180deg);
+  }
+
+  /* Esconder a barra de progresso e footer quando fechado */
+  .stat-card:not(.expanded) .stat-value-large,
+  .stat-card:not(.expanded) .stat-progress-bar,
+  .stat-card:not(.expanded) .stat-footer {
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .stat-card.expanded .stat-value-large,
+  .stat-card.expanded .stat-progress-bar,
+  .stat-card.expanded .stat-footer {
+    opacity: 1;
+    transition: opacity 0.4s 0.1s;
+    /* Delay para aparecer suavemente */
+  }
+}
+
 .form-group-full {
   grid-column: 1 / -1;
 }
@@ -827,11 +909,30 @@ textarea.form-input {
   font-size: 1.25rem;
 }
 
-.stat-icon-bg.warning { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
-.stat-icon-bg.primary { background: rgba(37, 99, 235, 0.1); color: var(--primary-light); }
-.stat-icon-bg.success { background: rgba(16, 185, 129, 0.1); color: var(--success); }
-.stat-icon-bg.danger { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
-.stat-icon-bg.info { background: rgba(6, 182, 212, 0.1); color: var(--info); }
+.stat-icon-bg.warning {
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--warning);
+}
+
+.stat-icon-bg.primary {
+  background: rgba(37, 99, 235, 0.1);
+  color: var(--primary-light);
+}
+
+.stat-icon-bg.success {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--success);
+}
+
+.stat-icon-bg.danger {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+}
+
+.stat-icon-bg.info {
+  background: rgba(6, 182, 212, 0.1);
+  color: var(--info);
+}
 
 .stat-value-large {
   font-size: 2.25rem;
@@ -897,9 +998,20 @@ textarea.form-input {
   flex-shrink: 0;
 }
 
-.activity-icon.info { background: rgba(6, 182, 212, 0.1); color: var(--info); }
-.activity-icon.success { background: rgba(16, 185, 129, 0.1); color: var(--success); }
-.activity-icon.primary { background: rgba(37, 99, 235, 0.1); color: var(--primary-light); }
+.activity-icon.info {
+  background: rgba(6, 182, 212, 0.1);
+  color: var(--info);
+}
+
+.activity-icon.success {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--success);
+}
+
+.activity-icon.primary {
+  background: rgba(37, 99, 235, 0.1);
+  color: var(--primary-light);
+}
 
 .activity-title {
   font-size: 0.9rem;

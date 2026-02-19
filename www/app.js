@@ -260,7 +260,7 @@ function renderDashboard() {
     </div>
 
     <div class="stats-grid">
-      <div class="stat-card premium">
+      <div class="stat-card premium" onclick="this.classList.toggle('expanded')">
         <div class="stat-header">
           <span class="stat-label">Ordens Abertas</span>
           <div class="stat-icon-bg warning">🔧</div>
@@ -272,7 +272,7 @@ function renderDashboard() {
         <div class="stat-footer">Aguardando início</div>
       </div>
 
-      <div class="stat-card premium">
+      <div class="stat-card premium" onclick="this.classList.toggle('expanded')">
         <div class="stat-header">
           <span class="stat-label">Em Execução</span>
           <div class="stat-icon-bg primary">⚙️</div>
@@ -285,7 +285,7 @@ function renderDashboard() {
       </div>
 
       ${hasPermission('pecas') ? `
-        <div class="stat-card premium">
+        <div class="stat-card premium" onclick="this.classList.toggle('expanded')">
           <div class="stat-header">
             <span class="stat-label">Crítico de Estoque</span>
             <div class="stat-icon-bg warning">📦</div>
@@ -296,7 +296,7 @@ function renderDashboard() {
       ` : ''}
 
       ${hasPermission('vendas') ? `
-        <div class="stat-card premium">
+        <div class="stat-card premium" onclick="this.classList.toggle('expanded')">
           <div class="stat-header">
             <span class="stat-label">Vendas do Mês</span>
             <div class="stat-icon-bg info">🛒</div>
@@ -306,7 +306,7 @@ function renderDashboard() {
         </div>
       ` : ''}
 
-      <div class="stat-card premium">
+      <div class="stat-card premium" onclick="this.classList.toggle('expanded')">
         <div class="stat-header">
           <span class="stat-label">Saúde do Serviço (Méd.)</span>
           <div class="stat-icon-bg" style="background: ${getHealthColor(stats.tempo_medio_os)}22; color: ${getHealthColor(stats.tempo_medio_os)};">⚡</div>
@@ -316,11 +316,11 @@ function renderDashboard() {
       </div>
     </div>
 
-    <div class="dashboard-grid-two">
+    <div class="dashboard-grid-two" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
       <div class="card">
         <div class="card-header">
           <h2 class="card-title">Ordens Recentes</h2>
-          <span class="card-link" onclick="AppState.currentPage = 'ordens-servico'; render();">Ver todas →</span>
+          <span class="card-link" onclick="AppState.currentPage = 'ordens-servico'; render();" style="cursor: pointer; color: var(--primary-light); font-size: 0.9rem;">Ver todas →</span>
         </div>
         ${renderOrdensTable(AppState.data.ordens.slice(0, 5))}
       </div>
@@ -330,25 +330,25 @@ function renderDashboard() {
           <h2 class="card-title">Resumo de Atividades</h2>
         </div>
         <div class="activity-list">
-          <div class="activity-item">
-            <div class="activity-icon info">📝</div>
+          <div class="activity-item" style="display: flex; gap: 1rem; padding: 1rem 0; border-bottom: 1px solid var(--border);">
+            <div class="activity-icon info" style="font-size: 1.5rem;">📝</div>
             <div class="activity-body">
-              <div class="activity-title">Sistema Operacional</div>
-              <div class="activity-time">Conectado ao PostgreSQL Railway</div>
+              <div class="activity-title" style="font-weight: 600;">Sistema Operacional</div>
+              <div class="activity-time" style="font-size: 0.85rem; color: var(--text-muted);">Conectado ao PostgreSQL Railway</div>
             </div>
           </div>
-          <div class="activity-item">
-            <div class="activity-icon success">🏢</div>
+          <div class="activity-item" style="display: flex; gap: 1rem; padding: 1rem 0; border-bottom: 1px solid var(--border);">
+            <div class="activity-icon success" style="font-size: 1.5rem;">🏢</div>
             <div class="activity-body">
-              <div class="activity-title">${AppState.data.clientes.length} Clientes Ativos</div>
-              <div class="activity-time">Base de dados sincronizada</div>
+              <div class="activity-title" style="font-weight: 600;">${AppState.data.clientes.length} Clientes Ativos</div>
+              <div class="activity-time" style="font-size: 0.85rem; color: var(--text-muted);">Base de dados sincronizada</div>
             </div>
           </div>
-          <div class="activity-item">
-            <div class="activity-icon primary">🚜</div>
+          <div class="activity-item" style="display: flex; gap: 1rem; padding: 1rem 0;">
+            <div class="activity-icon primary" style="font-size: 1.5rem;">🚜</div>
             <div class="activity-body">
-              <div class="activity-title">${AppState.data.maquinas.length} Máquinas Registradas</div>
-              <div class="activity-time">Frota completa sob gestão</div>
+              <div class="activity-title" style="font-weight: 600;">${AppState.data.maquinas.length} Máquinas Registradas</div>
+              <div class="activity-time" style="font-size: 0.85rem; color: var(--text-muted);">Frota completa sob gestão</div>
             </div>
           </div>
         </div>

@@ -464,26 +464,6 @@ async function gerarPDFOS(osId) {
 
     // Criar conteúdo HTML para impressão
     const printContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <title>OS ${normalizedOS.numero_os} - SAMAPEOP</title>
-        <style>
-          body { font-family: sans-serif; padding: 20px; color: #333; line-height: 1.5; }
-          .header { text-align: center; border-bottom: 2px solid #2563eb; margin-bottom: 20px; padding-bottom: 10px; }
-          .os-number { font-size: 24px; font-weight: bold; color: #2563eb; }
-          .section { margin-bottom: 20px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }
-          .section-header { background: #f3f4f6; padding: 10px; font-weight: bold; border-bottom: 1px solid #ddd; }
-          .section-body { padding: 15px; }
-          .info-row { display: flex; margin-bottom: 5px; }
-          .info-label { font-weight: bold; width: 150px; }
-          .total-box { background: #2563eb; color: white; padding: 20px; text-align: center; border-radius: 8px; font-size: 24px; font-weight: bold; margin-top: 20px; }
-          .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; }
-          @media print { .no-print { display: none; } }
-        </style>
-      </head>
-      <body>
         <div class="header">
           <img src="resources/logonova2.png" alt="SAMAPE" style="width: 150px;">
           <h1>ORDEM DE SERVIÇO</h1>
@@ -523,19 +503,58 @@ async function gerarPDFOS(osId) {
         <div class="footer">
           <p>SAMAPE ÍNDIO - Sistema de Gerenciamento de Manutenção</p>
           <p>Impressão realizada em ${new Date().toLocaleString('pt-BR')}</p>
-          <div class="no-print" style="margin-top: 20px;">
-            <button onclick="window.print()" style="padding: 10px 20px; cursor: pointer;">Imprimir documento</button>
-          </div>
         </div>
-      </body>
-      </html>
     `;
 
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(printContent);
-      printWindow.document.close();
-    }
+    // Criar overlay para visualização
+    const overlay = document.createElement('div');
+    overlay.id = 'print-overlay';
+    overlay.style.cssText = `
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: white; z-index: 20000; overflow-y: auto; color: #333;
+        font-family: sans-serif;
+    `;
+
+    overlay.innerHTML = `
+        <style>
+          .print-container { max-width: 800px; margin: 0 auto; padding: 20px; }
+          .header { text-align: center; border-bottom: 2px solid #2563eb; margin-bottom: 20px; padding-bottom: 10px; }
+          .os-number { font-size: 24px; font-weight: bold; color: #2563eb; }
+          .section { margin-bottom: 20px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }
+          .section-header { background: #f3f4f6; padding: 10px; font-weight: bold; border-bottom: 1px solid #ddd; }
+          .section-body { padding: 15px; }
+          .info-row { display: flex; margin-bottom: 5px; }
+          .info-label { font-weight: bold; width: 150px; }
+          .total-box { background: #2563eb; color: white; padding: 20px; text-align: center; border-radius: 8px; font-size: 24px; font-weight: bold; margin-top: 20px; }
+          .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; }
+          
+          .print-controls {
+            position: fixed; bottom: 20px; right: 20px; display: flex; gap: 10px; z-index: 20001;
+            background: white; padding: 10px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+          }
+          .btn-print { background: #2563eb; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+          .btn-close { background: #ef4444; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+          
+          @media print { 
+            .print-controls { display: none; }
+            .print-container { width: 100%; max-width: none; padding: 0; }
+          }
+          @media (max-width: 600px) {
+            .info-row { flex-direction: column; }
+            .info-label { width: 100%; margin-bottom: 2px; color: #666; font-size: 0.9em; }
+          }
+        </style>
+        <div class="print-container">
+            ${printContent}
+        </div>
+        <div class="print-controls">
+            <button class="btn-close" onclick="document.getElementById('print-overlay').remove()">Fechar</button>
+            <button class="btn-print" onclick="window.print()">🖨️ Imprimir / PDF</button>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
   } catch (error) {
     console.error('Erro ao gerar PDF:', error);
   }

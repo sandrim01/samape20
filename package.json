@@ -26,10 +26,10 @@
         "rcedit": "^5.0.2"
     },
     "dependencies": {
-        "@capacitor/android": "^8.0.2",
-        "@capacitor/cli": "^8.0.2",
-        "@capacitor/core": "^8.0.2",
-        "@capacitor/ios": "^8.0.2",
+        "@capacitor/android": "^5.7.0",
+        "@capacitor/cli": "^5.7.0",
+        "@capacitor/core": "^5.7.0",
+        "@capacitor/ios": "^5.7.0",
         "astral-regex": "^2.0.0",
         "bcryptjs": "^2.4.3",
         "body-parser": "^2.2.2",
