@@ -25,8 +25,8 @@ async function mostrarModalOS(osId = null) {
   const mecanicos = (mecanicosRes.usuarios || []).filter(u => u.cargo === 'MECANICO' || u.cargo === 'ADMIN');
 
   const modalHTML = `
-    <div class="modal-overlay" id="modal-os">
-      <div class="modal-container" style="max-width: 800px; width: 95%; max-height: 95vh; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-xl); overflow: hidden; display: flex; flex-direction: column; position: relative;">
+    <div class="modal-overlay" id="modal-os" style="z-index: 9999;">
+      <div class="modal-container" style="max-width: 800px; width: 95%; max-height: 95vh; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-xl); overflow: hidden; display: flex; flex-direction: column; position: relative; z-index: 10000;">
         
         <!-- HEADER COM INDICADOR DE ETAPAS -->
         <div class="modal-header" style="background: var(--bg-secondary); border-bottom: 1px solid var(--border); padding: 1.5rem; display: block;">
@@ -60,7 +60,7 @@ async function mostrarModalOS(osId = null) {
           </div>
         </div>
         
-        <form id="form-os" class="modal-body" style="flex: 1; overflow-y: auto; padding: 2rem; background: var(--bg-primary);">
+        <form id="form-os" class="modal-body" style="flex: 1; overflow-y: auto; padding: 2rem; background: var(--bg-primary);" novalidate>
           
           <!-- ETAPA 1: IDENTIFICAÇÃO -->
           <div id="os-step-1" class="os-form-step">
@@ -71,7 +71,7 @@ async function mostrarModalOS(osId = null) {
                 </div>
                 <div class="form-group">
                   <label class="form-label">Cliente *</label>
-                  <select class="form-input" id="os-cliente" required ${isEdicao && osData.status !== 'ABERTA' ? 'disabled' : ''}>
+                  <select class="form-input" id="os-cliente" required>
                     <option value="">Selecione um cliente</option>
                     ${clientes.map(c => `
                       <option value="${c.id}" ${osData && osData.cliente_id === c.id ? 'selected' : ''}>
@@ -88,7 +88,7 @@ async function mostrarModalOS(osId = null) {
                 </div>
                 <div class="form-group">
                   <label class="form-label">Máquina *</label>
-                  <select class="form-input" id="os-maquina" required ${isEdicao && osData.status !== 'ABERTA' ? 'disabled' : ''}>
+                  <select class="form-input" id="os-maquina" required>
                     <option value="">Selecione uma máquina</option>
                   </select>
                 </div>
@@ -100,7 +100,7 @@ async function mostrarModalOS(osId = null) {
                 </div>
                 <div class="form-group">
                   <label class="form-label">Mecânico *</label>
-                  <select class="form-input" id="os-mecanico" required ${isEdicao && osData.status !== 'ABERTA' ? 'disabled' : ''}>
+                  <select class="form-input" id="os-mecanico" required>
                     <option value="">Selecione um mecânico</option>
                     ${mecanicos.map(m => `
                       <option value="${m.id}" ${osData && osData.mecanico_id === m.id ? 'selected' : ''}>
@@ -183,7 +183,7 @@ async function mostrarModalOS(osId = null) {
               <!-- STATUS E OBS -->
               <div class="form-group">
                 <label class="form-label">Status da OS</label>
-                <select class="form-input" id="os-status" ${isEdicao && osData.status === 'FECHADA' ? 'disabled' : ''}>
+                <select class="form-input" id="os-status">
                   <option value="ABERTA" ${osData?.status === 'ABERTA' ? 'selected' : ''}>🔵 Aberta</option>
                   <option value="EM_ANDAMENTO" ${osData?.status === 'EM_ANDAMENTO' ? 'selected' : ''}>🟡 Em Andamento</option>
                   <option value="FECHADA" ${osData?.status === 'FECHADA' ? 'selected' : ''}>🟢 Fechada</option>
@@ -559,3 +559,5 @@ async function loadOrdens() {
     await loadOrdensServico();
   }
 }
+
+window.gerarPDFOS = gerarPDFOS;

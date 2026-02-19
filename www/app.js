@@ -429,6 +429,12 @@ function renderOrdensTable(ordens) {
                   <button class="btn btn-secondary btn-sm" onclick="editarOS(${os.id})">
                     Editar
                   </button>
+                  <button class="btn btn-secondary btn-sm" onclick="window.gerarPDFOS(${os.id})" title="Imprimir">
+                    🖨️
+                  </button>
+                  <button class="btn btn-info btn-sm" onclick="window.gerarPDFOS(${os.id})" title="Gerar PDF">
+                    📄
+                  </button>
                   ${AppState.currentUser.cargo === 'ADMIN' ? `
                     <button class="btn btn-danger btn-sm" onclick="confirmarExcluirOS(${os.id}, '${os.numero_os}')">
                       Excluir
