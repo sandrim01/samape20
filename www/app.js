@@ -1,6 +1,6 @@
 // Estado global da aplicação
 const AppState = {
-  version: '1.0.1', // Versão Oficial Atualizada
+  version: '1.0.0', // Versão Local (Teste OTA)
   currentUser: null,
   currentPage: 'dashboard',
   menuOpen: false, // Controle do menu cascata
@@ -1718,9 +1718,6 @@ async function loadAllData() {
     loadStats(),
     AppState.currentUser.cargo === 'ADMIN' ? loadLogs() : Promise.resolve()
   ]);
-
-  // Verificar atualizações após carregar os dados
-  checkUpdates();
 }
 
 async function checkUpdates() {
@@ -1888,6 +1885,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!window.api) {
         throw new Error('API não carregada. Verifique o arquivo api-client.js');
       }
+
+      // Verificar atualizações imediatamente ao abrir o app
+      checkUpdates();
 
       // Verificar se há uma sessão salva
       const savedUser = window.api.getUser();
