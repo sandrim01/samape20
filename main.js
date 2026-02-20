@@ -179,41 +179,51 @@ ipcMain.handle('verificar-atualizacao', async () => {
 // Download Interno com Progresso
 ipcMain.handle('baixar-arquivo', async (event, { url, nomeArquivo }) => {
   const downloadPath = path.join(app.getPath('downloads'), nomeArquivo);
-  const file = fs.createWriteStream(downloadPath);
 
-  return new Promise((resolve, reject) => {
-    https.get(url, (response) => {
-      if (response.statusCode !== 200) {
-        reject(new Error(`Erro ao baixar: ${response.statusCode}`));
-        return;
-      }
+  const downloadProgressive = (targetUrl, targetPath) => {
+    return new Promise((resolve, reject) => {
+      https.get(targetUrl, (response) => {
+        // Seguir redirecionamentos (301/302)
+        if (response.statusCode === 301 || response.statusCode === 302) {
+          return downloadProgressive(response.headers.location, targetPath).then(resolve).catch(reject);
+        }
 
-      const totalBytes = parseInt(response.headers['content-length'], 10);
-      let downloadedBytes = 0;
+        if (response.statusCode !== 200) {
+          reject(new Error(`Erro ao baixar: ${response.statusCode}`));
+          return;
+        }
 
-      response.on('data', (chunk) => {
-        downloadedBytes += chunk.length;
-        file.write(chunk);
+        const file = fs.createWriteStream(targetPath);
+        const totalBytes = parseInt(response.headers['content-length'], 10);
+        let downloadedBytes = 0;
 
-        // Enviar progresso para o frontend
-        const progress = (downloadedBytes / totalBytes) * 100;
-        event.sender.send('download-progress', { progress, downloadedBytes, totalBytes });
-      });
+        response.on('data', (chunk) => {
+          downloadedBytes += chunk.length;
+          file.write(chunk);
 
-      response.on('end', () => {
-        file.end();
-        resolve({ success: true, path: downloadPath });
-      });
+          // Enviar progresso para o frontend (apenas se tivermos o total)
+          if (totalBytes) {
+            const progress = (downloadedBytes / totalBytes) * 100;
+            event.sender.send('download-progress', { progress, downloadedBytes, totalBytes });
+          }
+        });
 
-      response.on('error', (err) => {
-        fs.unlink(downloadPath, () => { });
+        response.on('end', () => {
+          file.end();
+          resolve({ success: true, path: targetPath });
+        });
+
+        response.on('error', (err) => {
+          fs.unlink(targetPath, () => { });
+          reject(err);
+        });
+      }).on('error', (err) => {
         reject(err);
       });
-    }).on('error', (err) => {
-      fs.unlink(downloadPath, () => { });
-      reject(err);
     });
-  });
+  };
+
+  return downloadProgressive(url, downloadPath);
 });
 
 ipcMain.handle('executar-arquivo', async (event, filePath) => {
