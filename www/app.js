@@ -12,6 +12,13 @@ const AppState = {
     vendas: [],
     usuarios: [],
     stats: {}
+  },
+  filters: {
+    ordens: { search: '', status: '' },
+    maquinas: { search: '' },
+    pecas: { search: '' },
+    clientes: { search: '' },
+    vendas: { search: '' }
   }
 };
 
@@ -35,12 +42,27 @@ function hasPermission(permission) {
 function render() {
   try {
     const app = document.getElementById('app');
+    const activeId = document.activeElement ? document.activeElement.id : null;
+    const selection = document.activeElement && document.activeElement.tagName === 'INPUT'
+      ? { start: document.activeElement.selectionStart, end: document.activeElement.selectionEnd }
+      : null;
 
     if (!AppState.currentUser) {
       app.innerHTML = renderLogin();
     } else {
       app.innerHTML = renderMainApp();
       attachEventListeners();
+
+      // Restaurar foco e seleção
+      if (activeId) {
+        const el = document.getElementById(activeId);
+        if (el) {
+          el.focus();
+          if (selection && el.setSelectionRange) {
+            el.setSelectionRange(selection.start, selection.end);
+          }
+        }
+      }
     }
   } catch (error) {
     console.error('Erro na renderização:', error);
@@ -359,6 +381,19 @@ function renderDashboard() {
 
 // ==================== ORDENS DE SERVIÇO ====================
 function renderOrdensServico() {
+  const filters = AppState.filters.ordens;
+  const filteredOrdens = AppState.data.ordens.filter(os => {
+    const searchMatch = !filters.search ||
+      (os.numero_os && os.numero_os.toString().toLowerCase().includes(filters.search.toLowerCase())) ||
+      (os.cliente_nome && os.cliente_nome.toLowerCase().includes(filters.search.toLowerCase())) ||
+      (os.maquina_modelo && os.maquina_modelo.toLowerCase().includes(filters.search.toLowerCase())) ||
+      (os.mecanico_nome && os.mecanico_nome.toLowerCase().includes(filters.search.toLowerCase()));
+
+    const statusMatch = !filters.status || os.status === filters.status;
+
+    return searchMatch && statusMatch;
+  });
+
   return `
     <div class="card">
       <div class="card-header">
@@ -368,16 +403,25 @@ function renderOrdensServico() {
         </button>
       </div>
 
-      <div style="margin-bottom: 1.5rem; display: flex; gap: 1rem;">
+      <div class="filter-bar" style="margin-bottom: 1.5rem; display: flex; gap: 1rem; flex-wrap: wrap;">
+        <div class="search-box" style="flex: 1; min-width: 250px;">
+          <input 
+            type="text" 
+            class="form-input" 
+            id="filtro-busca-os" 
+            placeholder="Buscar por número, cliente, máquina..." 
+            value="${filters.search}"
+          />
+        </div>
         <select class="form-input" id="filtro-status-os" style="max-width: 200px;">
           <option value="">Todos os Status</option>
-          <option value="ABERTA">Abertas</option>
-          <option value="EM_ANDAMENTO">Em Andamento</option>
-          <option value="FECHADA">Fechadas</option>
+          <option value="ABERTA" ${filters.status === 'ABERTA' ? 'selected' : ''}>Abertas</option>
+          <option value="EM_ANDAMENTO" ${filters.status === 'EM_ANDAMENTO' ? 'selected' : ''}>Em Andamento</option>
+          <option value="FECHADA" ${filters.status === 'FECHADA' ? 'selected' : ''}>Fechadas</option>
         </select>
       </div>
 
-      ${renderOrdensTable(AppState.data.ordens)}
+      ${renderOrdensTable(filteredOrdens)}
     </div>
   `;
 }
@@ -452,6 +496,14 @@ function renderOrdensTable(ordens) {
 
 // ==================== MÁQUINAS ====================
 function renderMaquinas() {
+  const search = AppState.filters.maquinas.search;
+  const filteredMaquinas = AppState.data.maquinas.filter(maq => {
+    return !search ||
+      (maq.modelo && maq.modelo.toLowerCase().includes(search.toLowerCase())) ||
+      (maq.cliente_nome && maq.cliente_nome.toLowerCase().includes(search.toLowerCase())) ||
+      (maq.numero_serie && maq.numero_serie.toLowerCase().includes(search.toLowerCase()));
+  });
+
   return `
     <div class="card">
       <div class="card-header">
@@ -460,7 +512,18 @@ function renderMaquinas() {
           + Nova Máquina
         </button>
       </div>
-      ${renderMaquinasTable(AppState.data.maquinas)}
+
+      <div class="filter-bar" style="margin-bottom: 1.5rem;">
+        <input 
+          type="text" 
+          class="form-input" 
+          id="filtro-busca-maquinas" 
+          placeholder="Buscar por modelo, cliente ou série..." 
+          value="${search}"
+        />
+      </div>
+
+      ${renderMaquinasTable(filteredMaquinas)}
     </div>
   `;
 }
@@ -512,6 +575,14 @@ function renderMaquinasTable(maquinas) {
 
 // ==================== PEÇAS ====================
 function renderPecas() {
+  const search = AppState.filters.pecas.search;
+  const filteredPecas = AppState.data.pecas.filter(peca => {
+    return !search ||
+      (peca.codigo && peca.codigo.toLowerCase().includes(search.toLowerCase())) ||
+      (peca.nome && peca.nome.toLowerCase().includes(search.toLowerCase())) ||
+      (peca.descricao && peca.descricao.toLowerCase().includes(search.toLowerCase()));
+  });
+
   return `
     <div class="card">
       <div class="card-header">
@@ -520,7 +591,18 @@ function renderPecas() {
           + Nova Peça
         </button>
       </div>
-      ${renderPecasTable(AppState.data.pecas)}
+
+      <div class="filter-bar" style="margin-bottom: 1.5rem;">
+        <input 
+          type="text" 
+          class="form-input" 
+          id="filtro-busca-pecas" 
+          placeholder="Buscar por código ou descrição..." 
+          value="${search}"
+        />
+      </div>
+
+      ${renderPecasTable(filteredPecas)}
     </div>
   `;
 }
@@ -583,6 +665,14 @@ function renderPecasTable(pecas) {
 
 // ==================== VENDAS ====================
 function renderVendas() {
+  const search = AppState.filters.vendas.search;
+  const filteredVendas = AppState.data.vendas.filter(v => {
+    return !search ||
+      (v.numero_venda && v.numero_venda.toString().toLowerCase().includes(search.toLowerCase())) ||
+      (v.cliente_nome && v.cliente_nome.toLowerCase().includes(search.toLowerCase())) ||
+      (v.vendedor_nome && v.vendedor_nome.toLowerCase().includes(search.toLowerCase()));
+  });
+
   return `
     <div class="card">
       <div class="card-header">
@@ -591,7 +681,18 @@ function renderVendas() {
           + Nova Venda
         </button>
       </div>
-      ${renderVendasTable(AppState.data.vendas)}
+
+      <div class="filter-bar" style="margin-bottom: 1.5rem;">
+        <input 
+          type="text" 
+          class="form-input" 
+          id="filtro-busca-vendas" 
+          placeholder="Buscar por número, cliente ou vendedor..." 
+          value="${search}"
+        />
+      </div>
+
+      ${renderVendasTable(filteredVendas)}
     </div>
   `;
 }
@@ -639,6 +740,14 @@ function renderVendasTable(vendas) {
 
 // ==================== USUÁRIOS ====================
 function renderClientes() {
+  const search = AppState.filters.clientes.search;
+  const filteredClientes = AppState.data.clientes.filter(c => {
+    return !search ||
+      (c.nome && c.nome.toLowerCase().includes(search.toLowerCase())) ||
+      (c.cnpj && c.cnpj.toLowerCase().includes(search.toLowerCase())) ||
+      (c.email && c.email.toLowerCase().includes(search.toLowerCase()));
+  });
+
   return `
     <div class="card" >
       <div class="card-header">
@@ -647,7 +756,18 @@ function renderClientes() {
           + Novo Cliente
         </button>
       </div>
-      ${renderClientesTable(AppState.data.clientes)}
+
+      <div class="filter-bar" style="margin-bottom: 1.5rem;">
+        <input 
+          type="text" 
+          class="form-input" 
+          id="filtro-busca-clientes" 
+          placeholder="Buscar por nome, CNPJ ou e-mail..." 
+          value="${search}"
+        />
+      </div>
+
+      ${renderClientesTable(filteredClientes)}
     </div>
     `;
 }
@@ -856,8 +976,33 @@ function attachEventListeners() {
   attachButtonListener('novo-usuario-btn', showNovoUsuarioModal);
 
   // Filtros
-  attachSelectListener('filtro-status-os', async (value) => {
-    await loadOrdensServico(value ? { status: value } : {});
+  attachInputListener('filtro-busca-os', (value) => {
+    AppState.filters.ordens.search = value;
+    render();
+  });
+
+  attachSelectListener('filtro-status-os', (value) => {
+    AppState.filters.ordens.status = value;
+    render();
+  });
+
+  attachInputListener('filtro-busca-maquinas', (value) => {
+    AppState.filters.maquinas.search = value;
+    render();
+  });
+
+  attachInputListener('filtro-busca-pecas', (value) => {
+    AppState.filters.pecas.search = value;
+    render();
+  });
+
+  attachInputListener('filtro-busca-clientes', (value) => {
+    AppState.filters.clientes.search = value;
+    render();
+  });
+
+  attachInputListener('filtro-busca-vendas', (value) => {
+    AppState.filters.vendas.search = value;
     render();
   });
 
@@ -906,6 +1051,13 @@ function attachButtonListener(id, handler) {
 function attachSelectListener(id, handler) {
   const select = document.getElementById(id);
   if (select) select.addEventListener('change', (e) => handler(e.target.value));
+}
+
+function attachInputListener(id, handler) {
+  const input = document.getElementById(id);
+  if (input) {
+    input.addEventListener('input', (e) => handler(e.target.value));
+  }
 }
 
 // ==================== MODAIS ====================
