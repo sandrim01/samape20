@@ -340,7 +340,7 @@ function renderDashboard() {
           <h2 class="card-title">Ordens Recentes</h2>
           <span class="card-link" onclick="AppState.currentPage = 'ordens-servico'; render();" style="cursor: pointer; color: var(--primary-light); font-size: 0.9rem;">Ver todas →</span>
         </div>
-        ${renderOrdensTable(AppState.data.ordens.slice(0, 5))}
+        ${renderOrdensTable(AppState.data.ordens.slice(0, 2))}
       </div>
 
       <div class="card">
