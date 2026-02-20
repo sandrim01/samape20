@@ -12,6 +12,7 @@ const AppState = {
     pecas: [],
     vendas: [],
     usuarios: [],
+    logs: [],
     stats: {}
   },
   filters: {
@@ -286,35 +287,29 @@ function renderDashboard() {
       <div class="stat-card premium" onclick="this.classList.toggle('expanded')">
         <div class="stat-header">
           <span class="stat-label">Ordens Abertas</span>
-          <div class="stat-icon-bg warning">🔧</div>
+          <div class="stat-icon-bg primary">📋</div>
         </div>
         <div class="stat-value-large">${stats.os_abertas || 0}</div>
-        <div class="stat-progress-bar">
-          <div class="progress" style="width: ${(stats.os_abertas / (stats.os_abertas + stats.os_em_andamento + 1) * 100)}%; background: var(--warning);"></div>
-        </div>
-        <div class="stat-footer">Aguardando início</div>
+        <div class="stat-footer">${stats.os_em_andamento || 0} em andamento</div>
       </div>
 
       <div class="stat-card premium" onclick="this.classList.toggle('expanded')">
         <div class="stat-header">
-          <span class="stat-label">Em Execução</span>
-          <div class="stat-icon-bg primary">⚙️</div>
+          <span class="stat-label">Estoque Crítico</span>
+          <div class="stat-icon-bg warning">📦</div>
         </div>
-        <div class="stat-value-large">${stats.os_em_andamento || 0}</div>
-         <div class="stat-progress-bar">
-          <div class="progress" style="width: ${(stats.os_em_andamento / (stats.os_abertas + stats.os_em_andamento + 1) * 100)}%; background: var(--primary);"></div>
-        </div>
-        <div class="stat-footer">Serviços ativos</div>
+        <div class="stat-value-large">${stats.pecas_estoque_baixo || 0}</div>
+        <div class="stat-footer">Peças abaixo do mínimo</div>
       </div>
 
-      ${hasPermission('pecas') ? `
+      ${hasPermission('financeiro') ? `
         <div class="stat-card premium" onclick="this.classList.toggle('expanded')">
           <div class="stat-header">
-            <span class="stat-label">Crítico de Estoque</span>
-            <div class="stat-icon-bg warning">📦</div>
+            <span class="stat-label">Contas a Receber</span>
+            <div class="stat-icon-bg success">💰</div>
           </div>
-          <div class="stat-value-large">${stats.pecas_estoque_baixo || 0}</div>
-          <div class="stat-footer">Peças abaixo do comum</div>
+          <div class="stat-value-large">R$ ${formatMoney(stats.contas_receber_pendentes?.total || 0)}</div>
+          <div class="stat-footer">${stats.contas_receber_pendentes?.count || 0} faturas pendentes</div>
         </div>
       ` : ''}
 
@@ -377,6 +372,40 @@ function renderDashboard() {
         </div>
       </div>
     </div>
+
+    ${AppState.currentUser.cargo === 'ADMIN' ? `
+      <div class="card" style="margin-top: 1.5rem;">
+        <div class="card-header" style="justify-content: space-between; align-items: center;">
+          <h2 class="card-title">Atividades do Sistema (Admin)</h2>
+          <button class="btn btn-secondary btn-sm" onclick="loadLogs().then(render)" style="padding: 0.25rem 0.75rem;">🔄 Atualizar Logs</button>
+        </div>
+        <div class="table-container" style="max-height: 400px; overflow-y: auto;">
+          <table style="font-size: 0.85rem; width: 100%; border-collapse: collapse;">
+            <thead style="position: sticky; top: 0; z-index: 10; background: var(--bg-tertiary);">
+              <tr>
+                <th style="padding: 0.75rem; text-align: left;">Data/Hora</th>
+                <th style="padding: 0.75rem; text-align: left;">Usuário</th>
+                <th style="padding: 0.75rem; text-align: left;">Ação</th>
+                <th style="padding: 0.75rem; text-align: left;">Detalhes</th>
+                <th style="padding: 0.75rem; text-align: left;">IP</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${AppState.data.logs.length === 0 ? '<tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">Nenhuma atividade recente registrada</td></tr>' :
+        AppState.data.logs.map((log, index) => `
+                <tr style="border-bottom: 1px solid var(--border); ${index % 2 === 0 ? 'background: rgba(255,255,255,0.02);' : ''}">
+                  <td style="white-space: nowrap; padding: 0.75rem;">${new Date(log.created_at).toLocaleString('pt-BR')}</td>
+                  <td style="padding: 0.75rem;"><strong>${log.usuario_nome}</strong></td>
+                  <td style="padding: 0.75rem;"><span class="badge ${log.acao.includes('FALHA') ? 'badge-danger' : 'badge-info'}" style="font-size: 0.65rem; padding: 0.2rem 0.5rem; border-radius: 4px;">${log.acao}</span></td>
+                  <td style="padding: 0.75rem; font-size: 0.8rem;">${log.detalhes}</td>
+                  <td style="color: var(--text-muted); font-family: monospace; font-size: 0.75rem; padding: 0.75rem;">${log.ip}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    ` : ''}
   `;
 }
 
@@ -1686,7 +1715,8 @@ async function loadAllData() {
     loadPecas(),
     loadVendas(),
     loadUsuarios(),
-    loadStats()
+    loadStats(),
+    AppState.currentUser.cargo === 'ADMIN' ? loadLogs() : Promise.resolve()
   ]);
 
   // Verificar atualizações após carregar os dados
@@ -1780,6 +1810,12 @@ async function loadUsuarios() {
 async function loadStats() {
   const result = await window.api.obterEstatisticas();
   if (result.success) AppState.data.stats = result.stats;
+}
+
+async function loadLogs() {
+  if (AppState.currentUser.cargo !== 'ADMIN') return;
+  const result = await window.api.listarLogs();
+  if (result.success) AppState.data.logs = result.logs;
 }
 
 // ==================== INICIALIZAÇÃO ====================

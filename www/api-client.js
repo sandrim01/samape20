@@ -354,6 +354,10 @@ const WebAPI = {
 
     async verificarAtualizacao() {
         return await apiFetch('/check-updates');
+    },
+
+    async listarLogs() {
+        return await apiFetch('/logs');
     }
 };
 

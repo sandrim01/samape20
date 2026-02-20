@@ -26,6 +26,43 @@ const pool = new Pool({
     }
 });
 
+// Criar tabela de logs se não existir
+const initDb = async () => {
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS system_logs (
+                id SERIAL PRIMARY KEY,
+                usuario_id INTEGER,
+                usuario_nome VARCHAR(255),
+                acao VARCHAR(255),
+                detalhes TEXT,
+                ip VARCHAR(50),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        console.log('✅ Tabela system_logs verificada/criada');
+    } catch (err) {
+        console.error('❌ Erro ao inicializar banco de dados:', err);
+    }
+};
+initDb();
+
+// Função utilitária para registrar logs
+const logActivity = async (req, acao, detalhes) => {
+    try {
+        const usuario_id = req.user ? req.user.id : null;
+        const usuario_nome = req.user ? req.user.nome : 'Sistema/Anônimo';
+        const ip = req.ip || req.connection.remoteAddress;
+
+        await pool.query(
+            'INSERT INTO system_logs (usuario_id, usuario_nome, acao, detalhes, ip) VALUES ($1, $2, $3, $4, $5)',
+            [usuario_id, usuario_nome, acao, detalhes, ip]
+        );
+    } catch (err) {
+        console.error('Erro ao registrar log:', err);
+    }
+};
+
 // Middleware de Segurança - Suavizado para compatibilidade com Mobile/Desktop
 app.use(helmet({
     contentSecurityPolicy: false,
@@ -88,17 +125,29 @@ function authorize(allowedRoles = []) {
 }
 
 // ==================== ROTAS DE SISTEMA ====================
-// Verificar atualizações
 app.get('/api/check-updates', (req, res) => {
     res.json({
         success: true,
-        version: '1.0.1', // Versão atual no servidor
+        version: '1.0.1',
         notes: 'Novos mecanismos de filtragem em tempo real adicionados.',
         downloads: {
-            windows: 'https://github.com/sandrim01/samape20/releases/download/v1.0.1/SAMAPEOP-Portable.exe', // Link placeholder
-            android: 'https://github.com/sandrim01/samape20/raw/main/SAMAPE_2.0.apk' // Link direto do repo
+            windows: 'https://github.com/sandrim01/samape20/releases/download/v1.0.1/SAMAPEOP-Portable.exe',
+            android: 'https://github.com/sandrim01/samape20/raw/main/SAMAPE_2.0.apk'
         }
     });
+});
+
+// Listar logs (Apenas Admin)
+app.get('/api/logs', authenticateToken, authorize(['ADMIN']), async (req, res) => {
+    try {
+        const result = await pool.query(
+            'SELECT * FROM system_logs ORDER BY created_at DESC LIMIT 50'
+        );
+        res.json({ success: true, logs: result.rows });
+    } catch (error) {
+        console.error('Erro ao listar logs:', error);
+        res.status(500).json({ success: false, message: 'Erro no servidor' });
+    }
 });
 
 // ==================== ROTAS DE AUTENTICAÇÃO ====================
@@ -121,14 +170,18 @@ app.post('/api/login', async (req, res) => {
         const senhaValida = await bcrypt.compare(senha, user.senha);
 
         if (!senhaValida) {
+            await logActivity(req, 'LOGIN_FALHA', `Tentativa de login falhou para o e-mail: ${email}`);
             return res.json({ success: false, message: 'Senha incorreta' });
         }
 
         const token = jwt.sign(
-            { id: user.id, email: user.email, cargo: user.cargo },
+            { id: user.id, nome: user.nome, email: user.email, cargo: user.cargo },
             JWT_SECRET,
             { expiresIn: '24h' }
         );
+
+        req.user = { id: user.id, nome: user.nome, email: user.email, cargo: user.cargo };
+        await logActivity(req, 'LOGIN_SUCESSO', `Usuário ${user.nome} entrou no sistema`);
 
         res.json({
             success: true,
@@ -523,6 +576,8 @@ app.post('/api/ordens', authenticateToken, async (req, res) => {
                 descricao_problema, diagnostico, servicos_realizados,
                 valor_mao_obra, valor_pecas, valor_total, observacoes]
         );
+
+        await logActivity(req, 'OS_CRIADA', `Nova OS criada: ${numero_os}`);
 
         res.json({ success: true, ordem: result.rows[0], numero_os });
     } catch (error) {
