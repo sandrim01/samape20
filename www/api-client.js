@@ -350,6 +350,10 @@ const WebAPI = {
             };
         }
         return data || { success: true, stats: {} };
+    },
+
+    async verificarAtualizacao() {
+        return await apiFetch('/check-updates');
     }
 };
 

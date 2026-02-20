@@ -69,7 +69,7 @@ const authenticateToken = (req, res, next) => {
 };
 
 // Middleware de cargo (RBAC)
-const authorize = (allowedRoles = []) => {
+function authorize(allowedRoles = []) {
     return (req, res, next) => {
         if (!req.user) {
             return res.status(401).json({ success: false, message: 'Não autenticado' });
@@ -85,7 +85,21 @@ const authorize = (allowedRoles = []) => {
 
         return res.status(403).json({ success: false, message: 'Acesso negado: cargo insuficiente' });
     };
-};
+}
+
+// ==================== ROTAS DE SISTEMA ====================
+// Verificar atualizações
+app.get('/api/check-updates', (req, res) => {
+    res.json({
+        success: true,
+        version: '1.0.1', // Versão atual no servidor
+        notes: 'Novos mecanismos de filtragem em tempo real adicionados.',
+        downloads: {
+            windows: 'https://github.com/sandrim01/samape20/releases/download/v1.0.1/SAMAPEOP-Portable.exe', // Link placeholder
+            android: 'https://github.com/sandrim01/samape20/raw/main/SAMAPE_2.0.apk' // Link direto do repo
+        }
+    });
+});
 
 // ==================== ROTAS DE AUTENTICAÇÃO ====================
 

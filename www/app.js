@@ -1,5 +1,6 @@
 // Estado global da aplicação
 const AppState = {
+  version: '1.0.0', // Versão Local
   currentUser: null,
   currentPage: 'dashboard',
   menuOpen: false, // Controle do menu cascata
@@ -1687,6 +1688,63 @@ async function loadAllData() {
     loadUsuarios(),
     loadStats()
   ]);
+
+  // Verificar atualizações após carregar os dados
+  checkUpdates();
+}
+
+async function checkUpdates() {
+  try {
+    const result = await window.api.verificarAtualizacao();
+    if (result.success && result.version !== AppState.version) {
+      console.log(`🆕 Nova versão disponível: ${result.version}`);
+      showUpdateModal(result);
+    }
+  } catch (error) {
+    console.warn('⚠️ Erro ao verificar atualizações:', error);
+  }
+}
+
+function showUpdateModal(updateInfo) {
+  // Evitar múltiplos modais de atualização
+  if (document.getElementById('modal-atualizacao')) return;
+
+  const isAndroid = /Android/i.test(navigator.userAgent);
+  const downloadUrl = isAndroid ? updateInfo.downloads.android : updateInfo.downloads.windows;
+  const platformName = isAndroid ? 'Android (APK)' : 'Windows (EXE)';
+
+  const modal = document.createElement('div');
+  modal.id = 'modal-atualizacao';
+  modal.className = 'modal-overlay';
+  modal.innerHTML = `
+    <div class="modal" style="max-width: 400px; text-align: center; border: 2px solid var(--primary);">
+      <div class="modal-header">
+        <h2 class="modal-title">🚀 Atualização Disponível!</h2>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom: 1rem;">Uma nova versão do <strong>SAMAPEOP</strong> está disponível.</p>
+        <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; text-align: left;">
+          <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem;">Versão Atual: ${AppState.version}</div>
+          <div style="font-size: 1rem; font-weight: bold; color: var(--success);">Nova Versão: ${updateInfo.version}</div>
+          <div style="margin-top: 0.5rem; font-size: 0.9rem; color: var(--text-secondary); font-style: italic;">
+            "${updateInfo.notes}"
+          </div>
+        </div>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.5rem;">
+          Clique abaixo para baixar a versão mais recente para ${platformName}.
+        </p>
+        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+          <a href="${downloadUrl}" target="_blank" class="btn btn-primary" onclick="this.closest('.modal-overlay').remove()">
+             Baixar Agora
+          </a>
+          <button class="btn btn-secondary btn-sm" onclick="this.closest('.modal-overlay').remove()">
+            Lembrar mais tarde
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
 }
 
 async function loadClientes() {
