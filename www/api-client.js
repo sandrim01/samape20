@@ -362,17 +362,17 @@ const WebAPI = {
 };
 
 // Expõe a API como global para o app.js
-// No Android/Web, sempre usamos a WebAPI. No Electron, misturamos.
-const finalAPI = { ...WebAPI, ...(window.api || {}) };
-
-// No Electron, o window.api já tem algumas coisas via preload.js (interação com IPC)
-// Queremos garantir que os métodos de LocalStore/Auth do WebAPI não quebrem o Electron
-if (window.api && typeof window.api.login === 'function') {
-    console.log('🖥️ Ambiente Electron detectado. Preservando bridge nativo.');
+// No Electron, o window.api já vem do preload.js e é imutável.
+// Em outros ambientes (Web/Mobile), usamos o WebAPI.
+if (typeof window.api === 'undefined') {
+    window.api = WebAPI;
+    console.log('🌐 WebAPI integrada (Modo Web/Mobile).');
+} else {
+    console.log('🖥️ Electron detectado. Usando interface nativa.');
+    // Nota: Novos métodos devem ser adicionados ao preload.js para ambientes Electron.
 }
 
-window.api = finalAPI;
-console.log('✅ WebAPI integrada. Servidor:', API_CONFIG.BASE_URL);
+console.log('✅ Sistema de API inicializado. Servidor:', API_CONFIG.BASE_URL);
 
 // Monitor de cliques para depuração
 document.addEventListener('click', (e) => {

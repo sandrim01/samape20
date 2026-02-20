@@ -1740,12 +1740,14 @@ function showUpdateModal(updateInfo) {
   if (document.getElementById('modal-atualizacao')) return;
 
   const isAndroid = /Android/i.test(navigator.userAgent);
+  const isDesktop = !isAndroid && window.api && typeof window.api.baixarArquivo === 'function';
   const downloadUrl = isAndroid ? updateInfo.downloads.android : updateInfo.downloads.windows;
   const platformName = isAndroid ? 'Android (APK)' : 'Windows (EXE)';
 
   const modal = document.createElement('div');
   modal.id = 'modal-atualizacao';
   modal.className = 'modal-overlay';
+  modal.style.zIndex = '9999';
   modal.innerHTML = `
     <div class="modal" style="max-width: 400px; text-align: center; border: 2px solid var(--primary);">
       <div class="modal-header">
@@ -1760,13 +1762,27 @@ function showUpdateModal(updateInfo) {
             "${updateInfo.notes}"
           </div>
         </div>
-        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.5rem;">
-          Clique abaixo para baixar a versão mais recente para ${platformName}.
-        </p>
-        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-          <a href="${downloadUrl}" target="_blank" class="btn btn-primary" onclick="this.closest('.modal-overlay').remove()">
-             Baixar Agora
-          </a>
+        
+        <div id="download-progress-container" style="display: none; margin-bottom: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.3rem;">
+            <span id="download-status-text">Baixando...</span>
+            <span id="download-percent">0%</span>
+          </div>
+          <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden;">
+            <div id="download-bar" style="width: 0%; height: 100%; background: var(--primary); transition: width 0.3s ease;"></div>
+          </div>
+        </div>
+
+        <div id="update-actions" style="display: flex; flex-direction: column; gap: 0.75rem;">
+          ${isDesktop ? `
+            <button class="btn btn-primary" id="btn-iniciar-download">
+               Baixar e Instalar Agora
+            </button>
+          ` : `
+            <a href="${downloadUrl}" target="_blank" class="btn btn-primary">
+               Baixar para ${platformName}
+            </a>
+          `}
           <button class="btn btn-secondary btn-sm" onclick="this.closest('.modal-overlay').remove()">
             Lembrar mais tarde
           </button>
@@ -1775,6 +1791,50 @@ function showUpdateModal(updateInfo) {
     </div>
   `;
   document.body.appendChild(modal);
+
+  if (isDesktop) {
+    const btnDownload = modal.querySelector('#btn-iniciar-download');
+    const progressContainer = modal.querySelector('#download-progress-container');
+    const updateActions = modal.querySelector('#update-actions');
+    const bar = modal.querySelector('#download-bar');
+    const percent = modal.querySelector('#download-percent');
+    const statusText = modal.querySelector('#download-status-text');
+
+    btnDownload.addEventListener('click', async () => {
+      progressContainer.style.display = 'block';
+      updateActions.style.display = 'none';
+
+      try {
+        // Escutar progresso
+        window.api.onDownloadProgress((data) => {
+          const p = Math.floor(data.progress);
+          bar.style.width = `${p}%`;
+          percent.innerText = `${p}%`;
+          statusText.innerText = `Baixando: ${(data.downloadedBytes / 1024 / 1024).toFixed(1)}MB / ${(data.totalBytes / 1024 / 1024).toFixed(1)}MB`;
+        });
+
+        const fileName = `SAMAPEOP_Update_${updateInfo.version}.exe`;
+        const result = await window.api.baixarArquivo(downloadUrl, fileName);
+
+        if (result.success) {
+          statusText.innerText = 'Download Concluído!';
+          statusText.style.color = 'var(--success)';
+
+          const installBtn = document.createElement('button');
+          installBtn.className = 'btn btn-success';
+          installBtn.innerText = 'Instalar e Reiniciar';
+          installBtn.style.marginTop = '1rem';
+          installBtn.onclick = () => window.api.executarArquivo(result.path);
+
+          progressContainer.appendChild(installBtn);
+        }
+      } catch (error) {
+        alert('Erro ao baixar atualização: ' + error.message);
+        progressContainer.style.display = 'none';
+        updateActions.style.display = 'flex';
+      }
+    });
+  }
 }
 
 async function loadClientes() {

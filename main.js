@@ -1,4 +1,5 @@
-const { app, BrowserWindow, ipcMain, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, shell } = require('electron');
+const https = require('https');
 const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
@@ -151,6 +152,74 @@ ipcMain.handle('obter-usuario', async (event, id) => {
   } catch (error) {
     return { success: false, message: error.message };
   }
+});
+
+ipcMain.handle('listar-logs', async () => {
+  try {
+    const result = await pool.query('SELECT * FROM system_logs ORDER BY created_at DESC LIMIT 50');
+    return { success: true, logs: result.rows };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+// Mock de verificação de atualização no Desktop
+ipcMain.handle('verificar-atualizacao', async () => {
+  return {
+    success: true,
+    version: '1.0.1',
+    notes: 'Novos mecanismos de filtragem em tempo real adicionados.',
+    downloads: {
+      windows: 'https://github.com/sandrim01/samape20/releases/download/v1.0.1/SAMAPEOP-Portable.exe', // Link agora planejado para Release
+      android: 'https://github.com/sandrim01/samape20/raw/main/SAMAPE_2.0.apk'
+    }
+  };
+});
+
+// Download Interno com Progresso
+ipcMain.handle('baixar-arquivo', async (event, { url, nomeArquivo }) => {
+  const downloadPath = path.join(app.getPath('downloads'), nomeArquivo);
+  const file = fs.createWriteStream(downloadPath);
+
+  return new Promise((resolve, reject) => {
+    https.get(url, (response) => {
+      if (response.statusCode !== 200) {
+        reject(new Error(`Erro ao baixar: ${response.statusCode}`));
+        return;
+      }
+
+      const totalBytes = parseInt(response.headers['content-length'], 10);
+      let downloadedBytes = 0;
+
+      response.on('data', (chunk) => {
+        downloadedBytes += chunk.length;
+        file.write(chunk);
+
+        // Enviar progresso para o frontend
+        const progress = (downloadedBytes / totalBytes) * 100;
+        event.sender.send('download-progress', { progress, downloadedBytes, totalBytes });
+      });
+
+      response.on('end', () => {
+        file.end();
+        resolve({ success: true, path: downloadPath });
+      });
+
+      response.on('error', (err) => {
+        fs.unlink(downloadPath, () => { });
+        reject(err);
+      });
+    }).on('error', (err) => {
+      fs.unlink(downloadPath, () => { });
+      reject(err);
+    });
+  });
+});
+
+ipcMain.handle('executar-arquivo', async (event, filePath) => {
+  shell.openPath(filePath);
+  setTimeout(() => app.quit(), 2000); // Fecha o app atual para abrir o novo
+  return { success: true };
 });
 
 ipcMain.handle('atualizar-usuario', async (event, { id, dados }) => {

@@ -70,5 +70,12 @@ contextBridge.exposeInMainWorld('api', {
     logout: () => {
         localStorage.removeItem('auth_token');
         localStorage.removeItem('user_info');
-    }
+    },
+
+    // Sistema
+    listarLogs: () => ipcRenderer.invoke('listar-logs'),
+    verificarAtualizacao: () => ipcRenderer.invoke('verificar-atualizacao'),
+    baixarArquivo: (url, nome) => ipcRenderer.invoke('baixar-arquivo', { url, nomeArquivo: nome }),
+    executarArquivo: (path) => ipcRenderer.invoke('executar-arquivo', path),
+    onDownloadProgress: (callback) => ipcRenderer.on('download-progress', (event, data) => callback(data))
 });
