@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
 const { Pool } = require('pg');
+const fetch = require('node-fetch');
 
 // Tenta carregar .env de múltiplos locais possíveis
 const dotenv = require('dotenv');
@@ -163,17 +164,16 @@ ipcMain.handle('listar-logs', async () => {
   }
 });
 
-// Mock de verificação de atualização no Desktop
+// Verificação de atualização real no Desktop
 ipcMain.handle('verificar-atualizacao', async () => {
-  return {
-    success: true,
-    version: '1.0.1',
-    notes: 'Novos mecanismos de filtragem em tempo real adicionados.',
-    downloads: {
-      windows: 'https://github.com/sandrim01/samape20/releases/download/v1.0.1/SAMAPEOP-Portable.exe', // Link agora planejado para Release
-      android: 'https://github.com/sandrim01/samape20/raw/main/SAMAPE_2.0.apk'
-    }
-  };
+  try {
+    const response = await fetch('https://samape20-estudioio.up.railway.app/api/check-updates');
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Erro ao verificar atualização no main process:', error);
+    return { success: false, message: error.message };
+  }
 });
 
 // Download Interno com Progresso

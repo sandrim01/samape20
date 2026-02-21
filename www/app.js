@@ -1834,47 +1834,23 @@ function showUpdateModal(updateInfo) {
               progressContainer.appendChild(installBtn);
             }
           } else {
-            // Lógica Android (via Fetch + Blobs para mostrar progresso)
-            const response = await fetch(downloadUrl);
-            const total = parseInt(response.headers.get('content-length'), 10);
-            if (!total) {
-              // Fallback se não tiver content-length (G-Drive às vezes omite)
-              window.location.href = downloadUrl;
-              return;
-            }
+            // Lógica Android: O CORS do GitHub impede o fetch direto de binários no WebView.
+            // Vamos abrir no navegador do sistema para o download ser gerenciado pelo Android.
+            statusText.innerText = 'Iniciando download no navegador...';
+            setTimeout(() => {
+              window.open(downloadUrl, '_system');
+              statusText.innerText = 'Aguarde o download terminar no seu navegador.';
 
-            const reader = response.body.getReader();
-            let loaded = 0;
-            const chunks = [];
-
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              chunks.push(value);
-              loaded += value.length;
-              const p = Math.floor((loaded / total) * 100);
-              bar.style.width = `${p}%`;
-              percent.innerText = `${p}%`;
-              statusText.innerText = `Baixando APK: ${(loaded / 1024 / 1024).toFixed(1)}MB / ${(total / 1024 / 1024).toFixed(1)}MB`;
-            }
-
-            const blob = new Blob(chunks);
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `SAMAPE_Update_${updateInfo.version}.apk`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-
-            statusText.innerText = 'Download concluído! Abra o arquivo para instalar.';
-            statusText.style.color = 'var(--success)';
-
-            const tipText = document.createElement('p');
-            tipText.style.fontSize = '0.8rem';
-            tipText.style.marginTop = '1rem';
-            tipText.innerText = 'Verifique sua barra de notificações ou pasta de downloads para instalar.';
-            progressContainer.appendChild(tipText);
+              const backBtn = document.createElement('button');
+              backBtn.className = 'btn btn-secondary';
+              backBtn.innerText = 'Voltar';
+              backBtn.style.marginTop = '1rem';
+              backBtn.onclick = () => {
+                progressContainer.style.display = 'none';
+                updateActions.style.display = 'flex';
+              };
+              progressContainer.appendChild(backBtn);
+            }, 1000);
           }
         } catch (error) {
           console.error('Erro no download:', error);
