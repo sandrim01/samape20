@@ -182,7 +182,13 @@ ipcMain.handle('baixar-arquivo', async (event, { url, nomeArquivo }) => {
 
   const downloadProgressive = (targetUrl, targetPath) => {
     return new Promise((resolve, reject) => {
-      https.get(targetUrl, (response) => {
+      const options = {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+      };
+
+      https.get(targetUrl, options, (response) => {
         // Seguir redirecionamentos (301/302)
         if (response.statusCode === 301 || response.statusCode === 302) {
           return downloadProgressive(response.headers.location, targetPath).then(resolve).catch(reject);

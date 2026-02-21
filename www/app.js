@@ -1,6 +1,6 @@
 // Estado global da aplicação
 const AppState = {
-  version: '1.0.0', // Versão Local (Teste OTA)
+  version: '1.0.1', // Versão Oficial 1.0.1
   currentUser: null,
   currentPage: 'dashboard',
   menuOpen: false, // Controle do menu cascata
