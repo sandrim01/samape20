@@ -143,11 +143,11 @@ async function mostrarModalOS(osId = null) {
                 <div style="margin-bottom: 1rem; font-weight: 700; color: var(--warning);">🚗 Deslocamento</div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                   <div class="form-group">
-                    <label class="form-label">KM Ida</label>
+                    <label class="form-label">Odômetro Saída (KM)</label>
                     <input type="number" class="form-input" id="os-km-ida" step="0.1" value="${osData ? osData.km_ida : 0}" onchange="calcularValoresOS()">
                   </div>
                   <div class="form-group">
-                    <label class="form-label">KM Volta</label>
+                    <label class="form-label">Odômetro Chegada (KM)</label>
                     <input type="number" class="form-input" id="os-km-volta" step="0.1" value="${osData ? osData.km_volta : 0}" onchange="calcularValoresOS()">
                   </div>
                   <div class="form-group">
@@ -155,7 +155,7 @@ async function mostrarModalOS(osId = null) {
                     <input type="number" class="form-input" id="os-valor-km" step="0.01" value="${osData ? osData.valor_por_km : 0}" onchange="calcularValoresOS()">
                   </div>
                   <div class="form-group">
-                    <label class="form-label">Total Deslocamento</label>
+                    <label class="form-label">Distância Percorrida</label>
                     <input type="text" class="form-input" id="os-deslocamento-total" readonly style="background: var(--bg-tertiary); color: var(--warning); font-weight: bold;">
                   </div>
                 </div>
@@ -345,19 +345,20 @@ async function carregarMaquinasCliente() {
 }
 
 function calcularValoresOS() {
-  const kmIda = parseFloat(document.getElementById('os-km-ida').value) || 0;
-  const kmVolta = parseFloat(document.getElementById('os-km-volta').value) || 0;
+  const odoSaida = parseFloat(document.getElementById('os-km-ida').value) || 0;
+  const odoChegada = parseFloat(document.getElementById('os-km-volta').value) || 0;
   const valorPorKm = parseFloat(document.getElementById('os-valor-km').value) || 0;
   const valorMaoObra = parseFloat(document.getElementById('os-valor-mao-obra').value) || 0;
   const valorPecas = parseFloat(document.getElementById('os-valor-pecas').value) || 0;
 
-  const kmTotal = kmIda + kmVolta;
-  const valorDeslocamento = kmTotal * valorPorKm;
+  // Distância é a diferença entre os odômetros. Se chegada < saída, assumimos 0
+  const kmPercorrido = odoChegada > odoSaida ? (odoChegada - odoSaida) : 0;
+  const valorDeslocamento = kmPercorrido * valorPorKm;
   const valorTotal = valorMaoObra + valorPecas + valorDeslocamento;
 
   const totalKMInput = document.getElementById('os-deslocamento-total');
   if (totalKMInput) {
-    totalKMInput.value = 'R$ ' + formatMoney(valorDeslocamento);
+    totalKMInput.value = `${kmPercorrido.toFixed(1)} KM (R$ ${formatMoney(valorDeslocamento)})`;
   }
 
   document.getElementById('os-valor-total-display').textContent = 'R$ ' + formatMoney(valorTotal);
@@ -453,9 +454,9 @@ async function gerarPDFOS(osId) {
 
     // Normalizar valores
     const normalizedOS = { ...os };
-    normalizedOS.km_ida = parseFloat(os.km_ida) || 0;
-    normalizedOS.km_volta = parseFloat(os.km_volta) || 0;
-    normalizedOS.km_total = normalizedOS.km_ida + normalizedOS.km_volta;
+    const odoSaida = parseFloat(os.km_ida) || 0;
+    const odoChegada = parseFloat(os.km_volta) || 0;
+    normalizedOS.km_total = odoChegada > odoSaida ? (odoChegada - odoSaida) : 0;
     normalizedOS.valor_por_km = parseFloat(os.valor_por_km) || 0;
     normalizedOS.valor_deslocamento = (normalizedOS.km_total * normalizedOS.valor_por_km);
     normalizedOS.valor_mao_obra = parseFloat(os.valor_mao_obra) || 0;
@@ -492,8 +493,8 @@ async function gerarPDFOS(osId) {
         <div class="section">
           <div class="section-header">VALORES</div>
           <div class="section-body">
-            <div class="info-row"><div class="info-label">Mão de Obra:</div><div>R$ ${formatMoney(normalizedOS.valor_mao_obra)}</div></div>
-            <div class="info-row"><div class="info-label">Peças:</div><div>R$ ${formatMoney(normalizedOS.valor_pecas)}</div></div>
+            <div class="info-row"><div class="info-label">Odôm. Saída/Chegada:</div><div>${parseFloat(os.km_ida) || 0} / ${parseFloat(os.km_volta) || 0}</div></div>
+            <div class="info-row"><div class="info-label">Distância Percorrida:</div><div>${normalizedOS.km_total.toFixed(1)} KM</div></div>
             <div class="info-row"><div class="info-label">Deslocamento:</div><div>R$ ${formatMoney(normalizedOS.valor_deslocamento)}</div></div>
           </div>
         </div>

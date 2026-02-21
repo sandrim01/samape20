@@ -128,8 +128,8 @@ function authorize(allowedRoles = []) {
 app.get('/api/check-updates', (req, res) => {
     res.json({
         success: true,
-        version: '1.0.1',
-        notes: 'Novos mecanismos de filtragem em tempo real adicionados.',
+        version: '1.0.2',
+        notes: 'Cálculo de KM agora utiliza odômetro de saída e chegada.',
         downloads: {
             windows: 'https://github.com/sandrim01/samape20/releases/download/v1.0.1/SAMAPEOP-Portable.exe',
             android: 'https://github.com/sandrim01/samape20/releases/download/v1.0.1/SAMAPE_2.0.apk'
