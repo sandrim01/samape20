@@ -131,9 +131,8 @@ app.get('/api/check-updates', (req, res) => {
         version: '1.0.1',
         notes: 'Novos mecanismos de filtragem em tempo real adicionados.',
         downloads: {
-            // Links diretos do Google Drive (uc?export=download)
-            windows: 'https://drive.google.com/uc?export=download&id=1pYZOGcOxHnM2PCPZXvTtFqqnACdp8iZY',
-            android: 'https://drive.google.com/uc?export=download&id=1Ntp1oAAmREReO7BMw204VQ0pVeqUoxvo'
+            windows: 'https://github.com/sandrim01/samape20/releases/download/v1.0.1/SAMAPEOP-Portable.exe',
+            android: 'https://github.com/sandrim01/samape20/releases/download/v1.0.1/SAMAPE_2.0.apk'
         }
     });
 });

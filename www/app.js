@@ -122,6 +122,9 @@ function renderLogin() {
           </button>
         </form>
       </div>
+      <div style="position: fixed; bottom: 15px; right: 20px; font-size: 0.75rem; color: var(--text-muted); opacity: 0.7; pointer-events: none;">
+        Versão ${AppState.version}
+      </div>
     </div>
   `;
 }
@@ -247,6 +250,9 @@ function renderTopbar() {
       </div>
       <div class="topbar-right">
         <span class="topbar-date-text">${new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })}</span>
+        <span style="font-size: 0.7rem; color: var(--text-muted); padding: 0.25rem 0.5rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 4px; margin-left: 0.75rem;">
+          v${AppState.version}
+        </span>
       </div>
     </div>
   `;
