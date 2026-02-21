@@ -1795,48 +1795,103 @@ function showUpdateModal(updateInfo) {
   `;
   document.body.appendChild(modal);
 
-  if (isDesktop) {
-    const btnDownload = modal.querySelector('#btn-iniciar-download');
+  if (isDesktop || isAndroid) {
+    const btnDownload = modal.querySelector('#btn-iniciar-download') || modal.querySelector('a.btn-primary');
     const progressContainer = modal.querySelector('#download-progress-container');
     const updateActions = modal.querySelector('#update-actions');
     const bar = modal.querySelector('#download-bar');
     const percent = modal.querySelector('#download-percent');
     const statusText = modal.querySelector('#download-status-text');
 
-    btnDownload.addEventListener('click', async () => {
-      progressContainer.style.display = 'block';
-      updateActions.style.display = 'none';
+    if (btnDownload) {
+      // No Android, se for um link <a>, vamos interceptar o clique
+      const startDownload = async (e) => {
+        if (e) e.preventDefault();
+        progressContainer.style.display = 'block';
+        updateActions.style.display = 'none';
 
-      try {
-        // Escutar progresso
-        window.api.onDownloadProgress((data) => {
-          const p = Math.floor(data.progress);
-          bar.style.width = `${p}%`;
-          percent.innerText = `${p}%`;
-          statusText.innerText = `Baixando: ${(data.downloadedBytes / 1024 / 1024).toFixed(1)}MB / ${(data.totalBytes / 1024 / 1024).toFixed(1)}MB`;
-        });
+        try {
+          if (isDesktop) {
+            // Lógica Desktop (via Electron API)
+            window.api.onDownloadProgress((data) => {
+              const p = Math.floor(data.progress || 0);
+              bar.style.width = `${p}%`;
+              percent.innerText = `${p}%`;
+              statusText.innerText = `Baixando: ${(data.downloadedBytes / 1024 / 1024).toFixed(1)}MB / ${(data.totalBytes / 1024 / 1024).toFixed(1)}MB`;
+            });
 
-        const fileName = `SAMAPEOP_Update_${updateInfo.version}.exe`;
-        const result = await window.api.baixarArquivo(downloadUrl, fileName);
+            const fileName = `SAMAPEOP_Update_${updateInfo.version}.exe`;
+            const result = await window.api.baixarArquivo(downloadUrl, fileName);
 
-        if (result.success) {
-          statusText.innerText = 'Download Concluído!';
-          statusText.style.color = 'var(--success)';
+            if (result.success) {
+              statusText.innerText = 'Download Concluído!';
+              statusText.style.color = 'var(--success)';
+              const installBtn = document.createElement('button');
+              installBtn.className = 'btn btn-success';
+              installBtn.innerText = 'Instalar e Reiniciar';
+              installBtn.style.marginTop = '1rem';
+              installBtn.onclick = () => window.api.executarArquivo(result.path);
+              progressContainer.appendChild(installBtn);
+            }
+          } else {
+            // Lógica Android (via Fetch + Blobs para mostrar progresso)
+            const response = await fetch(downloadUrl);
+            const total = parseInt(response.headers.get('content-length'), 10);
+            if (!total) {
+              // Fallback se não tiver content-length (G-Drive às vezes omite)
+              window.location.href = downloadUrl;
+              return;
+            }
 
-          const installBtn = document.createElement('button');
-          installBtn.className = 'btn btn-success';
-          installBtn.innerText = 'Instalar e Reiniciar';
-          installBtn.style.marginTop = '1rem';
-          installBtn.onclick = () => window.api.executarArquivo(result.path);
+            const reader = response.body.getReader();
+            let loaded = 0;
+            const chunks = [];
 
-          progressContainer.appendChild(installBtn);
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              chunks.push(value);
+              loaded += value.length;
+              const p = Math.floor((loaded / total) * 100);
+              bar.style.width = `${p}%`;
+              percent.innerText = `${p}%`;
+              statusText.innerText = `Baixando APK: ${(loaded / 1024 / 1024).toFixed(1)}MB / ${(total / 1024 / 1024).toFixed(1)}MB`;
+            }
+
+            const blob = new Blob(chunks);
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `SAMAPE_Update_${updateInfo.version}.apk`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+
+            statusText.innerText = 'Download concluído! Abra o arquivo para instalar.';
+            statusText.style.color = 'var(--success)';
+
+            const tipText = document.createElement('p');
+            tipText.style.fontSize = '0.8rem';
+            tipText.style.marginTop = '1rem';
+            tipText.innerText = 'Verifique sua barra de notificações ou pasta de downloads para instalar.';
+            progressContainer.appendChild(tipText);
+          }
+        } catch (error) {
+          console.error('Erro no download:', error);
+          alert('Erro ao baixar atualização: ' + error.message);
+          progressContainer.style.display = 'none';
+          updateActions.style.display = 'flex';
         }
-      } catch (error) {
-        alert('Erro ao baixar atualização: ' + error.message);
-        progressContainer.style.display = 'none';
-        updateActions.style.display = 'flex';
+      };
+
+      if (isDesktop) {
+        btnDownload.addEventListener('click', startDownload);
+      } else {
+        // No Android (a.btn-primary), adicionamos o listener
+        btnDownload.addEventListener('click', startDownload);
+        btnDownload.innerText = "Baixar Atualização Interna";
       }
-    });
+    }
   }
 }
 
