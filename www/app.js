@@ -1772,132 +1772,144 @@ function showUpdateModal(updateInfo) {
 
   const isAndroid = /Android/i.test(navigator.userAgent);
   const isDesktop = !isAndroid && window.api && typeof window.api.baixarArquivo === 'function';
-  const downloadUrl = isAndroid ? updateInfo.downloads.android : updateInfo.downloads.windows;
-  const platformName = isAndroid ? 'Android (APK)' : 'Windows (EXE)';
+
+  // URL de download: garante que usa o CDN direto do GitHub (raw.githubusercontent.com)
+  let downloadUrl = isAndroid ? updateInfo.downloads.android : updateInfo.downloads.windows;
+  // Converter github.com/raw/... → raw.githubusercontent.com/...
+  if (downloadUrl && downloadUrl.includes('github.com')) {
+    downloadUrl = downloadUrl
+      .replace('https://github.com/', 'https://raw.githubusercontent.com/')
+      .replace('/raw/', '/');
+  }
 
   const modal = document.createElement('div');
   modal.id = 'modal-atualizacao';
   modal.className = 'modal-overlay';
   modal.style.zIndex = '9999';
-  modal.innerHTML = `
-    <div class="modal" style="max-width: 400px; text-align: center; border: 2px solid var(--primary);">
-      <div class="modal-header">
-        <h2 class="modal-title">🚀 Atualização Disponível!</h2>
-      </div>
-      <div class="modal-body">
-        <p style="margin-bottom: 1rem;">Uma nova versão do <strong>SAMAPEOP</strong> está disponível.</p>
-        <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; text-align: left;">
-          <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem;">Versão Atual: ${AppState.version}</div>
-          <div style="font-size: 1rem; font-weight: bold; color: var(--success);">Nova Versão: ${updateInfo.version}</div>
-          <div style="margin-top: 0.5rem; font-size: 0.9rem; color: var(--text-secondary); font-style: italic;">
-            "${updateInfo.notes}"
-          </div>
-        </div>
-        
-        <div id="download-progress-container" style="display: none; margin-bottom: 1.5rem;">
-          <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.3rem;">
-            <span id="download-status-text">Baixando...</span>
-            <span id="download-percent">0%</span>
-          </div>
-          <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden;">
-            <div id="download-bar" style="width: 0%; height: 100%; background: var(--primary); transition: width 0.3s ease;"></div>
-          </div>
-        </div>
 
-        <div id="update-actions" style="display: flex; flex-direction: column; gap: 0.75rem;">
-          ${isDesktop ? `
-            <button class="btn btn-primary" id="btn-iniciar-download">
-               Baixar e Instalar Agora
-            </button>
-          ` : `
-            <a href="${downloadUrl}" target="_blank" class="btn btn-primary">
-               Baixar para ${platformName}
+  if (isAndroid) {
+    // ========== MODAL ANDROID ==========
+    // Usa <a href> diretamente — o Android reconhece APK e dispara download nativo
+    modal.innerHTML = `
+      <div class="modal" style="max-width: 400px; text-align: center; border: 2px solid var(--primary);">
+        <div class="modal-header">
+          <h2 class="modal-title">🚀 Atualização Disponível!</h2>
+        </div>
+        <div class="modal-body">
+          <p style="margin-bottom: 1rem;">Uma nova versão do <strong>SAMAPEOP</strong> está disponível.</p>
+          <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; text-align: left;">
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem;">Versão Atual: ${AppState.version}</div>
+            <div style="font-size: 1rem; font-weight: bold; color: var(--success);">Nova Versão: ${updateInfo.version}</div>
+            <div style="margin-top: 0.5rem; font-size: 0.9rem; color: var(--text-secondary); font-style: italic;">"${updateInfo.notes}"</div>
+          </div>
+
+          <div style="background: rgba(37,99,235,0.1); border: 1px solid var(--primary); border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem; font-size: 0.85rem; color: var(--text-secondary); text-align: left;">
+            📲 <strong>Como instalar:</strong><br>
+            1. Toque em "Baixar APK"<br>
+            2. Aguarde o download terminar<br>
+            3. Abra o arquivo baixado<br>
+            4. Permita a instalação se solicitado
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            <a href="${downloadUrl}" download="SAMAPE_${updateInfo.version}.apk"
+               style="display: block; padding: 1rem; background: var(--primary); color: white; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 1rem;">
+              ⬇️ Baixar APK (v${updateInfo.version})
             </a>
-          `}
-          <button class="btn btn-secondary btn-sm" onclick="this.closest('.modal-overlay').remove()">
-            Lembrar mais tarde
-          </button>
+            <button class="btn btn-secondary btn-sm" onclick="document.getElementById('modal-atualizacao').remove()">
+              Lembrar mais tarde
+            </button>
+          </div>
         </div>
       </div>
-    </div>
-  `;
-  document.body.appendChild(modal);
+    `;
+    document.body.appendChild(modal);
 
-  if (isDesktop || isAndroid) {
-    const btnDownload = modal.querySelector('#btn-iniciar-download') || modal.querySelector('a.btn-primary');
+  } else if (isDesktop) {
+    // ========== MODAL DESKTOP ==========
+    modal.innerHTML = `
+      <div class="modal" style="max-width: 400px; text-align: center; border: 2px solid var(--primary);">
+        <div class="modal-header">
+          <h2 class="modal-title">🚀 Atualização Disponível!</h2>
+        </div>
+        <div class="modal-body">
+          <p style="margin-bottom: 1rem;">Uma nova versão do <strong>SAMAPEOP</strong> está disponível.</p>
+          <div style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; text-align: left;">
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem;">Versão Atual: ${AppState.version}</div>
+            <div style="font-size: 1rem; font-weight: bold; color: var(--success);">Nova Versão: ${updateInfo.version}</div>
+            <div style="margin-top: 0.5rem; font-size: 0.9rem; color: var(--text-secondary); font-style: italic;">"${updateInfo.notes}"</div>
+          </div>
+
+          <div id="download-progress-container" style="display: none; margin-bottom: 1.5rem;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.3rem;">
+              <span id="download-status-text">Baixando...</span>
+              <span id="download-percent">0%</span>
+            </div>
+            <div style="width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden;">
+              <div id="download-bar" style="width: 0%; height: 100%; background: var(--primary); transition: width 0.3s ease;"></div>
+            </div>
+          </div>
+
+          <div id="update-actions" style="display: flex; flex-direction: column; gap: 0.75rem;">
+            <button class="btn btn-primary" id="btn-iniciar-download">
+              ⬇️ Baixar e Instalar Agora
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="document.getElementById('modal-atualizacao').remove()">
+              Lembrar mais tarde
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+
+    const btnDownload = modal.querySelector('#btn-iniciar-download');
     const progressContainer = modal.querySelector('#download-progress-container');
     const updateActions = modal.querySelector('#update-actions');
     const bar = modal.querySelector('#download-bar');
     const percent = modal.querySelector('#download-percent');
     const statusText = modal.querySelector('#download-status-text');
 
-    if (btnDownload) {
-      // No Android, se for um link <a>, vamos interceptar o clique
-      const startDownload = async (e) => {
-        if (e) e.preventDefault();
-        progressContainer.style.display = 'block';
-        updateActions.style.display = 'none';
+    btnDownload.addEventListener('click', async () => {
+      progressContainer.style.display = 'block';
+      updateActions.style.display = 'none';
+      try {
+        window.api.onDownloadProgress((data) => {
+          const p = Math.floor(data.progress || 0);
+          bar.style.width = `${p}%`;
+          percent.innerText = `${p}%`;
+          statusText.innerText = `Baixando: ${(data.downloadedBytes / 1024 / 1024).toFixed(1)}MB / ${(data.totalBytes / 1024 / 1024).toFixed(1)}MB`;
+        });
 
-        try {
-          if (isDesktop) {
-            // Lógica Desktop (via Electron API)
-            window.api.onDownloadProgress((data) => {
-              const p = Math.floor(data.progress || 0);
-              bar.style.width = `${p}%`;
-              percent.innerText = `${p}%`;
-              statusText.innerText = `Baixando: ${(data.downloadedBytes / 1024 / 1024).toFixed(1)}MB / ${(data.totalBytes / 1024 / 1024).toFixed(1)}MB`;
-            });
+        const fileName = `SAMAPEOP_Update_${updateInfo.version}.exe`;
+        const result = await window.api.baixarArquivo(downloadUrl, fileName);
 
-            const fileName = `SAMAPEOP_Update_${updateInfo.version}.exe`;
-            const result = await window.api.baixarArquivo(downloadUrl, fileName);
-
-            if (result.success) {
-              statusText.innerText = 'Download Concluído!';
-              statusText.style.color = 'var(--success)';
-              const installBtn = document.createElement('button');
-              installBtn.className = 'btn btn-success';
-              installBtn.innerText = 'Instalar e Reiniciar';
-              installBtn.style.marginTop = '1rem';
-              installBtn.onclick = () => window.api.executarArquivo(result.path);
-              progressContainer.appendChild(installBtn);
-            }
-          } else {
-            // Lógica Android: O CORS do GitHub impede o fetch direto de binários no WebView.
-            // Vamos abrir no navegador do sistema para o download ser gerenciado pelo Android.
-            statusText.innerText = 'Iniciando download no navegador...';
-            setTimeout(() => {
-              window.open(downloadUrl, '_system');
-              statusText.innerText = 'Aguarde o download terminar no seu navegador.';
-
-              const backBtn = document.createElement('button');
-              backBtn.className = 'btn btn-secondary';
-              backBtn.innerText = 'Voltar';
-              backBtn.style.marginTop = '1rem';
-              backBtn.onclick = () => {
-                progressContainer.style.display = 'none';
-                updateActions.style.display = 'flex';
-              };
-              progressContainer.appendChild(backBtn);
-            }, 1000);
-          }
-        } catch (error) {
-          console.error('Erro no download:', error);
-          alert('Erro ao baixar atualização: ' + error.message);
+        if (result.success) {
+          statusText.innerText = 'Download Concluído!';
+          statusText.style.color = 'var(--success)';
+          bar.style.width = '100%';
+          percent.innerText = '100%';
+          const installBtn = document.createElement('button');
+          installBtn.className = 'btn btn-success';
+          installBtn.innerText = '▶️ Instalar e Reiniciar';
+          installBtn.style.marginTop = '1rem';
+          installBtn.onclick = () => window.api.executarArquivo(result.path);
+          progressContainer.appendChild(installBtn);
+        }
+      } catch (error) {
+        console.error('Erro no download:', error);
+        statusText.innerText = 'Erro ao baixar. Tente novamente.';
+        statusText.style.color = 'var(--danger)';
+        setTimeout(() => {
           progressContainer.style.display = 'none';
           updateActions.style.display = 'flex';
-        }
-      };
-
-      if (isDesktop) {
-        btnDownload.addEventListener('click', startDownload);
-      } else {
-        // No Android (a.btn-primary), adicionamos o listener
-        btnDownload.addEventListener('click', startDownload);
-        btnDownload.innerText = "Baixar Atualização Interna";
+        }, 2000);
       }
-    }
+    });
   }
 }
+
+
 
 async function loadClientes() {
   const result = await window.api.listarClientes();
