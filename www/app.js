@@ -1,6 +1,6 @@
 // Estado global da aplicação
 const AppState = {
-  version: '1.0.1', // Versão Oficial 1.0.1
+  version: '1.0.2', // Versão Oficial 1.0.2
   currentUser: null,
   currentPage: 'dashboard',
   menuOpen: false, // Controle do menu cascata
@@ -1735,14 +1735,34 @@ async function loadAllData() {
 }
 
 async function checkUpdates() {
+  // Evitar verificar múmultiplas vezes na mesma sessão
+  if (sessionStorage.getItem('update_checked')) return;
+  sessionStorage.setItem('update_checked', '1');
+
   try {
-    const result = await window.api.verificarAtualizacao();
-    if (result.success && result.version !== AppState.version) {
+    let result;
+
+    // No Android (WebAPI), chama o servidor REST diretamente
+    const isElectron = window.api && typeof window.api.baixarArquivo === 'function';
+    if (!isElectron) {
+      // Mobile / Web: fetch direto à API
+      const response = await fetch('https://samape20-estudioio.up.railway.app/api/check-updates');
+      result = await response.json();
+    } else {
+      // Desktop: usa o canal IPC do Electron
+      result = await window.api.verificarAtualizacao();
+    }
+
+    console.log('🔍 Verificação de atualização:', result);
+
+    if (result && result.success && result.version && result.version !== AppState.version) {
       console.log(`🆕 Nova versão disponível: ${result.version}`);
       showUpdateModal(result);
+    } else {
+      console.log('✅ Aplicativo atualizado. Versão:', AppState.version);
     }
   } catch (error) {
-    console.warn('⚠️ Erro ao verificar atualizações:', error);
+    console.warn('⚠️ Erro ao verificar atualizações:', error.message);
   }
 }
 

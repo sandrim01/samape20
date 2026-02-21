@@ -129,10 +129,10 @@ app.get('/api/check-updates', (req, res) => {
     res.json({
         success: true,
         version: '1.0.2',
-        notes: 'Cálculo de KM agora utiliza odômetro de saída e chegada.',
+        notes: 'Correções: inputs de formulário, cálculo de odômetro em tempo real.',
         downloads: {
-            windows: 'https://github.com/sandrim01/samape20/releases/download/v1.0.1/SAMAPEOP-Portable.exe',
-            android: 'https://github.com/sandrim01/samape20/releases/download/v1.0.1/SAMAPE_2.0.apk'
+            windows: 'https://github.com/sandrim01/samape20/raw/main/SAMAPEOP-Portable.exe',
+            android: 'https://github.com/sandrim01/samape20/raw/main/SAMAPE_2.0.apk'
         }
     });
 });
