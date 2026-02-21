@@ -25,8 +25,8 @@ async function mostrarModalOS(osId = null) {
   const mecanicos = (mecanicosRes.usuarios || []).filter(u => u.cargo === 'MECANICO' || u.cargo === 'ADMIN');
 
   const modalHTML = `
-    <div class="modal-overlay" id="modal-os" style="z-index: 9999;">
-      <div class="modal-container" style="max-width: 800px; width: 95%; max-height: 95vh; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-xl); overflow: hidden; display: flex; flex-direction: column; position: relative; z-index: 10000;">
+    <div class="modal-overlay" id="modal-os" style="z-index: 9999; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center;">
+      <div class="modal-container" style="max-width: 800px; width: 95%; max-height: 95vh; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-xl); overflow: hidden; display: flex; flex-direction: column; position: relative; z-index: 10000; pointer-events: all;">
         
         <!-- HEADER COM INDICADOR DE ETAPAS -->
         <div class="modal-header" style="background: var(--bg-secondary); border-bottom: 1px solid var(--border); padding: 1.5rem; display: block;">
@@ -144,15 +144,15 @@ async function mostrarModalOS(osId = null) {
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                   <div class="form-group">
                     <label class="form-label">Odômetro Saída (KM)</label>
-                    <input type="number" class="form-input" id="os-km-ida" step="0.1" value="${osData ? osData.km_ida : 0}" onchange="calcularValoresOS()">
+                    <input type="number" class="form-input" id="os-km-ida" step="0.1" value="${osData ? osData.km_ida : 0}">
                   </div>
                   <div class="form-group">
                     <label class="form-label">Odômetro Chegada (KM)</label>
-                    <input type="number" class="form-input" id="os-km-volta" step="0.1" value="${osData ? osData.km_volta : 0}" onchange="calcularValoresOS()">
+                    <input type="number" class="form-input" id="os-km-volta" step="0.1" value="${osData ? osData.km_volta : 0}">
                   </div>
                   <div class="form-group">
                     <label class="form-label">Valor por KM</label>
-                    <input type="number" class="form-input" id="os-valor-km" step="0.01" value="${osData ? osData.valor_por_km : 0}" onchange="calcularValoresOS()">
+                    <input type="number" class="form-input" id="os-valor-km" step="0.01" value="${osData ? osData.valor_por_km : 0}">
                   </div>
                   <div class="form-group">
                     <label class="form-label">Distância Percorrida</label>
@@ -167,11 +167,11 @@ async function mostrarModalOS(osId = null) {
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                   <div class="form-group">
                     <label class="form-label">Mão de Obra (R$)</label>
-                    <input type="number" class="form-input" id="os-valor-mao-obra" step="0.01" value="${osData ? osData.valor_mao_obra : 0}" onchange="calcularValoresOS()">
+                    <input type="number" class="form-input" id="os-valor-mao-obra" step="0.01" value="${osData ? osData.valor_mao_obra : 0}">
                   </div>
                   <div class="form-group">
                     <label class="form-label">Peças (R$)</label>
-                    <input type="number" class="form-input" id="os-valor-pecas" step="0.01" value="${osData ? osData.valor_pecas : 0}" onchange="calcularValoresOS()">
+                    <input type="number" class="form-input" id="os-valor-pecas" step="0.01" value="${osData ? osData.valor_pecas : 0}">
                   </div>
                 </div>
                 <div style="margin-top: 1rem; padding: 1.5rem; background: var(--primary); border-radius: var(--radius-lg); text-align: center;">
@@ -282,6 +282,13 @@ async function mostrarModalOS(osId = null) {
     // Scroll para o topo do modal ao mudar de etapa
     document.querySelector('#form-os').scrollTop = 0;
   };
+
+  // Adicionar listeners de input para recalcular valores em tempo real
+  const camposCalculo = ['os-km-ida', 'os-km-volta', 'os-valor-km', 'os-valor-mao-obra', 'os-valor-pecas'];
+  camposCalculo.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', calcularValoresOS);
+  });
 
   // Listeners de navegação
   document.getElementById('btn-next-os').addEventListener('click', () => {

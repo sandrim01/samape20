@@ -5,6 +5,7 @@ const AppState = {
   currentPage: 'dashboard',
   menuOpen: false, // Controle do menu cascata
   expandedSections: ['Operacional'], // Seções expandidas por padrão
+  modalAberto: false, // Impede que render() destrua modais abertos
   data: {
     clientes: [],
     maquinas: [],
@@ -1067,6 +1068,7 @@ window.render = render;
 
 window.loadOrdens = loadOrdensServico;
 window.fecharModal = (id) => {
+  AppState.modalAberto = false;
   const modal = document.getElementById(id);
   if (modal) modal.remove();
   else closeModal();
@@ -1092,7 +1094,11 @@ function attachSelectListener(id, handler) {
 function attachInputListener(id, handler) {
   const input = document.getElementById(id);
   if (input) {
-    input.addEventListener('input', (e) => handler(e.target.value));
+    input.addEventListener('input', (e) => {
+      // Não chamar render() se um modal estiver aberto
+      if (AppState.modalAberto) return;
+      handler(e.target.value);
+    });
   }
 }
 
@@ -1250,6 +1256,7 @@ window.excluirMaquina = async (id) => {
 };
 
 function showNovaOSModal() {
+  AppState.modalAberto = true;
   mostrarModalOS();
 }
 
@@ -1709,6 +1716,7 @@ function closeModal() {
 
 // Funções globais para ações de tabela
 window.editarOS = async (id) => {
+  AppState.modalAberto = true;
   mostrarModalOS(id);
 };
 
