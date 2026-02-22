@@ -372,6 +372,18 @@ function calcularValoresOS() {
 }
 
 async function salvarOS(osId) {
+  // Ler valores dos campos
+  const odoSaida = parseFloat(document.getElementById('os-km-ida').value) || 0;
+  const odoChegada = parseFloat(document.getElementById('os-km-volta').value) || 0;
+  const valorPorKm = parseFloat(document.getElementById('os-valor-km').value) || 0;
+  const valorMaoObra = parseFloat(document.getElementById('os-valor-mao-obra').value) || 0;
+  const valorPecas = parseFloat(document.getElementById('os-valor-pecas').value) || 0;
+
+  // Calcular distância e total no frontend (fonte de verdade)
+  const kmPercorrido = odoChegada > odoSaida ? (odoChegada - odoSaida) : 0;
+  const valorDeslocamento = kmPercorrido * valorPorKm;
+  const valorTotal = valorMaoObra + valorPecas + valorDeslocamento;
+
   const dados = {
     cliente_id: document.getElementById('os-cliente').value,
     maquina_id: document.getElementById('os-maquina').value,
@@ -379,11 +391,12 @@ async function salvarOS(osId) {
     descricao_problema: document.getElementById('os-problema').value,
     diagnostico: document.getElementById('os-diagnostico').value,
     solucao: document.getElementById('os-solucao').value,
-    km_ida: document.getElementById('os-km-ida').value,
-    km_volta: document.getElementById('os-km-volta').value,
-    valor_por_km: document.getElementById('os-valor-km').value,
-    valor_mao_obra: document.getElementById('os-valor-mao-obra').value,
-    valor_pecas: document.getElementById('os-valor-pecas').value,
+    km_ida: odoSaida,
+    km_volta: odoChegada,
+    valor_por_km: valorPorKm,
+    valor_mao_obra: valorMaoObra,
+    valor_pecas: valorPecas,
+    valor_total: valorTotal,       // ← envia calculado corretamente
     observacoes: document.getElementById('os-observacoes').value,
     status: document.getElementById('os-status').value
   };

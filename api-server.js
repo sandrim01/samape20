@@ -551,7 +551,10 @@ app.post('/api/ordens', authenticateToken, async (req, res) => {
         const km_ida = parseFloat(req.body.km_ida) || 0;
         const km_volta = parseFloat(req.body.km_volta) || 0;
         const valor_por_km = parseFloat(req.body.valor_por_km) || 0;
-        const valor_total = req.body.valor_total || (valor_mao_obra + valor_pecas + ((km_ida + km_volta) * valor_por_km));
+        // Distância = odômetro chegada - odômetro saída (não a soma!)
+        const km_percorrido = km_volta > km_ida ? (km_volta - km_ida) : 0;
+        const valor_deslocamento = km_percorrido * valor_por_km;
+        const valor_total = req.body.valor_total || (valor_mao_obra + valor_pecas + valor_deslocamento);
 
         // Gerar número da OS se não fornecido
         let numero_os = req.body.numero_os;
@@ -569,12 +572,14 @@ app.post('/api/ordens', authenticateToken, async (req, res) => {
             `INSERT INTO ordens_servico 
        (numero_os, cliente_id, maquina_id, mecanico_id, status, prioridade,
         descricao_problema, diagnostico, servicos_realizados,
-        valor_mao_obra, valor_pecas, valor_total, observacoes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        valor_mao_obra, valor_pecas, valor_total, observacoes,
+        km_ida, km_volta, valor_por_km)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
        RETURNING *`,
             [numero_os, cliente_id, maquina_id, mecanico_id, status || 'ABERTA', prioridade || 'MEDIA',
                 descricao_problema, diagnostico, servicos_realizados,
-                valor_mao_obra, valor_pecas, valor_total, observacoes]
+                valor_mao_obra, valor_pecas, valor_total, observacoes,
+                km_ida, km_volta, valor_por_km]
         );
 
         await logActivity(req, 'OS_CRIADA', `Nova OS criada: ${numero_os}`);
@@ -608,8 +613,10 @@ app.put('/api/ordens/:id', authenticateToken, async (req, res) => {
         const km_volta = parseFloat(req.body.km_volta) || 0;
         const valor_por_km = parseFloat(req.body.valor_por_km) || 0;
 
-        // Cálculo de valor total
-        const valor_total = req.body.valor_total || (valor_mao_obra + valor_pecas + ((km_ida + km_volta) * valor_por_km));
+        // Cálculo de valor total: distância = odômetro chegada - odômetro saída (não a soma!)
+        const km_percorrido = km_volta > km_ida ? (km_volta - km_ida) : 0;
+        const valor_deslocamento = km_percorrido * valor_por_km;
+        const valor_total = req.body.valor_total || (valor_mao_obra + valor_pecas + valor_deslocamento);
 
         // Se o status for FECHADA e não houver data_fechamento, usar a data atual
         let finalDataFechamento = data_fechamento;
