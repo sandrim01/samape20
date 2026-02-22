@@ -554,7 +554,11 @@ app.post('/api/ordens', authenticateToken, async (req, res) => {
         // Distância = odômetro chegada - odômetro saída (não a soma!)
         const km_percorrido = km_volta > km_ida ? (km_volta - km_ida) : 0;
         const valor_deslocamento = km_percorrido * valor_por_km;
-        const valor_total = req.body.valor_total || (valor_mao_obra + valor_pecas + valor_deslocamento);
+        // Usar o valor_total enviado pelo frontend; só calcular se não foi enviado
+        const valor_total_recebido = parseFloat(req.body.valor_total);
+        const valor_total = !isNaN(valor_total_recebido)
+            ? valor_total_recebido
+            : (valor_mao_obra + valor_pecas + valor_deslocamento);
 
         // Gerar número da OS se não fornecido
         let numero_os = req.body.numero_os;
@@ -616,7 +620,11 @@ app.put('/api/ordens/:id', authenticateToken, async (req, res) => {
         // Cálculo de valor total: distância = odômetro chegada - odômetro saída (não a soma!)
         const km_percorrido = km_volta > km_ida ? (km_volta - km_ida) : 0;
         const valor_deslocamento = km_percorrido * valor_por_km;
-        const valor_total = req.body.valor_total || (valor_mao_obra + valor_pecas + valor_deslocamento);
+        // Usar o valor_total enviado pelo frontend; só calcular se não foi enviado
+        const valor_total_recebido = parseFloat(req.body.valor_total);
+        const valor_total = !isNaN(valor_total_recebido)
+            ? valor_total_recebido
+            : (valor_mao_obra + valor_pecas + valor_deslocamento);
 
         // Se o status for FECHADA e não houver data_fechamento, usar a data atual
         let finalDataFechamento = data_fechamento;
