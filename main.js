@@ -388,7 +388,14 @@ ipcMain.handle('criar-os', async (event, dados) => {
     const ano = new Date().getFullYear();
     const numero_os = `OS-${ano}-${count.toString().padStart(5, '0')}`;
 
-    const valor_total = (parseFloat(dados.valor_mao_obra) || 0) + (parseFloat(dados.valor_pecas) || 0) + ((parseFloat(dados.km_ida) || 0 + parseFloat(dados.km_volta) || 0) * (parseFloat(dados.valor_por_km) || 0));
+    // Cálculo do valor total: prioriza o valor do frontend ou calcula pela diferença de odômetros
+    const valor_recebido = parseFloat(dados.valor_total);
+    const km_ida = parseFloat(dados.km_ida) || 0;
+    const km_volta = parseFloat(dados.km_volta) || 0;
+    const valor_por_km = parseFloat(dados.valor_por_km) || 0;
+    const km_percorrido = km_volta > km_ida ? (km_volta - km_ida) : 0;
+    const valor_total = !isNaN(valor_recebido) ? valor_recebido :
+      ((parseFloat(dados.valor_mao_obra) || 0) + (parseFloat(dados.valor_pecas) || 0) + (km_percorrido * valor_por_km));
 
     const result = await pool.query(
       `INSERT INTO ordens_servico 
@@ -455,10 +462,14 @@ ipcMain.handle('excluir-os', async (event, id) => {
 
 ipcMain.handle('atualizar-os', async (event, { id, dados }) => {
   try {
-    // Cálculo do valor total
-    const valor_total = (parseFloat(dados.valor_mao_obra) || 0) +
-      (parseFloat(dados.valor_pecas) || 0) +
-      (((parseFloat(dados.km_ida) || 0) + (parseFloat(dados.km_volta) || 0)) * (parseFloat(dados.valor_por_km) || 0));
+    // Cálculo do valor total: prioriza o valor do frontend ou calcula pela diferença de odômetros
+    const valor_recebido = parseFloat(dados.valor_total);
+    const km_ida = parseFloat(dados.km_ida) || 0;
+    const km_volta = parseFloat(dados.km_volta) || 0;
+    const valor_por_km = parseFloat(dados.valor_por_km) || 0;
+    const km_percorrido = km_volta > km_ida ? (km_volta - km_ida) : 0;
+    const valor_total = !isNaN(valor_recebido) ? valor_recebido :
+      ((parseFloat(dados.valor_mao_obra) || 0) + (parseFloat(dados.valor_pecas) || 0) + (km_percorrido * valor_por_km));
 
     // Se o status for FECHADA e não houver data_fechamento, define como agora
     let dataFechamento = dados.data_fechamento;
