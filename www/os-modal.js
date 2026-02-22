@@ -516,6 +516,8 @@ async function gerarPDFOS(osId) {
             <div class="info-row"><div class="info-label">Odôm. Saída/Chegada:</div><div>${parseFloat(os.km_ida) || 0} / ${parseFloat(os.km_volta) || 0}</div></div>
             <div class="info-row"><div class="info-label">Distância Percorrida:</div><div>${normalizedOS.km_total.toFixed(1)} KM</div></div>
             <div class="info-row"><div class="info-label">Deslocamento:</div><div>R$ ${formatMoney(normalizedOS.valor_deslocamento)}</div></div>
+            <div class="info-row"><div class="info-label">Mão de Obra:</div><div>R$ ${formatMoney(normalizedOS.valor_mao_obra)}</div></div>
+            <div class="info-row"><div class="info-label">Peças:</div><div>R$ ${formatMoney(normalizedOS.valor_pecas)}</div></div>
           </div>
         </div>
 
