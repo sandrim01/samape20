@@ -408,10 +408,10 @@ app.get('/api/maquinas/:id', authenticateToken, async (req, res) => {
 app.put('/api/maquinas/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
-        const { cliente_id, modelo, numero_serie, ano, observacoes } = req.body;
+        const { cliente_id, modelo, numero_serie, ano, observacoes, tipo } = req.body;
         const result = await pool.query(
-            'UPDATE maquinas SET cliente_id=$1, modelo=$2, numero_serie=$3, ano_fabricacao=$4, observacoes=$5, updated_at=CURRENT_TIMESTAMP WHERE id=$6 RETURNING *',
-            [cliente_id, modelo, numero_serie, ano, observacoes, id]
+            'UPDATE maquinas SET cliente_id=$1, modelo=$2, numero_serie=$3, ano_fabricacao=$4, observacoes=$5, tipo=$6, updated_at=CURRENT_TIMESTAMP WHERE id=$7 RETURNING *',
+            [cliente_id, modelo, numero_serie, ano, observacoes, tipo || 'Geral', id]
         );
         res.json({ success: true, maquina: result.rows[0] });
     } catch (error) {

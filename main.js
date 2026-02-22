@@ -313,10 +313,11 @@ ipcMain.handle('criar-maquina', async (event, dados) => {
   try {
     const clienteId = parseInt(dados.cliente_id);
     const ano = parseInt(dados.ano) || null;
+    const tipo = dados.tipo || 'Geral';
 
     const result = await pool.query(
-      'INSERT INTO maquinas (cliente_id, modelo, numero_serie, ano_fabricacao, observacoes, ativo) VALUES ($1, $2, $3, $4, $5, true) RETURNING id',
-      [clienteId, dados.modelo, dados.numero_serie, ano, dados.observacoes]
+      'INSERT INTO maquinas (cliente_id, modelo, numero_serie, ano_fabricacao, observacoes, tipo, ativo) VALUES ($1, $2, $3, $4, $5, $6, true) RETURNING id',
+      [clienteId, dados.modelo, dados.numero_serie, ano, dados.observacoes, tipo]
     );
     return { success: true, id: result.rows[0].id };
   } catch (error) {
@@ -359,10 +360,11 @@ ipcMain.handle('atualizar-maquina', async (event, id, dados) => {
   try {
     const clienteId = parseInt(dados.cliente_id);
     const ano = parseInt(dados.ano) || null;
+    const tipo = dados.tipo || 'Geral';
 
     await pool.query(
-      'UPDATE maquinas SET cliente_id = $1, modelo = $2, numero_serie = $3, ano_fabricacao = $4, observacoes = $5, updated_at = CURRENT_TIMESTAMP WHERE id = $6',
-      [clienteId, dados.modelo, dados.numero_serie, ano, dados.observacoes, id]
+      'UPDATE maquinas SET cliente_id = $1, modelo = $2, numero_serie = $3, ano_fabricacao = $4, observacoes = $5, tipo = $6, updated_at = CURRENT_TIMESTAMP WHERE id = $7',
+      [clienteId, dados.modelo, dados.numero_serie, ano, dados.observacoes, tipo, id]
     );
     return { success: true };
   } catch (error) {
