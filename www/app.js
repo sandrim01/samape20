@@ -310,17 +310,6 @@ function renderDashboard() {
         <div class="stat-footer">Peças abaixo do mínimo</div>
       </div>
 
-      ${hasPermission('financeiro') ? `
-        <div class="stat-card premium clickable" onclick="AppState.currentPage = 'contas-receber'; render();">
-          <div class="stat-header">
-            <span class="stat-label">Contas a Receber</span>
-            <div class="stat-icon-bg success">💰</div>
-          </div>
-          <div class="stat-value-large">R$ ${formatMoney(stats.contas_receber_pendentes?.total || 0)}</div>
-          <div class="stat-footer">${stats.contas_receber_pendentes?.count || 0} pendentes</div>
-        </div>
-      ` : ''}
-
       ${hasPermission('vendas') ? `
         <div class="stat-card premium clickable" onclick="AppState.currentPage = 'vendas'; render();">
           <div class="stat-header">
