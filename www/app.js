@@ -506,10 +506,10 @@ function renderOrdensTable(ordens, isDashboard = false) {
               ${isDashboard ? '' : `<td>R$ ${formatMoney(os.valor_total)}</td>`}
               <td>
                 ${renderActionMenu(`os-${os.id}`, [
-    { label: isDashboard ? '' : 'Editar', icon: '📝', onclick: `editarOS(${os.id})` },
-    { label: isDashboard ? '' : 'Imprimir', icon: '🖨️', onclick: `window.gerarPDFOS(${os.id})`, show: !isDashboard },
-    { label: isDashboard ? '' : 'Excluir', icon: '🗑️', onclick: `confirmarExcluirOS(${os.id}, '${os.numero_os}')`, class: 'danger', show: AppState.currentUser.cargo === 'ADMIN' && !isDashboard }
-  ])}
+    { label: 'Editar', icon: '📝', onclick: `editarOS(${os.id})` },
+    { label: 'Imprimir', icon: '🖨️', onclick: `window.gerarPDFOS(${os.id})`, show: !isDashboard },
+    { label: 'Excluir', icon: '🗑️', onclick: `confirmarExcluirOS(${os.id}, '${os.numero_os}')`, class: 'danger', show: AppState.currentUser.cargo === 'ADMIN' && !isDashboard }
+  ], isDashboard ? '⋮' : 'Ações')}
               </td>
             </tr>
           `).join('')}
@@ -1107,13 +1107,15 @@ document.addEventListener('click', () => {
   document.querySelectorAll('.action-dropdown').forEach(d => d.classList.remove('open'));
 });
 
-function renderActionMenu(id, items) {
+function renderActionMenu(id, items, buttonLabel = 'Ações') {
   const filteredItems = items.filter(item => item.show !== false);
   if (filteredItems.length === 0) return '-';
 
   return `
     <div class="action-dropdown" id="action-menu-${id}">
-      <button class="action-btn" onclick="toggleActionMenu('action-menu-${id}', event)">Ações</button>
+      <button class="action-btn" onclick="toggleActionMenu('action-menu-${id}', event)">
+        ${buttonLabel}${buttonLabel === 'Ações' ? ' ▾' : ''}
+      </button>
       <div class="action-menu">
         ${filteredItems.map(item => `
           <button class="action-item ${item.class || ''}" onclick="${item.onclick}">

@@ -1361,18 +1361,22 @@ textarea.form-input {
   font-weight: 600;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
   transition: var(--transition);
+  min-width: 38px;
+  /* Square footprint for single-char buttons */
+}
+
+@media (max-width: 768px) {
+  .action-btn {
+    padding: 0.4rem 0.6rem;
+  }
 }
 
 .action-btn:hover {
   background: var(--border-light);
   border-color: var(--primary-light);
-}
-
-.action-btn::after {
-  content: '▾';
-  font-size: 0.8rem;
 }
 
 .action-menu {
