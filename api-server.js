@@ -450,7 +450,7 @@ app.put('/api/maquinas/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
         const { cliente_id, modelo, numero_serie, observacoes } = req.body;
-        
+
         const tipo = req.body.tipo || 'Geral';
         const ano_fabricacao = req.body.ano_fabricacao || req.body.ano || null;
         const horas_uso = req.body.horas_uso || 0;
@@ -477,17 +477,38 @@ app.put('/api/maquinas/:id', authenticateToken, async (req, res) => {
 // Listar ordens de serviço
 app.get('/api/ordens', authenticateToken, async (req, res) => {
     try {
-        const result = await pool.query(
-            `SELECT os.*, 
-              c.nome as cliente_nome,
-              m.modelo as maquina_modelo,
-              u.nome as mecanico_nome
-       FROM ordens_servico os
-       LEFT JOIN clientes c ON os.cliente_id = c.id
-       LEFT JOIN maquinas m ON os.maquina_id = m.id
-       LEFT JOIN usuarios u ON os.mecanico_id = u.id
-       ORDER BY os.data_abertura DESC`
-        );
+        let query = `
+          SELECT os.*, 
+                 c.nome as cliente_nome,
+                 m.modelo as maquina_modelo,
+                 u.nome as mecanico_nome
+          FROM ordens_servico os
+          LEFT JOIN clientes c ON os.cliente_id = c.id
+          LEFT JOIN maquinas m ON os.maquina_id = m.id
+          LEFT JOIN usuarios u ON os.mecanico_id = u.id
+        `;
+
+        const { status, maquina_id } = req.query;
+        const params = [];
+        const conditions = [];
+
+        if (status) {
+            conditions.push(`os.status = $${params.length + 1}`);
+            params.push(status);
+        }
+
+        if (maquina_id) {
+            conditions.push(`os.maquina_id = $${params.length + 1}`);
+            params.push(maquina_id);
+        }
+
+        if (conditions.length > 0) {
+            query += ' WHERE ' + conditions.join(' AND ');
+        }
+
+        query += ' ORDER BY os.data_abertura DESC';
+
+        const result = await pool.query(query, params);
         res.json({ success: true, ordens: result.rows });
     } catch (error) {
         console.error('Erro ao listar ordens:', error);

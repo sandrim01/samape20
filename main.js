@@ -421,10 +421,22 @@ ipcMain.handle('listar-os', async (event, filtros = {}) => {
       JOIN usuarios u ON os.mecanico_id = u.id
     `;
     const params = [];
+    const conditions = [];
+
     if (filtros.status) {
-      query += ' WHERE os.status = $1';
+      conditions.push(`os.status = $${params.length + 1}`);
       params.push(filtros.status);
     }
+
+    if (filtros.maquina_id) {
+      conditions.push(`os.maquina_id = $${params.length + 1}`);
+      params.push(filtros.maquina_id);
+    }
+
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ');
+    }
+
     query += ' ORDER BY os.data_abertura DESC';
     const result = await pool.query(query, params);
     return { success: true, ordens: result.rows };

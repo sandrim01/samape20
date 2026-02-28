@@ -600,9 +600,14 @@ function renderMaquinasTable(maquinas) {
               <td>${maq.ano_fabricacao || maq.ano || '-'}</td>
               <td>${maq.observacoes || '-'}</td>
               <td>
-                <button class="btn btn-secondary btn-sm" onclick="showNovaMaquinaModal(${maq.id})">
-                  Editar
-                </button>
+                <div style="display: flex; gap: 0.5rem;">
+                  <button class="btn btn-secondary btn-sm" onclick="showNovaMaquinaModal(${maq.id})">
+                    Editar
+                  </button>
+                  <button class="btn btn-info btn-sm" onclick="showHistoricoMaquina(${maq.id})">
+                    Histórico
+                  </button>
+                </div>
               </td>
             </tr>
           `).join('')}
@@ -1069,6 +1074,8 @@ window.closeModal = closeModal;
 window.render = render;
 
 window.loadOrdens = loadOrdensServico;
+window.loadOrdensServico = loadOrdensServico;
+window.showHistoricoMaquina = showHistoricoMaquina;
 window.fecharModal = (id) => {
   AppState.modalAberto = false;
   const modal = document.getElementById(id);
@@ -1268,6 +1275,54 @@ window.excluirMaquina = async (id) => {
     }
   }
 };
+
+async function showHistoricoMaquina(maquinaId) {
+  const maquina = AppState.data.maquinas.find(m => m.id == maquinaId);
+  const result = await window.api.listarOS({ maquina_id: maquinaId });
+
+  if (!result.success) {
+    alert('Erro ao carregar histórico: ' + result.message);
+    return;
+  }
+
+  const ordens = result.ordens;
+  const historicoHTML = ordens.length === 0
+    ? '<div class="empty-state"><p>Nenhuma manutenção registrada para esta máquina.</p></div>'
+    : `
+    <div class="table-container">
+      <table style="font-size: 0.85rem;">
+        <thead>
+          <tr>
+            <th>OS</th>
+            <th>Data</th>
+            <th>Mecânico</th>
+            <th>Serviço</th>
+            <th>Status</th>
+            <th>Valor</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${ordens.map(os => `
+            <tr>
+              <td><strong>${os.numero_os}</strong></td>
+              <td>${formatDate(os.data_abertura)}</td>
+              <td>${os.mecanico_nome || '-'}</td>
+              <td title="${os.descricao_problema}">${os.descricao_problema ? (os.descricao_problema.substring(0, 30) + '...') : '-'}</td>
+              <td><span class="badge badge-${os.status === 'FECHADA' ? 'success' : 'warning'}">${os.status}</span></td>
+              <td>R$ ${formatMoney(os.valor_total)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+    `;
+
+  showModal(`Histórico: ${maquina ? maquina.modelo : 'Máquina'} (Série: ${maquina ? maquina.numero_serie : '-'})`, `
+    <div class="historico-modal-content">
+      ${historicoHTML}
+    </div>
+  `, null); // null pois não há botão de salvar, apenas mostrar
+}
 
 function showNovaOSModal() {
   AppState.modalAberto = true;
@@ -1706,8 +1761,8 @@ function showModal(title, bodyHTML, onSave) {
         ${bodyHTML}
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" id="modal-cancel-btn">Cancelar</button>
-        <button class="btn btn-primary" id="modal-save-btn">Salvar</button>
+        <button class="btn btn-secondary" id="modal-cancel-btn">${onSave ? 'Cancelar' : 'Fechar'}</button>
+        ${onSave ? '<button class="btn btn-primary" id="modal-save-btn">Salvar</button>' : ''}
       </div>
     </div>
     `;
@@ -1716,7 +1771,9 @@ function showModal(title, bodyHTML, onSave) {
 
   document.getElementById('modal-close-btn').addEventListener('click', () => closeModal());
   document.getElementById('modal-cancel-btn').addEventListener('click', () => closeModal());
-  document.getElementById('modal-save-btn').addEventListener('click', onSave);
+  if (onSave) {
+    document.getElementById('modal-save-btn').addEventListener('click', onSave);
+  }
 
   modal.addEventListener('click', (e) => {
     if (e.target === modal) closeModal();
