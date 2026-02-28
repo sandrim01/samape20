@@ -1183,20 +1183,35 @@ textarea.form-input {
 
 /* Mobile Utilities */
 .mobile-only {
-  display: none;
+  display: none !important;
 }
 
 .desktop-only {
-  display: block;
+  /* No display defined: default to browser native (block, inline, table-cell) */
 }
 
 @media (max-width: 768px) {
   .mobile-only {
-    display: inline-block;
+    display: inline-block !important;
   }
 
   .desktop-only {
     display: none !important;
+  }
+
+  /* Drastic Table Reducer for Mobile */
+  table {
+    font-size: 0.85rem !important;
+  }
+
+  th,
+  td {
+    padding: 0.5rem 0.4rem !important;
+  }
+
+  .badge {
+    padding: 0.2rem 0.4rem !important;
+    font-size: 0.65rem !important;
   }
 
   .action-item {

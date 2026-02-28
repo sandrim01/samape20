@@ -486,11 +486,11 @@ function renderOrdensTable(ordens, isDashboard = false) {
           <tr>
             <th>Nº</th>
             <th>Cliente</th>
-            ${isDashboard ? '' : '<th>Máquina</th>'}
-            ${isDashboard ? '' : '<th>Mecânico</th>'}
-            ${isDashboard ? '' : '<th>Abertura</th>'}
+            <th class="desktop-only">Máquina</th>
+            <th class="desktop-only">Mecânico</th>
+            <th class="desktop-only">Abertura</th>
             <th>Status</th>
-            ${isDashboard ? '' : '<th>Valor</th>'}
+            <th class="${isDashboard ? 'desktop-only' : ''}">Valor</th>
             <th style="width: 80px;">Ações</th>
           </tr>
         </thead>
@@ -499,11 +499,11 @@ function renderOrdensTable(ordens, isDashboard = false) {
             <tr>
               <td><strong>${os.numero_os}</strong></td>
               <td style="${isDashboard ? 'max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;' : ''}" title="${os.cliente_nome}">${os.cliente_nome || '-'}</td>
-              ${isDashboard ? '' : `<td>${os.maquina_modelo || '-'}</td>`}
-              ${isDashboard ? '' : `<td>${os.mecanico_nome || '-'}</td>`}
-              ${isDashboard ? '' : `<td>${formatDate(os.data_abertura)}</td>`}
+              <td class="desktop-only">${os.maquina_modelo || '-'}</td>
+              <td class="desktop-only">${os.mecanico_nome || '-'}</td>
+              <td class="desktop-only">${formatDate(os.data_abertura)}</td>
               <td><span class="badge badge-${statusBadges[os.status]}" style="font-size: 0.65rem; padding: 0.2rem 0.5rem;">${os.status === 'EM_ANDAMENTO' ? 'ANDAM.' : os.status}</span></td>
-              ${isDashboard ? '' : `<td>R$ ${formatMoney(os.valor_total)}</td>`}
+              <td class="${isDashboard ? 'desktop-only' : ''}">R$ ${formatMoney(os.valor_total)}</td>
               <td>
                 ${renderActionMenu(`os-${os.id}`, [
     { label: 'Editar', icon: '📝', onclick: `editarOS(${os.id})` },
@@ -570,28 +570,28 @@ function renderMaquinasTable(maquinas) {
         <thead>
           <tr>
             <th>Cliente</th>
-            <th>Tipo</th>
+            <th class="desktop-only">Tipo</th>
             <th>Modelo</th>
-            <th>Número de Série</th>
-            <th>Ano</th>
-            <th>Observações</th>
+            <th class="desktop-only">Série</th>
+            <th class="desktop-only">Ano</th>
+            <th class="desktop-only">OBS</th>
             <th>Ações</th>
           </tr>
         </thead>
         <tbody>
           ${maquinas.map(maq => `
             <tr>
-              <td>${maq.cliente_nome || '-'}</td>
-              <td><span class="badge badge-info" style="font-size: 0.7rem;">${maq.tipo || 'Geral'}</span></td>
+              <td title="${maq.cliente_nome}">${maq.cliente_nome ? (maq.cliente_nome.split(' ')[0] + '...') : '-'}</td>
+              <td class="desktop-only"><span class="badge badge-info" style="font-size: 0.7rem;">${maq.tipo || 'Geral'}</span></td>
               <td><strong>${maq.modelo}</strong></td>
-              <td>${maq.numero_serie || '-'}</td>
-              <td>${maq.ano_fabricacao || maq.ano || '-'}</td>
-              <td>${maq.observacoes || '-'}</td>
+              <td class="desktop-only">${maq.numero_serie || '-'}</td>
+              <td class="desktop-only">${maq.ano_fabricacao || maq.ano || '-'}</td>
+              <td class="desktop-only">${maq.observacoes || '-'}</td>
               <td>
                 ${renderActionMenu(`maq-${maq.id}`, [
     { label: 'Editar', icon: '📝', onclick: `showNovaMaquinaModal(${maq.id})` },
     { label: 'Histórico', icon: '📜', onclick: `showHistoricoMaquina(${maq.id})` }
-  ])}
+  ], '⋮')}
               </td>
             </tr>
           `).join('')}
@@ -653,11 +653,11 @@ function renderPecasTable(pecas) {
           <tr>
             <th>Código</th>
             <th>Descrição</th>
-            <th>Preço Custo</th>
-            <th>Preço Venda</th>
+            <th class="desktop-only">Custo</th>
+            <th>Venda</th>
             <th>Estoque</th>
-            <th>Mínimo</th>
-            <th>Status</th>
+            <th class="desktop-only">Mín.</th>
+            <th class="desktop-only">Status</th>
             <th>Ações</th>
           </tr>
         </thead>
@@ -668,11 +668,11 @@ function renderPecasTable(pecas) {
               <tr>
                 <td><strong>${peca.codigo}</strong></td>
                 <td>${peca.nome || peca.descricao}</td>
-                <td>R$ ${formatMoney(peca.preco_custo)}</td>
+                <td class="desktop-only">R$ ${formatMoney(peca.preco_custo)}</td>
                 <td>R$ ${formatMoney(peca.preco_venda)}</td>
                 <td>${peca.quantidade_estoque || peca.estoque_atual || 0}</td>
-                <td>${peca.estoque_minimo || 0}</td>
-                <td>
+                <td class="desktop-only">${peca.estoque_minimo || 0}</td>
+                <td class="desktop-only">
                   ${estoqueBaixo
         ? '<span class="badge badge-danger">Baixo</span>'
         : '<span class="badge badge-success">OK</span>'}
@@ -680,7 +680,7 @@ function renderPecasTable(pecas) {
                 <td>
                   ${renderActionMenu(`pec-${peca.id}`, [
           { label: 'Editar', icon: '📝', onclick: `showNovaPecaModal(${peca.id})` }
-        ])}
+        ], '⋮')}
                 </td>
               </tr>
             `;
@@ -741,12 +741,12 @@ function renderVendasTable(vendas) {
       <table>
         <thead>
           <tr>
-            <th>Número</th>
+            <th>Nº</th>
             <th>Cliente</th>
-            <th>Vendedor</th>
-            <th>Data</th>
-            <th>Valor Total</th>
-            <th>Status</th>
+            <th class="desktop-only">Vendedor</th>
+            <th class="desktop-only">Data</th>
+            <th>Total</th>
+            <th class="desktop-only">Status</th>
             <th>Ações</th>
           </tr>
         </thead>
@@ -754,17 +754,17 @@ function renderVendasTable(vendas) {
           ${vendas.map(venda => `
             <tr>
               <td><strong>${venda.numero_venda}</strong></td>
-              <td>${venda.cliente_nome || '-'}</td>
-              <td>${venda.vendedor_nome || '-'}</td>
-              <td>${formatDate(venda.data_venda)}</td>
+              <td title="${venda.cliente_nome}">${venda.cliente_nome ? (venda.cliente_nome.split(' ')[0] + '...') : '-'}</td>
+              <td class="desktop-only">${venda.vendedor_nome || '-'}</td>
+              <td class="desktop-only">${formatDate(venda.data_venda)}</td>
               <td>R$ ${formatMoney(venda.valor_total)}</td>
-              <td><span class="badge badge-${venda.status === 'PAGO' ? 'success' : 'warning'}">${venda.status}</span></td>
+              <td class="desktop-only"><span class="badge badge-${venda.status === 'PAGO' ? 'success' : 'warning'}">${venda.status}</span></td>
               <td>
                 ${renderActionMenu(`ven-${venda.id}`, [
     { label: 'Visualizar', icon: '👁️', onclick: `showVendaDetalhes(${venda.id})` },
     { label: 'Concretizar', icon: '✅', onclick: `concretizarVenda(${venda.id})`, show: venda.status === 'PENDENTE' },
     { label: 'Excluir', icon: '🗑️', onclick: `confirmarExcluirVenda(${venda.id}, '${venda.numero_venda}')`, class: 'danger', show: AppState.currentUser.cargo === 'ADMIN' }
-  ])}
+  ], '⋮')}
               </td>
             </tr>
           `).join('')}
@@ -825,10 +825,10 @@ function renderClientesTable(clientes) {
         <thead>
           <tr>
             <th>Nome</th>
-            <th>CNPJ</th>
+            <th class="desktop-only">CNPJ</th>
             <th>Telefone</th>
-            <th>E-mail</th>
-            <th>Endereço</th>
+            <th class="desktop-only">E-mail</th>
+            <th class="desktop-only">Endereço</th>
             <th>Ações</th>
           </tr>
         </thead>
@@ -836,14 +836,14 @@ function renderClientesTable(clientes) {
           ${clientes.map(cliente => `
             <tr>
               <td><strong>${cliente.nome}</strong></td>
-              <td>${cliente.cnpj || '-'}</td>
+              <td class="desktop-only">${cliente.cnpj || '-'}</td>
               <td>${cliente.telefone || '-'}</td>
-              <td>${cliente.email || '-'}</td>
-              <td>${cliente.endereco || '-'}</td>
+              <td class="desktop-only">${cliente.email || '-'}</td>
+              <td class="desktop-only">${cliente.endereco || '-'}</td>
               <td>
                 ${renderActionMenu(`cli-${cliente.id}`, [
     { label: 'Editar', icon: '📝', onclick: `showNovoClienteModal(${cliente.id})` }
-  ])}
+  ], '⋮')}
               </td>
             </tr>
           `).join('')}
@@ -893,10 +893,10 @@ function renderUsuariosTable(usuarios) {
         <thead>
           <tr>
             <th>Nome</th>
-            <th>E-mail</th>
+            <th class="desktop-only">E-mail</th>
             <th>Cargo</th>
-            <th>Status</th>
-            <th>Cadastrado em</th>
+            <th class="desktop-only">Status</th>
+            <th class="desktop-only">Cadastrado em</th>
             <th>Ações</th>
           </tr>
         </thead>
@@ -904,18 +904,18 @@ function renderUsuariosTable(usuarios) {
           ${usuarios.map(usuario => `
             <tr>
               <td><strong>${usuario.nome}</strong></td>
-              <td>${usuario.email}</td>
+              <td class="desktop-only">${usuario.email}</td>
               <td>${roleLabels[usuario.cargo] || usuario.cargo}</td>
-              <td>
+              <td class="desktop-only">
                 <span class="badge badge-${usuario.ativo ? 'success' : 'danger'}">
                   ${usuario.ativo ? 'Ativo' : 'Inativo'}
                 </span>
               </td>
-              <td>${formatDate(usuario.criado_em)}</td>
+              <td class="desktop-only">${formatDate(usuario.criado_em)}</td>
               <td>
                 ${renderActionMenu(`usu-${usuario.id}`, [
     { label: 'Editar', icon: '📝', onclick: `showNovoUsuarioModal(${usuario.id})` }
-  ])}
+  ], '⋮')}
               </td>
             </tr>
           `).join('')}
