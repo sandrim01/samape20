@@ -292,7 +292,7 @@ function renderDashboard() {
     </div>
 
     <div class="stats-grid">
-      <div class="stat-card premium" onclick="this.classList.toggle('expanded')">
+      <div class="stat-card premium clickable" onclick="AppState.currentPage = 'ordens-servico'; render();">
         <div class="stat-header">
           <span class="stat-label">Ordens Abertas</span>
           <div class="stat-icon-bg primary">📋</div>
@@ -301,7 +301,7 @@ function renderDashboard() {
         <div class="stat-footer">${stats.os_em_andamento || 0} em andamento</div>
       </div>
 
-      <div class="stat-card premium" onclick="this.classList.toggle('expanded')">
+      <div class="stat-card premium clickable" onclick="AppState.currentPage = 'pecas'; render();">
         <div class="stat-header">
           <span class="stat-label">Estoque Crítico</span>
           <div class="stat-icon-bg warning">📦</div>
@@ -311,34 +311,34 @@ function renderDashboard() {
       </div>
 
       ${hasPermission('financeiro') ? `
-        <div class="stat-card premium" onclick="this.classList.toggle('expanded')">
+        <div class="stat-card premium clickable" onclick="AppState.currentPage = 'contas-receber'; render();">
           <div class="stat-header">
             <span class="stat-label">Contas a Receber</span>
             <div class="stat-icon-bg success">💰</div>
           </div>
           <div class="stat-value-large">R$ ${formatMoney(stats.contas_receber_pendentes?.total || 0)}</div>
-          <div class="stat-footer">${stats.contas_receber_pendentes?.count || 0} faturas pendentes</div>
+          <div class="stat-footer">${stats.contas_receber_pendentes?.count || 0} pendentes</div>
         </div>
       ` : ''}
 
       ${hasPermission('vendas') ? `
-        <div class="stat-card premium" onclick="this.classList.toggle('expanded')">
+        <div class="stat-card premium clickable" onclick="AppState.currentPage = 'vendas'; render();">
           <div class="stat-header">
             <span class="stat-label">Vendas do Mês</span>
             <div class="stat-icon-bg info">🛒</div>
           </div>
           <div class="stat-value-large">R$ ${formatMoney(stats.vendas_mes?.total || 0)}</div>
-          <div class="stat-footer">${stats.vendas_mes?.count || 0} pedidos realizados</div>
+          <div class="stat-footer">${stats.vendas_mes?.count || 0} pedidos</div>
         </div>
       ` : ''}
 
-      <div class="stat-card premium" onclick="this.classList.toggle('expanded')">
+      <div class="stat-card premium clickable" onclick="AppState.currentPage = 'ordens-servico'; render();">
         <div class="stat-header">
-          <span class="stat-label">Saúde do Serviço (Méd.)</span>
+          <span class="stat-label">Tempo Médio</span>
           <div class="stat-icon-bg" style="background: ${getHealthColor(stats.tempo_medio_os)}22; color: ${getHealthColor(stats.tempo_medio_os)};">⚡</div>
         </div>
         <div class="stat-value-large" style="color: ${getHealthColor(stats.tempo_medio_os)};">${formatAverageTime(stats.tempo_medio_os)}</div>
-        <div class="stat-footer">Tempo médio de conclusão</div>
+        <div class="stat-footer">Tempo de conclusão</div>
       </div>
     </div>
 
@@ -348,7 +348,7 @@ function renderDashboard() {
           <h2 class="card-title">Ordens Recentes</h2>
           <span class="card-link" onclick="AppState.currentPage = 'ordens-servico'; render();" style="cursor: pointer; color: var(--primary-light); font-size: 0.9rem;">Ver todas →</span>
         </div>
-        ${renderOrdensTable(AppState.data.ordens.slice(0, 2))}
+        ${renderOrdensTable(AppState.data.ordens.slice(0, 5), true)}
       </div>
 
       <div class="card">
@@ -388,25 +388,23 @@ function renderDashboard() {
           <button class="btn btn-secondary btn-sm" onclick="loadLogs().then(render)" style="padding: 0.25rem 0.75rem;">🔄 Atualizar Logs</button>
         </div>
         <div class="table-container" style="max-height: 400px; overflow-y: auto;">
-          <table style="font-size: 0.85rem; width: 100%; border-collapse: collapse;">
+          <table style="font-size: 0.8rem; width: 100%; border-collapse: collapse;">
             <thead style="position: sticky; top: 0; z-index: 10; background: var(--bg-tertiary);">
               <tr>
-                <th style="padding: 0.75rem; text-align: left;">Data/Hora</th>
-                <th style="padding: 0.75rem; text-align: left;">Usuário</th>
-                <th style="padding: 0.75rem; text-align: left;">Ação</th>
-                <th style="padding: 0.75rem; text-align: left;">Detalhes</th>
-                <th style="padding: 0.75rem; text-align: left;">IP</th>
+                <th style="padding: 0.5rem; text-align: left;">Data/Hora</th>
+                <th style="padding: 0.5rem; text-align: left;">Usuário</th>
+                <th style="padding: 0.5rem; text-align: left;">Ação</th>
+                <th style="padding: 0.5rem; text-align: left;" class="desktop-only">IP</th>
               </tr>
             </thead>
             <tbody>
-              ${AppState.data.logs.length === 0 ? '<tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">Nenhuma atividade recente registrada</td></tr>' :
+              ${AppState.data.logs.length === 0 ? '<tr><td colspan="4" style="text-align: center; padding: 2rem; color: var(--text-muted);">Nenhuma atividade recente registrada</td></tr>' :
         AppState.data.logs.map((log, index) => `
                 <tr style="border-bottom: 1px solid var(--border); ${index % 2 === 0 ? 'background: rgba(255,255,255,0.02);' : ''}">
-                  <td style="white-space: nowrap; padding: 0.75rem;">${new Date(log.created_at).toLocaleString('pt-BR')}</td>
-                  <td style="padding: 0.75rem;"><strong>${log.usuario_nome}</strong></td>
-                  <td style="padding: 0.75rem;"><span class="badge ${log.acao.includes('FALHA') ? 'badge-danger' : 'badge-info'}" style="font-size: 0.65rem; padding: 0.2rem 0.5rem; border-radius: 4px;">${log.acao}</span></td>
-                  <td style="padding: 0.75rem; font-size: 0.8rem;">${log.detalhes}</td>
-                  <td style="color: var(--text-muted); font-family: monospace; font-size: 0.75rem; padding: 0.75rem;">${log.ip}</td>
+                  <td style="white-space: nowrap; padding: 0.5rem;">${new Date(log.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
+                  <td style="padding: 0.5rem;"><strong>${log.usuario_nome.split(' ')[0]}</strong></td>
+                  <td style="padding: 0.5rem;"><span class="badge ${log.acao.includes('FALHA') ? 'badge-danger' : 'badge-info'}" style="font-size: 0.6rem; padding: 0.1rem 0.4rem;">${log.acao}</span></td>
+                  <td style="color: var(--text-muted); font-family: monospace; font-size: 0.7rem; padding: 0.5rem;" class="desktop-only">${log.ip}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -464,7 +462,7 @@ function renderOrdensServico() {
   `;
 }
 
-function renderOrdensTable(ordens) {
+function renderOrdensTable(ordens, isDashboard = false) {
   if (!ordens || ordens.length === 0) {
     return `
       <div class="empty-state">
@@ -483,35 +481,34 @@ function renderOrdensTable(ordens) {
 
   return `
     <div class="table-container">
-      <table>
+      <table style="${isDashboard ? 'font-size: 0.85rem;' : ''}">
         <thead>
           <tr>
-            <th>Número</th>
+            <th>Nº</th>
             <th>Cliente</th>
-            <th>Máquina</th>
-            <th>Mecânico</th>
-            <th>Data Abertura</th>
+            ${isDashboard ? '' : '<th>Máquina</th>'}
+            ${isDashboard ? '' : '<th>Mecânico</th>'}
+            ${isDashboard ? '' : '<th>Abertura</th>'}
             <th>Status</th>
-            <th>Valor Total</th>
-            <th>Ações</th>
+            ${isDashboard ? '' : '<th>Valor</th>'}
+            <th style="width: 80px;">Ações</th>
           </tr>
         </thead>
         <tbody>
           ${ordens.map(os => `
             <tr>
               <td><strong>${os.numero_os}</strong></td>
-              <td>${os.cliente_nome || '-'}</td>
-              <td>${os.maquina_modelo || '-'}</td>
-              <td>${os.mecanico_nome || '-'}</td>
-              <td>${formatDate(os.data_abertura)}</td>
-              <td><span class="badge badge-${statusBadges[os.status]}">${os.status.replace('_', ' ')}</span></td>
-              <td>R$ ${formatMoney(os.valor_total)}</td>
+              <td style="${isDashboard ? 'max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;' : ''}" title="${os.cliente_nome}">${os.cliente_nome || '-'}</td>
+              ${isDashboard ? '' : `<td>${os.maquina_modelo || '-'}</td>`}
+              ${isDashboard ? '' : `<td>${os.mecanico_nome || '-'}</td>`}
+              ${isDashboard ? '' : `<td>${formatDate(os.data_abertura)}</td>`}
+              <td><span class="badge badge-${statusBadges[os.status]}" style="font-size: 0.65rem; padding: 0.2rem 0.5rem;">${os.status === 'EM_ANDAMENTO' ? 'ANDAM.' : os.status}</span></td>
+              ${isDashboard ? '' : `<td>R$ ${formatMoney(os.valor_total)}</td>`}
               <td>
                 ${renderActionMenu(`os-${os.id}`, [
-    { label: 'Editar', icon: '📝', onclick: `editarOS(${os.id})` },
-    { label: 'Imprimir', icon: '🖨️', onclick: `window.gerarPDFOS(${os.id})` },
-    { label: 'Gerar PDF', icon: '📄', onclick: `window.gerarPDFOS(${os.id})` },
-    { label: 'Excluir', icon: '🗑️', onclick: `confirmarExcluirOS(${os.id}, '${os.numero_os}')`, class: 'danger', show: AppState.currentUser.cargo === 'ADMIN' }
+    { label: isDashboard ? '' : 'Editar', icon: '📝', onclick: `editarOS(${os.id})` },
+    { label: isDashboard ? '' : 'Imprimir', icon: '🖨️', onclick: `window.gerarPDFOS(${os.id})`, show: !isDashboard },
+    { label: isDashboard ? '' : 'Excluir', icon: '🗑️', onclick: `confirmarExcluirOS(${os.id}, '${os.numero_os}')`, class: 'danger', show: AppState.currentUser.cargo === 'ADMIN' && !isDashboard }
   ])}
               </td>
             </tr>

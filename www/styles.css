@@ -1472,3 +1472,30 @@ img {
   max-width: 100%;
   height: auto;
 }
+
+/* Dashboard Clickable Cards */
+.stat-card.clickable {
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s;
+}
+
+.stat-card.clickable:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+  border-color: var(--primary);
+}
+
+.stat-card.clickable:active {
+  transform: translateY(-2px) scale(1.0);
+}
+
+/* Table text overflow in dashboard */
+.card-header {
+  display: flex !important;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-title {
+  margin: 0;
+}
