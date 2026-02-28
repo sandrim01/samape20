@@ -244,14 +244,15 @@ function renderTopbar() {
   return `
     <div class="topbar">
       <div class="topbar-left">
-        <div id="logo-trigger" class="logo-container-small">
+        <div id="logo-trigger" class="logo-container-small" style="display: flex; align-items: center; gap: 0.5rem;">
           <img src="resources/logonova2.png" alt="S" style="height: 35px; width: auto; cursor: pointer;" />
+          <span class="mobile-only" style="font-size: 1.2rem; margin-left: 0.25rem;">☰</span>
         </div>
         <h1 class="page-title">${pageTitles[AppState.currentPage] || 'SAMAPEOP'}</h1>
       </div>
       <div class="topbar-right">
-        <span class="topbar-date-text">${new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })}</span>
-        <span style="font-size: 0.7rem; color: var(--text-muted); padding: 0.25rem 0.5rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 4px; margin-left: 0.75rem;">
+        <span class="topbar-date-text" style="white-space: nowrap;">${new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })}</span>
+        <span class="desktop-only" style="font-size: 0.7rem; color: var(--text-muted); padding: 0.25rem 0.5rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 4px; margin-left: 0.75rem;">
           v${AppState.version}
         </span>
       </div>

@@ -179,6 +179,15 @@ body {
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
+/* Prevent iOS zoom on focus */
+@media screen and (max-width: 768px) {
+
+  .form-input,
+  .btn {
+    font-size: 16px !important;
+  }
+}
+
 .btn {
   padding: 0.875rem 1.5rem;
   border: none;
@@ -281,8 +290,9 @@ body {
 /* Cascade Menu */
 .cascade-menu {
   position: absolute;
-  top: 75px;
-  left: 20px;
+  top: 70px;
+  /* Align with topbar height */
+  left: 1.5rem;
   width: 280px;
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -292,6 +302,15 @@ body {
   display: none;
   overflow: hidden;
   animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (max-width: 480px) {
+  .cascade-menu {
+    left: 0.5rem;
+    right: 0.5rem;
+    width: auto;
+    max-width: calc(100vw - 1rem);
+  }
 }
 
 .cascade-menu.open {
@@ -811,6 +830,25 @@ tr:hover {
     transition: opacity 0.4s 0.1s;
     /* Delay para aparecer suavemente */
   }
+
+  /* Responsive Filter Bar */
+  .filter-bar {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 0.75rem !important;
+  }
+
+  .filter-bar .search-box,
+  .filter-bar .form-input {
+    min-width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .filter-bar select,
+  .filter-bar input {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
 }
 
 .form-group-full {
@@ -1062,8 +1100,23 @@ textarea.form-input {
 @media (max-width: 640px) {
   .dashboard-welcome {
     flex-direction: column;
-    gap: 1.5rem;
-    align-items: flex-start;
+    gap: 1.25rem;
+    align-items: stretch;
+    padding: 1rem;
+    text-align: center;
+  }
+
+  .quick-actions-bar {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .quick-actions-bar .btn {
+    flex: 1;
+  }
+
+  .welcome-text h2 {
+    font-size: 1.5rem;
   }
 }
 
@@ -1131,6 +1184,26 @@ textarea.form-input {
 /* Mobile Utilities */
 .mobile-only {
   display: none;
+}
+
+.desktop-only {
+  display: block;
+}
+
+@media (max-width: 768px) {
+  .mobile-only {
+    display: inline-block;
+  }
+
+  .desktop-only {
+    display: none !important;
+  }
+
+  .action-item {
+    padding: 1rem 1.25rem;
+    /* Larger tap targets on mobile */
+    font-size: 1rem;
+  }
 }
 
 /* Responsive Media Queries */
@@ -1371,4 +1444,31 @@ textarea.form-input {
 
 .content-area {
   overflow-x: auto;
+  padding-bottom: 5rem;
+  /* Extra space for action menus at the bottom */
+}
+
+/* Wizard Steps Mobile Improvements */
+@media (max-width: 480px) {
+  .os-step-item span {
+    font-size: 0.6rem !important;
+    display: block;
+    max-width: 60px;
+    margin: 0 auto;
+    line-height: 1.1;
+  }
+
+  .modal-header {
+    padding: 1rem 0.75rem !important;
+  }
+
+  #step-line-progress {
+    left: 2rem !important;
+  }
+}
+
+/* Ensure images don't overflow */
+img {
+  max-width: 100%;
+  height: auto;
 }
