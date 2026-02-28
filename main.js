@@ -592,6 +592,58 @@ ipcMain.handle('listar-vendas', async () => {
   }
 });
 
+ipcMain.handle('obter-venda', async (event, id) => {
+  try {
+    const vendaRes = await pool.query(`
+      SELECT v.*, c.nome as cliente_nome, u.nome as vendedor_nome
+      FROM vendas v
+      JOIN clientes c ON v.cliente_id = c.id
+      JOIN usuarios u ON v.vendedor_id = u.id
+      WHERE v.id = $1
+    `, [id]);
+
+    if (vendaRes.rows.length === 0) return { success: false, message: 'Venda não encontrada' };
+
+    const itensRes = await pool.query(`
+      SELECT vi.*, p.nome as peca_nome, p.codigo as peca_codigo
+      FROM venda_itens vi
+      JOIN pecas p ON vi.peca_id = p.id
+      WHERE vi.venda_id = $1
+    `, [id]);
+
+    const venda = vendaRes.rows[0];
+    venda.itens = itensRes.rows;
+
+    return { success: true, venda };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('excluir-venda', async (event, id) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Devolver estoque
+    const itensRes = await client.query('SELECT peca_id, quantidade FROM venda_itens WHERE venda_id = $1', [id]);
+    for (const item of itensRes.rows) {
+      await client.query('UPDATE pecas SET quantidade_estoque = quantidade_estoque + $1 WHERE id = $2', [item.quantidade, item.peca_id]);
+    }
+
+    await client.query('DELETE FROM venda_itens WHERE venda_id = $1', [id]);
+    await client.query('DELETE FROM vendas WHERE id = $1', [id]);
+
+    await client.query('COMMIT');
+    return { success: true };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    return { success: false, message: error.message };
+  } finally {
+    client.release();
+  }
+});
+
 ipcMain.handle('listar-contas-receber', async (event, filtros = {}) => {
   try {
     let query = 'SELECT cr.*, c.nome as cliente_nome FROM contas_receber cr JOIN clientes c ON cr.cliente_id = c.id';

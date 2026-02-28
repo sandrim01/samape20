@@ -763,6 +763,7 @@ function renderVendasTable(vendas) {
             <th>Data</th>
             <th>Valor Total</th>
             <th>Status</th>
+            <th>Ações</th>
           </tr>
         </thead>
         <tbody>
@@ -774,6 +775,12 @@ function renderVendasTable(vendas) {
               <td>${formatDate(venda.data_venda)}</td>
               <td>R$ ${formatMoney(venda.valor_total)}</td>
               <td><span class="badge badge-${venda.status === 'PAGO' ? 'success' : 'warning'}">${venda.status}</span></td>
+              <td>
+                <div style="display: flex; gap: 0.5rem;">
+                  <button class="btn btn-secondary btn-sm" onclick="showVendaDetalhes(${venda.id})">Visualizar</button>
+                  ${AppState.currentUser.cargo === 'ADMIN' ? `<button class="btn btn-danger btn-sm" onclick="confirmarExcluirVenda(${venda.id}, '${venda.numero_venda}')">Excluir</button>` : ''}
+                </div>
+              </td>
             </tr>
           `).join('')}
         </tbody>
@@ -1076,6 +1083,9 @@ window.render = render;
 window.loadOrdens = loadOrdensServico;
 window.loadOrdensServico = loadOrdensServico;
 window.showHistoricoMaquina = showHistoricoMaquina;
+window.showVendaDetalhes = showVendaDetalhes;
+window.confirmarExcluirVenda = confirmarExcluirVenda;
+window.imprimirVenda = imprimirVenda;
 window.fecharModal = (id) => {
   AppState.modalAberto = false;
   const modal = document.getElementById(id);
@@ -1592,6 +1602,144 @@ async function showNovaVendaModal() {
 
   // Exportar funções necessárias para o escopo global do modal
   window.adicionarItemLista = adicionarItemLista;
+}
+
+async function showVendaDetalhes(vendaId) {
+  const result = await window.api.obterVenda(vendaId);
+  if (!result.success) return alert('Erro ao carregar venda: ' + result.message);
+
+  const venda = result.venda;
+  const itensHTML = venda.itens.map(item => `
+    <tr>
+      <td>${item.peca_nome} (${item.peca_codigo})</td>
+      <td>${item.quantidade}</td>
+      <td>R$ ${formatMoney(item.preco_unitario)}</td>
+      <td>R$ ${formatMoney(item.preco_total)}</td>
+    </tr>
+  `).join('');
+
+  showModal(`Venda: ${venda.numero_venda}`, `
+    <div style="display: grid; gap: 1rem;">
+      <div class="card" style="background: var(--bg-secondary); margin-bottom: 0;">
+        <p><strong>Cliente:</strong> ${venda.cliente_nome}</p>
+        <p><strong>Vendedor:</strong> ${venda.vendedor_nome}</p>
+        <p><strong>Data:</strong> ${formatDate(venda.data_venda)}</p>
+        <p><strong>Forma Pagamento:</strong> ${venda.forma_pagamento}</p>
+        <p><strong>Status:</strong> <span class="badge badge-${venda.status === 'PAGO' ? 'success' : 'warning'}">${venda.status}</span></p>
+      </div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Qtd</th>
+              <th>Unit.</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itensHTML}
+          </tbody>
+        </table>
+      </div>
+      <div style="text-align: right; padding: 1rem; background: var(--bg-tertiary); border-radius: var(--radius);">
+         <h3 style="margin: 0;">Total: R$ ${formatMoney(venda.valor_total)}</h3>
+      </div>
+    </div>
+  `, null);
+
+  // Adicionar botão de imprimir no footer (o showModal por padrão cria o footer com Cancelar/Fechar)
+  // Como showModal agora é sheet-friendly, vamos injetar o botão no footer do modal existente
+  const modalFooter = document.querySelector('.modal-footer');
+  if (modalFooter) {
+    const printBtn = document.createElement('button');
+    printBtn.className = 'btn btn-primary';
+    printBtn.innerHTML = '🖨️ Imprimir';
+    printBtn.style.marginRight = 'auto';
+    printBtn.onclick = () => imprimirVenda(venda);
+    modalFooter.insertBefore(printBtn, modalFooter.firstChild);
+  }
+}
+
+async function confirmarExcluirVenda(id, numero) {
+  if (confirm(`Deseja realmente excluir a venda ${numero}?\nO estoque das peças será devolvido.`)) {
+    const result = await window.api.excluirVenda(id);
+    if (result.success) {
+      alert('Venda excluída com sucesso.');
+      await loadVendas();
+      await loadPecas();
+      render();
+    } else {
+      alert('Erro ao excluir: ' + result.message);
+    }
+  }
+}
+
+function imprimirVenda(venda) {
+  const printContent = `
+    <div style="font-family: sans-serif; padding: 20px; color: #333; max-width: 800px; margin: 0 auto; background: white;">
+      <div style="text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 20px; margin-bottom: 20px;">
+        <h1 style="color: #2563eb; margin: 0;">SAMAPE ÍNDIO</h1>
+        <p style="margin: 5px 0;">Comprovante de Venda</p>
+        <h2 style="margin: 10px 0;">${venda.numero_venda}</h2>
+      </div>
+
+      <div style="margin-bottom: 20px;">
+        <p><strong>Cliente:</strong> ${venda.cliente_nome}</p>
+        <p><strong>Vendedor:</strong> ${venda.vendedor_nome}</p>
+        <p><strong>Data:</strong> ${formatDate(venda.data_venda)}</p>
+      </div>
+
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+        <thead>
+          <tr style="background: #f3f4f6; text-align: left;">
+            <th style="padding: 10px; border: 1px solid #ddd;">Item</th>
+            <th style="padding: 10px; border: 1px solid #ddd;">Qtd</th>
+            <th style="padding: 10px; border: 1px solid #ddd;">Unit.</th>
+            <th style="padding: 10px; border: 1px solid #ddd;">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${venda.itens.map(item => `
+            <tr>
+              <td style="padding: 10px; border: 1px solid #ddd;">${item.peca_nome}</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${item.quantidade}</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">R$ ${formatMoney(item.preco_unitario)}</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">R$ ${formatMoney(item.preco_total)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+
+      <div style="text-align: right; font-size: 1.5rem; font-weight: bold; padding: 20px; background: #f3f4f6; border-radius: 8px;">
+        TOTAL: R$ ${formatMoney(venda.valor_total)}
+      </div>
+
+      <div style="margin-top: 50px; text-align: center; border-top: 1px solid #ddd; padding-top: 20px; font-size: 0.8rem; color: #666;">
+        <p>Obrigado pela preferência!</p>
+        <p>SAMAPE Sistema de Gerenciamento de Manutenção</p>
+      </div>
+    </div>
+
+    <!-- Controles de Impressão -->
+    <div id="print-controls" style="position: fixed; bottom: 20px; right: 20px; display: flex; gap: 10px;">
+      <button onclick="document.body.removeChild(this.parentNode.parentNode); window.location.reload();" style="padding: 10px 20px; background: #ef4444; color: white; border: none; border-radius: 6px; cursor: pointer;">Fechar</button>
+      <button onclick="window.print()" style="padding: 10px 20px; background: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer;">🖨️ Imprimir / Salvar PDF</button>
+    </div>
+
+    <style>
+      @media print {
+        #print-controls { display: none; }
+        body { background: white !important; }
+      }
+    </style>
+  `;
+
+  // Abrir em uma nova janela ou overlay
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position: fixed; top:0; left:0; width:100%; height:100%; background:white; z-index: 30000; overflow-y: auto;';
+  overlay.innerHTML = printContent;
+  document.body.appendChild(overlay);
 }
 
 function showNovaContaReceberModal() {

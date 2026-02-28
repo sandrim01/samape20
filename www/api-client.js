@@ -294,6 +294,14 @@ const WebAPI = {
         return await apiFetch('/vendas', { method: 'POST', body: JSON.stringify(dados) });
     },
 
+    async obterVenda(id) {
+        return await apiFetch(`/vendas/${id}`);
+    },
+
+    async excluirVenda(id) {
+        return await apiFetch(`/vendas/${id}`, { method: 'DELETE' });
+    },
+
     // Financeiro
     async listarContasReceber(filtros = {}) {
         let url = '/contas-receber';

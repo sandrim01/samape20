@@ -857,7 +857,78 @@ app.post('/api/vendas', authenticateToken, authorize(['ADMIN', 'DIRETOR', 'VENDA
     }
 });
 
-// ==================== ROTAS DE CONTAS ====================
+// Obter detalhes de uma venda
+app.get('/api/vendas/:id', authenticateToken, authorize(['ADMIN', 'DIRETOR', 'VENDAS']), async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // 1. Buscar a venda
+        const vendaResult = await pool.query(
+            `SELECT v.*, c.nome as cliente_nome, u.nome as vendedor_nome
+             FROM vendas v
+             LEFT JOIN clientes c ON v.cliente_id = c.id
+             LEFT JOIN usuarios u ON v.vendedor_id = u.id
+             WHERE v.id = $1`,
+            [id]
+        );
+
+        if (vendaResult.rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Venda não encontrada' });
+        }
+
+        const venda = vendaResult.rows[0];
+
+        // 2. Buscar os itens da venda
+        const itensResult = await pool.query(
+            `SELECT vi.*, p.nome as peca_nome, p.codigo as peca_codigo
+             FROM venda_itens vi
+             JOIN pecas p ON vi.peca_id = p.id
+             WHERE vi.venda_id = $1`,
+            [id]
+        );
+
+        venda.itens = itensResult.rows;
+
+        res.json({ success: true, venda });
+    } catch (error) {
+        console.error('Erro ao obter detalhes da venda:', error);
+        res.status(500).json({ success: false, message: 'Erro no servidor' });
+    }
+});
+
+// Excluir venda (Apenas Admin)
+app.delete('/api/vendas/:id', authenticateToken, authorize(['ADMIN']), async (req, res) => {
+    const client = await pool.connect();
+    try {
+        const { id } = req.params;
+
+        await client.query('BEGIN');
+
+        // 1. Buscar itens para devolver ao estoque
+        const itensResult = await client.query('SELECT peca_id, quantidade FROM venda_itens WHERE venda_id = $1', [id]);
+
+        for (const item of itensResult.rows) {
+            await client.query(
+                'UPDATE pecas SET quantidade_estoque = quantidade_estoque + $1 WHERE id = $2',
+                [item.quantidade, item.peca_id]
+            );
+        }
+
+        // 2. Excluir a venda (os itens serão excluídos via cascata se configurado, senão precisamos excluir manualmente)
+        // Como o banco foi criado com migrations, vamos garantir a exclusão dos itens
+        await client.query('DELETE FROM venda_itens WHERE venda_id = $1', [id]);
+        await client.query('DELETE FROM vendas WHERE id = $1', [id]);
+
+        await client.query('COMMIT');
+        res.json({ success: true, message: 'Venda excluída e estoque restaurado com sucesso' });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Erro ao excluir venda:', error);
+        res.status(500).json({ success: false, message: 'Erro no servidor: ' + error.message });
+    } finally {
+        client.release();
+    }
+});
 
 // Listar contas a receber (Admin, Diretor, Financeiro)
 app.get('/api/contas-receber', authenticateToken, authorize(['ADMIN', 'DIRETOR', 'FINANCEIRO']), async (req, res) => {
