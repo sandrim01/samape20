@@ -778,6 +778,7 @@ function renderVendasTable(vendas) {
               <td>
                 <div style="display: flex; gap: 0.5rem;">
                   <button class="btn btn-secondary btn-sm" onclick="showVendaDetalhes(${venda.id})">Visualizar</button>
+                  ${venda.status === 'PENDENTE' ? `<button class="btn btn-success btn-sm" onclick="concretizarVenda(${venda.id})">Concretizar</button>` : ''}
                   ${AppState.currentUser.cargo === 'ADMIN' ? `<button class="btn btn-danger btn-sm" onclick="confirmarExcluirVenda(${venda.id}, '${venda.numero_venda}')">Excluir</button>` : ''}
                 </div>
               </td>
@@ -1084,6 +1085,7 @@ window.loadOrdens = loadOrdensServico;
 window.loadOrdensServico = loadOrdensServico;
 window.showHistoricoMaquina = showHistoricoMaquina;
 window.showVendaDetalhes = showVendaDetalhes;
+window.concretizarVenda = concretizarVenda;
 window.confirmarExcluirVenda = confirmarExcluirVenda;
 window.imprimirVenda = imprimirVenda;
 window.fecharModal = (id) => {
@@ -1598,10 +1600,23 @@ async function showNovaVendaModal() {
     } else {
       alert('Erro ao registrar venda: ' + result.message);
     }
-  });
+  }, 'Concretizar Venda');
 
   // Exportar funções necessárias para o escopo global do modal
   window.adicionarItemLista = adicionarItemLista;
+}
+
+async function concretizarVenda(id) {
+  if (confirm('Deseja concretizar esta venda (marcar como PAGO)?')) {
+    const result = await window.api.finalizarVenda(id);
+    if (result.success) {
+      alert('Venda concretizada com sucesso!');
+      await loadVendas();
+      render();
+    } else {
+      alert('Erro ao concretizar venda: ' + result.message);
+    }
+  }
 }
 
 async function showVendaDetalhes(vendaId) {
@@ -1896,7 +1911,7 @@ async function showNovoUsuarioModal(usuarioId = null) {
   });
 }
 
-function showModal(title, bodyHTML, onSave) {
+function showModal(title, bodyHTML, onSave, saveLabel = null) {
   const modal = document.createElement('div');
   modal.className = 'modal-overlay';
   modal.innerHTML = `
@@ -1910,7 +1925,7 @@ function showModal(title, bodyHTML, onSave) {
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" id="modal-cancel-btn">${onSave ? 'Cancelar' : 'Fechar'}</button>
-        ${onSave ? '<button class="btn btn-primary" id="modal-save-btn">Salvar</button>' : ''}
+        ${onSave ? `<button class="btn btn-primary" id="modal-save-btn">${saveLabel || 'Salvar'}</button>` : ''}
       </div>
     </div>
     `;

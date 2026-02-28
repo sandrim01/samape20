@@ -857,6 +857,26 @@ app.post('/api/vendas', authenticateToken, authorize(['ADMIN', 'DIRETOR', 'VENDA
     }
 });
 
+// Finalizar uma venda (mudar para PAGO)
+app.post('/api/vendas/:id/finalizar', authenticateToken, authorize(['ADMIN', 'DIRETOR', 'VENDAS', 'FINANCEIRO']), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query(
+            "UPDATE vendas SET status = 'PAGO', updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *",
+            [id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Venda não encontrada' });
+        }
+
+        res.json({ success: true, venda: result.rows[0] });
+    } catch (error) {
+        console.error('Erro ao finalizar venda:', error);
+        res.status(500).json({ success: false, message: 'Erro no servidor' });
+    }
+});
+
 // Obter detalhes de uma venda
 app.get('/api/vendas/:id', authenticateToken, authorize(['ADMIN', 'DIRETOR', 'VENDAS']), async (req, res) => {
     try {

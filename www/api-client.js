@@ -302,6 +302,10 @@ const WebAPI = {
         return await apiFetch(`/vendas/${id}`, { method: 'DELETE' });
     },
 
+    async finalizarVenda(id) {
+        return await apiFetch(`/vendas/${id}/finalizar`, { method: 'POST' });
+    },
+
     // Financeiro
     async listarContasReceber(filtros = {}) {
         let url = '/contas-receber';

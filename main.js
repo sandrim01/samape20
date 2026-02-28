@@ -644,6 +644,15 @@ ipcMain.handle('excluir-venda', async (event, id) => {
   }
 });
 
+ipcMain.handle('finalizar-venda', async (event, id) => {
+  try {
+    await pool.query("UPDATE vendas SET status = 'PAGO' WHERE id = $1", [id]);
+    return { success: true };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
 ipcMain.handle('listar-contas-receber', async (event, filtros = {}) => {
   try {
     let query = 'SELECT cr.*, c.nome as cliente_nome FROM contas_receber cr JOIN clientes c ON cr.cliente_id = c.id';
@@ -712,7 +721,7 @@ ipcMain.handle('criar-venda', async (event, dados) => {
     const numero_venda = `VEN-${new Date().getFullYear()}-${count.toString().padStart(5, '0')}`;
     const result = await pool.query(
       `INSERT INTO vendas (numero_venda, cliente_id, vendedor_id, valor_total, valor_final, status, data_venda) 
-       VALUES ($1, $2, $3, $4, $4, 'PENDENTE', CURRENT_TIMESTAMP) RETURNING id`,
+       VALUES ($1, $2, $3, $4, $4, 'PAGO', CURRENT_TIMESTAMP) RETURNING id`,
       [numero_venda, parseInt(dados.cliente_id), parseInt(dados.vendedor_id), parseFloat(dados.valor_total)]
     );
     return { success: true, id: result.rows[0].id };

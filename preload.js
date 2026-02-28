@@ -45,6 +45,7 @@ contextBridge.exposeInMainWorld('api', {
     listarVendas: () => ipcRenderer.invoke('listar-vendas'),
     obterVenda: (id) => ipcRenderer.invoke('obter-venda', id),
     excluirVenda: (id) => ipcRenderer.invoke('excluir-venda', id),
+    finalizarVenda: (id) => ipcRenderer.invoke('finalizar-venda', id),
 
     // Financeiro
     criarContaReceber: (dados) => ipcRenderer.invoke('criar-conta-receber', dados),
