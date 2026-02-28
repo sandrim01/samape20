@@ -404,20 +404,8 @@ app.get('/api/maquinas/:id', authenticateToken, async (req, res) => {
     }
 });
 
-// Atualizar máquina
-app.put('/api/maquinas/:id', authenticateToken, async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { cliente_id, modelo, numero_serie, ano, observacoes, tipo } = req.body;
-        const result = await pool.query(
-            'UPDATE maquinas SET cliente_id=$1, modelo=$2, numero_serie=$3, ano_fabricacao=$4, observacoes=$5, tipo=$6, updated_at=CURRENT_TIMESTAMP WHERE id=$7 RETURNING *',
-            [cliente_id, modelo, numero_serie, ano, observacoes, tipo || 'Geral', id]
-        );
-        res.json({ success: true, maquina: result.rows[0] });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-    }
-});
+// As rotas de máquinas foram unificadas abaixo para evitar duplicidade
+
 
 // Excluir máquina
 app.delete('/api/maquinas/:id', authenticateToken, async (req, res) => {
@@ -444,8 +432,8 @@ app.post('/api/maquinas', authenticateToken, async (req, res) => {
         const horas_uso = req.body.horas_uso || 0;
 
         const result = await pool.query(
-            `INSERT INTO maquinas (cliente_id, tipo, modelo, numero_serie, ano_fabricacao, horas_uso, observacoes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+            `INSERT INTO maquinas (cliente_id, tipo, modelo, numero_serie, ano_fabricacao, horas_uso, observacoes, ativo)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, true)
        RETURNING *`,
             [cliente_id, tipo, modelo, numero_serie, ano_fabricacao, horas_uso, observacoes]
         );
@@ -461,7 +449,11 @@ app.post('/api/maquinas', authenticateToken, async (req, res) => {
 app.put('/api/maquinas/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
-        const { cliente_id, tipo, modelo, numero_serie, ano_fabricacao, horas_uso, observacoes } = req.body;
+        const { cliente_id, modelo, numero_serie, observacoes } = req.body;
+        
+        const tipo = req.body.tipo || 'Geral';
+        const ano_fabricacao = req.body.ano_fabricacao || req.body.ano || null;
+        const horas_uso = req.body.horas_uso || 0;
 
         const result = await pool.query(
             `UPDATE maquinas 
@@ -476,7 +468,7 @@ app.put('/api/maquinas/:id', authenticateToken, async (req, res) => {
         res.json({ success: true, maquina: result.rows[0] });
     } catch (error) {
         console.error('Erro ao atualizar máquina:', error);
-        res.status(500).json({ success: false, message: 'Erro no servidor' });
+        res.status(500).json({ success: false, message: 'Erro no servidor: ' + error.message });
     }
 });
 

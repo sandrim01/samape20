@@ -312,7 +312,7 @@ ipcMain.handle('excluir-cliente', async (event, id) => {
 ipcMain.handle('criar-maquina', async (event, dados) => {
   try {
     const clienteId = parseInt(dados.cliente_id);
-    const ano = parseInt(dados.ano) || null;
+    const ano = parseInt(dados.ano_fabricacao || dados.ano) || null;
     const tipo = dados.tipo || 'Geral';
 
     const result = await pool.query(
@@ -359,7 +359,7 @@ ipcMain.handle('obter-maquina', async (event, id) => {
 ipcMain.handle('atualizar-maquina', async (event, id, dados) => {
   try {
     const clienteId = parseInt(dados.cliente_id);
-    const ano = parseInt(dados.ano) || null;
+    const ano = parseInt(dados.ano_fabricacao || dados.ano) || null;
     const tipo = dados.tipo || 'Geral';
 
     await pool.query(

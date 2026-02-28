@@ -582,6 +582,7 @@ function renderMaquinasTable(maquinas) {
         <thead>
           <tr>
             <th>Cliente</th>
+            <th>Tipo</th>
             <th>Modelo</th>
             <th>Número de Série</th>
             <th>Ano</th>
@@ -593,6 +594,7 @@ function renderMaquinasTable(maquinas) {
           ${maquinas.map(maq => `
             <tr>
               <td>${maq.cliente_nome || '-'}</td>
+              <td><span class="badge badge-info" style="font-size: 0.7rem;">${maq.tipo || 'Geral'}</span></td>
               <td><strong>${maq.modelo}</strong></td>
               <td>${maq.numero_serie || '-'}</td>
               <td>${maq.ano_fabricacao || maq.ano || '-'}</td>
@@ -1203,11 +1205,22 @@ async function showNovaMaquinaModal(maquinaId = null) {
         <input type="text" class="form-input" id="modal-maquina-modelo" value="${maquinaData?.modelo || ''}" required />
       </div>
       <div class="form-group">
+        <label class="form-label">Tipo *</label>
+        <select class="form-input" id="modal-maquina-tipo" required>
+          <option value="Geral" ${maquinaData?.tipo === 'Geral' ? 'selected' : ''}>Geral</option>
+          <option value="Trator" ${maquinaData?.tipo === 'Trator' ? 'selected' : ''}>Trator</option>
+          <option value="Colheitadeira" ${maquinaData?.tipo === 'Colheitadeira' ? 'selected' : ''}>Colheitadeira</option>
+          <option value="Escavadeira" ${maquinaData?.tipo === 'Escavadeira' ? 'selected' : ''}>Escavadeira</option>
+          <option value="Caminhão" ${maquinaData?.tipo === 'Caminhão' ? 'selected' : ''}>Caminhão</option>
+          <option value="Outro" ${maquinaData?.tipo === 'Outro' ? 'selected' : ''}>Outro</option>
+        </select>
+      </div>
+      <div class="form-group">
         <label class="form-label">Número de Série</label>
         <input type="text" class="form-input" id="modal-maquina-serie" value="${maquinaData?.numero_serie || ''}" />
       </div>
       <div class="form-group">
-        <label class="form-label">Ano</label>
+        <label class="form-label">Ano de Fabricação</label>
         <input type="number" class="form-input" id="modal-maquina-ano" value="${maquinaData?.ano_fabricacao || maquinaData?.ano || ''}" />
       </div>
     </div>
@@ -1224,6 +1237,7 @@ async function showNovaMaquinaModal(maquinaId = null) {
     const dados = {
       cliente_id: document.getElementById('modal-maquina-cliente').value,
       modelo: document.getElementById('modal-maquina-modelo').value,
+      tipo: document.getElementById('modal-maquina-tipo').value,
       numero_serie: document.getElementById('modal-maquina-serie').value,
       ano: document.getElementById('modal-maquina-ano').value,
       observacoes: document.getElementById('modal-maquina-obs').value

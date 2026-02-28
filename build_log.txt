@@ -1,0 +1,8 @@
+
+> samapeop@1.0.0 build-portable
+> electron-builder --win portable
+
+  • electron-builder  version=24.13.3 os=10.0.26100
+  • loaded configuration  file=package.json ("build" field)
+  • packaging       platform=win32 arch=x64 electron=27.0.0 appOutDir=dist\win-unpacked
+  • building        target=portable file=dist\SAMAPEOP-Portable.exe archs=x64
