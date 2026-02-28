@@ -666,7 +666,8 @@ tr:hover {
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  overflow: hidden; /* O conteúdo vai rolar dentro da modal-body */
+  overflow: hidden;
+  /* O conteúdo vai rolar dentro da modal-body */
   animation: modalIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -675,6 +676,7 @@ tr:hover {
     opacity: 0;
     transform: scale(0.95) translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
@@ -1199,7 +1201,8 @@ textarea.form-input {
   /* Modal */
   .modal-overlay {
     padding: 0;
-    align-items: flex-end; /* Abre como um sheet no mobile */
+    align-items: flex-end;
+    /* Abre como um sheet no mobile */
   }
 
   .modal {
@@ -1215,6 +1218,7 @@ textarea.form-input {
     from {
       transform: translateY(100%);
     }
+
     to {
       transform: translateY(0);
     }
@@ -1225,9 +1229,11 @@ textarea.form-input {
   }
 
   .modal-footer {
-    flex-direction: column-reverse; /* Salvar em cima de Cancelar no mobile faz mais sentido tátil */
+    flex-direction: column-reverse;
+    /* Salvar em cima de Cancelar no mobile faz mais sentido tátil */
     padding: 1rem;
-    padding-bottom: 2rem; /* Espaço para áreas seguras de iPhones/Androids */
+    padding-bottom: 2rem;
+    /* Espaço para áreas seguras de iPhones/Androids */
   }
 
   .modal-footer .btn {
@@ -1263,4 +1269,106 @@ textarea.form-input {
   .table-container {
     -webkit-overflow-scrolling: touch;
   }
+}
+
+/* Action Dropdown Menu */
+.action-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.action-btn {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: var(--transition);
+}
+
+.action-btn:hover {
+  background: var(--border-light);
+  border-color: var(--primary-light);
+}
+
+.action-btn::after {
+  content: '▾';
+  font-size: 0.8rem;
+}
+
+.action-menu {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin-top: 0.5rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  z-index: 100;
+  min-width: 160px;
+  display: none;
+  overflow: hidden;
+  animation: dropdownIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.action-dropdown.open .action-menu {
+  display: block;
+}
+
+@keyframes dropdownIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.action-item {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  transition: var(--transition);
+}
+
+.action-item:hover {
+  background: rgba(37, 99, 235, 0.1);
+  color: var(--primary-light);
+}
+
+.action-item.danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+}
+
+.action-item span {
+  font-size: 1rem;
+}
+
+/* Ajuste para não cortar o menu em tabelas com scroll */
+.table-container {
+  overflow: visible !important;
+}
+
+.content-area {
+  overflow-x: auto;
 }

@@ -506,22 +506,12 @@ function renderOrdensTable(ordens) {
               <td><span class="badge badge-${statusBadges[os.status]}">${os.status.replace('_', ' ')}</span></td>
               <td>R$ ${formatMoney(os.valor_total)}</td>
               <td>
-                <div style="display: flex; gap: 0.5rem;">
-                  <button class="btn btn-secondary btn-sm" onclick="editarOS(${os.id})">
-                    Editar
-                  </button>
-                  <button class="btn btn-secondary btn-sm" onclick="window.gerarPDFOS(${os.id})" title="Imprimir">
-                    🖨️
-                  </button>
-                  <button class="btn btn-info btn-sm" onclick="window.gerarPDFOS(${os.id})" title="Gerar PDF">
-                    📄
-                  </button>
-                  ${AppState.currentUser.cargo === 'ADMIN' ? `
-                    <button class="btn btn-danger btn-sm" onclick="confirmarExcluirOS(${os.id}, '${os.numero_os}')">
-                      Excluir
-                    </button>
-                  ` : ''}
-                </div>
+                ${renderActionMenu(`os-${os.id}`, [
+    { label: 'Editar', icon: '📝', onclick: `editarOS(${os.id})` },
+    { label: 'Imprimir', icon: '🖨️', onclick: `window.gerarPDFOS(${os.id})` },
+    { label: 'Gerar PDF', icon: '📄', onclick: `window.gerarPDFOS(${os.id})` },
+    { label: 'Excluir', icon: '🗑️', onclick: `confirmarExcluirOS(${os.id}, '${os.numero_os}')`, class: 'danger', show: AppState.currentUser.cargo === 'ADMIN' }
+  ])}
               </td>
             </tr>
           `).join('')}
@@ -600,14 +590,10 @@ function renderMaquinasTable(maquinas) {
               <td>${maq.ano_fabricacao || maq.ano || '-'}</td>
               <td>${maq.observacoes || '-'}</td>
               <td>
-                <div style="display: flex; gap: 0.5rem;">
-                  <button class="btn btn-secondary btn-sm" onclick="showNovaMaquinaModal(${maq.id})">
-                    Editar
-                  </button>
-                  <button class="btn btn-info btn-sm" onclick="showHistoricoMaquina(${maq.id})">
-                    Histórico
-                  </button>
-                </div>
+                ${renderActionMenu(`maq-${maq.id}`, [
+    { label: 'Editar', icon: '📝', onclick: `showNovaMaquinaModal(${maq.id})` },
+    { label: 'Histórico', icon: '📜', onclick: `showHistoricoMaquina(${maq.id})` }
+  ])}
               </td>
             </tr>
           `).join('')}
@@ -694,9 +680,9 @@ function renderPecasTable(pecas) {
         : '<span class="badge badge-success">OK</span>'}
                 </td>
                 <td>
-                  <button class="btn btn-secondary btn-sm" onclick="showNovaPecaModal(${peca.id})">
-                    Editar
-                  </button>
+                  ${renderActionMenu(`pec-${peca.id}`, [
+          { label: 'Editar', icon: '📝', onclick: `showNovaPecaModal(${peca.id})` }
+        ])}
                 </td>
               </tr>
             `;
@@ -776,11 +762,11 @@ function renderVendasTable(vendas) {
               <td>R$ ${formatMoney(venda.valor_total)}</td>
               <td><span class="badge badge-${venda.status === 'PAGO' ? 'success' : 'warning'}">${venda.status}</span></td>
               <td>
-                <div style="display: flex; gap: 0.5rem;">
-                  <button class="btn btn-secondary btn-sm" onclick="showVendaDetalhes(${venda.id})">Visualizar</button>
-                  ${venda.status === 'PENDENTE' ? `<button class="btn btn-success btn-sm" onclick="concretizarVenda(${venda.id})">Concretizar</button>` : ''}
-                  ${AppState.currentUser.cargo === 'ADMIN' ? `<button class="btn btn-danger btn-sm" onclick="confirmarExcluirVenda(${venda.id}, '${venda.numero_venda}')">Excluir</button>` : ''}
-                </div>
+                ${renderActionMenu(`ven-${venda.id}`, [
+    { label: 'Visualizar', icon: '👁️', onclick: `showVendaDetalhes(${venda.id})` },
+    { label: 'Concretizar', icon: '✅', onclick: `concretizarVenda(${venda.id})`, show: venda.status === 'PENDENTE' },
+    { label: 'Excluir', icon: '🗑️', onclick: `confirmarExcluirVenda(${venda.id}, '${venda.numero_venda}')`, class: 'danger', show: AppState.currentUser.cargo === 'ADMIN' }
+  ])}
               </td>
             </tr>
           `).join('')}
@@ -857,9 +843,9 @@ function renderClientesTable(clientes) {
               <td>${cliente.email || '-'}</td>
               <td>${cliente.endereco || '-'}</td>
               <td>
-                <button class="btn btn-secondary btn-sm" onclick="showNovoClienteModal(${cliente.id})">
-                  Editar
-                </button>
+                ${renderActionMenu(`cli-${cliente.id}`, [
+    { label: 'Editar', icon: '📝', onclick: `showNovoClienteModal(${cliente.id})` }
+  ])}
               </td>
             </tr>
           `).join('')}
@@ -929,7 +915,9 @@ function renderUsuariosTable(usuarios) {
               </td>
               <td>${formatDate(usuario.criado_em)}</td>
               <td>
-                <button class="btn btn-secondary btn-sm" onclick="showNovoUsuarioModal(${usuario.id})">Editar</button>
+                ${renderActionMenu(`usu-${usuario.id}`, [
+    { label: 'Editar', icon: '📝', onclick: `showNovoUsuarioModal(${usuario.id})` }
+  ])}
               </td>
             </tr>
           `).join('')}
@@ -1101,6 +1089,43 @@ window.refreshPage = () => render();
 window.loadClientes = loadClientes;
 window.loadMaquinas = loadMaquinas;
 window.loadPecas = loadPecas;
+
+// Função global para alternar menus de ação
+window.toggleActionMenu = (id, event) => {
+  if (event) event.stopPropagation();
+  const menu = document.getElementById(id);
+  const isOpen = menu.classList.contains('open');
+
+  // Fechar todos os outros menus primeiro
+  document.querySelectorAll('.action-dropdown').forEach(d => d.classList.remove('open'));
+
+  if (!isOpen) {
+    menu.classList.add('open');
+  }
+};
+
+// Fechar menus ao clicar fora
+document.addEventListener('click', () => {
+  document.querySelectorAll('.action-dropdown').forEach(d => d.classList.remove('open'));
+});
+
+function renderActionMenu(id, items) {
+  const filteredItems = items.filter(item => item.show !== false);
+  if (filteredItems.length === 0) return '-';
+
+  return `
+    <div class="action-dropdown" id="action-menu-${id}">
+      <button class="action-btn" onclick="toggleActionMenu('action-menu-${id}', event)">Ações</button>
+      <div class="action-menu">
+        ${filteredItems.map(item => `
+          <button class="action-item ${item.class || ''}" onclick="${item.onclick}">
+            <span>${item.icon || ''}</span> ${item.label}
+          </button>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
 
 function attachButtonListener(id, handler) {
   const btn = document.getElementById(id);
