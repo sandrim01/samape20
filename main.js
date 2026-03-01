@@ -439,9 +439,26 @@ ipcMain.handle('criar-os', async (event, dados) => {
 
     const result = await pool.query(
       `INSERT INTO ordens_servico 
-      (numero_os, cliente_id, maquina_id, mecanico_id, status, prioridade, descricao_problema, diagnostico, km_ida, km_volta, valor_por_km, valor_mao_obra, valor_pecas, valor_total, observacoes)
-      VALUES ($1, $2, $3, $4, 'ABERTA', 'MEDIA', $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id`,
-      [numero_os, parseInt(dados.cliente_id), parseInt(dados.maquina_id), parseInt(dados.mecanico_id), dados.descricao_problema, dados.diagnostico, parseFloat(dados.km_ida), parseFloat(dados.km_volta), parseFloat(dados.valor_por_km), parseFloat(dados.valor_mao_obra), parseFloat(dados.valor_pecas), valor_total, dados.observacoes]
+      (numero_os, cliente_id, maquina_id, mecanico_id, status, prioridade, descricao_problema, diagnostico, km_ida, km_volta, valor_por_km, valor_mao_obra, valor_pecas, valor_total, observacoes, listagem_pecas_id)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING id`,
+      [
+        numero_os,
+        parseInt(dados.cliente_id),
+        parseInt(dados.maquina_id),
+        parseInt(dados.mecanico_id),
+        dados.status || 'ABERTA',
+        dados.prioridade || 'MEDIA',
+        dados.descricao_problema,
+        dados.diagnostico,
+        parseFloat(dados.km_ida) || 0,
+        parseFloat(dados.km_volta) || 0,
+        parseFloat(dados.valor_por_km) || 0,
+        parseFloat(dados.valor_mao_obra) || 0,
+        parseFloat(dados.valor_pecas) || 0,
+        valor_total,
+        dados.observacoes,
+        dados.listagem_pecas_id || null
+      ]
     );
     return { success: true, id: result.rows[0].id, numero_os };
   } catch (error) {
@@ -872,20 +889,21 @@ ipcMain.handle('adicionar-item-listagem', async (event, { lpId, dados }) => {
       [lpId, peca_id || null, quantidade, preco_unitario, preco_total]
     );
 
-    // Atualizar total da listagem
-    await client.query(
-      `UPDATE listagens_pecas SET valor_total = (SELECT SUM(preco_total) FROM listagem_pecas_itens WHERE listagem_id = $1)
-       WHERE id = $1`,
+    // Atualizar total da listagem e retornar valor para sync
+    const totalRes = await client.query(
+      `UPDATE listagens_pecas SET valor_total = COALESCE((SELECT SUM(preco_total) FROM listagem_pecas_itens WHERE listagem_id = $1), 0)
+       WHERE id = $1 RETURNING valor_total`,
       [lpId]
     );
+    const novoTotal = totalRes.rows[0]?.valor_total || 0;
 
     // Sincronizar OS vinculadas
     await client.query(
       `UPDATE ordens_servico 
-       SET valor_pecas = (SELECT valor_total FROM listagens_pecas WHERE id = $1),
-           valor_total = COALESCE(valor_mao_obra,0) + (SELECT valor_total FROM listagens_pecas WHERE id = $1) + ((COALESCE(km_volta,0) - COALESCE(km_ida,0)) * COALESCE(valor_por_km,0))
-       WHERE listagem_pecas_id = $1`,
-      [lpId]
+       SET valor_pecas = $1,
+           valor_total = COALESCE(valor_mao_obra,0) + $1 + (GREATEST(0, COALESCE(km_volta,0) - COALESCE(km_ida,0)) * COALESCE(valor_por_km,0))
+       WHERE listagem_pecas_id = $2`,
+      [novoTotal, lpId]
     );
 
     await client.query('COMMIT');
@@ -904,20 +922,21 @@ ipcMain.handle('remover-item-listagem', async (event, { lpId, itemId }) => {
     await client.query('BEGIN');
     await client.query('DELETE FROM listagem_pecas_itens WHERE id = $1 AND listagem_id = $2', [itemId, lpId]);
 
-    // Atualizar total da listagem
-    await client.query(
+    // Atualizar total da listagem e retornar valor para sync
+    const totalRes = await client.query(
       `UPDATE listagens_pecas SET valor_total = COALESCE((SELECT SUM(preco_total) FROM listagem_pecas_itens WHERE listagem_id = $1), 0)
-       WHERE id = $1`,
+       WHERE id = $1 RETURNING valor_total`,
       [lpId]
     );
+    const novoTotal = totalRes.rows[0]?.valor_total || 0;
 
     // Sincronizar OS vinculadas
     await client.query(
       `UPDATE ordens_servico 
-       SET valor_pecas = (SELECT valor_total FROM listagens_pecas WHERE id = $1),
-           valor_total = COALESCE(valor_mao_obra,0) + (SELECT valor_total FROM listagens_pecas WHERE id = $1) + ((COALESCE(km_volta,0) - COALESCE(km_ida,0)) * COALESCE(valor_por_km,0))
-       WHERE listagem_pecas_id = $1`,
-      [lpId]
+       SET valor_pecas = $1,
+           valor_total = COALESCE(valor_mao_obra,0) + $1 + (GREATEST(0, COALESCE(km_volta,0) - COALESCE(km_ida,0)) * COALESCE(valor_por_km,0))
+       WHERE listagem_pecas_id = $2`,
+      [novoTotal, lpId]
     );
 
     await client.query('COMMIT');
