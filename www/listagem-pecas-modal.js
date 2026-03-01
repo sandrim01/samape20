@@ -41,7 +41,8 @@ async function mostrarModalListagemPecas(lpId = null) {
             </div>
             <div class="form-group">
                <label class="form-label">Máquina (Modelo/Ref)</label>
-               <input type="text" class="form-input" id="lp-maquina" value="${lpData ? (lpData.maquina_modelo || '') : ''}" placeholder="Ex: Trator JD 5075">
+               <input type="text" class="form-input" id="lp-maquina" list="lp-maquinas-datalist" value="${lpData ? (lpData.maquina_modelo || '') : ''}" placeholder="Selecione o Cliente para listar ou digite">
+               <datalist id="lp-maquinas-datalist"></datalist>
             </div>
           </div>
 
@@ -129,14 +130,43 @@ async function mostrarModalListagemPecas(lpId = null) {
   // Listener para preencher preço e código automaticamente
   if (isEdicao) {
     const pecaInput = document.getElementById('lp-peca-input');
-    pecaInput.addEventListener('input', () => {
-      const datalist = document.getElementById('lp-pecas-datalist');
-      const option = Array.from(datalist.options).find(opt => opt.value === pecaInput.value);
-      if (option) {
-        document.getElementById('lp-peca-vlr').value = option.getAttribute('data-preco') || '';
-        document.getElementById('lp-peca-codigo').value = option.getAttribute('data-codigo') || '';
-      }
-    });
+    if (pecaInput) {
+      pecaInput.addEventListener('input', () => {
+        const datalist = document.getElementById('lp-pecas-datalist');
+        const option = Array.from(datalist.options).find(opt => opt.value === pecaInput.value);
+        if (option) {
+          document.getElementById('lp-peca-vlr').value = option.getAttribute('data-preco') || '';
+          document.getElementById('lp-peca-codigo').value = option.getAttribute('data-codigo') || '';
+        }
+      });
+    }
+  }
+
+  // Preencher Datalist de Máquinas de acordo com Cliente Selecionado
+  const carregarMaquinasLista = async () => {
+    const clienteId = document.getElementById('lp-cliente').value;
+    const datalistMaquinas = document.getElementById('lp-maquinas-datalist');
+
+    if (!clienteId) {
+      datalistMaquinas.innerHTML = '';
+      return;
+    }
+
+    try {
+      const result = await window.api.listarMaquinas(parseInt(clienteId));
+      const maquinas = result.maquinas || [];
+      datalistMaquinas.innerHTML = maquinas.map(m => `
+        <option value="${m.modelo}">${m.numero_serie ? `Série: ${m.numero_serie}` : ''}</option>
+      `).join('');
+    } catch (e) {
+      console.error('Erro ao listar máquinas do cliente', e);
+    }
+  };
+
+  document.getElementById('lp-cliente').addEventListener('change', carregarMaquinasLista);
+  // Carregar imediatamente se já houver cliente (na edição)
+  if (lpData && lpData.cliente_id) {
+    carregarMaquinasLista();
   }
 }
 
@@ -193,6 +223,7 @@ async function adicionarItemLP(lpId) {
     mostrarModalListagemPecas(lpId);
     await loadPecas(); // Atualizar estoque global se necessário
     await loadListagensPecas();
+    if (typeof loadOrdens === 'function') await loadOrdens();
     render();
   } else {
     alert('Erro: ' + res.message);
@@ -206,6 +237,7 @@ async function removerItemLP(lpId, itemId) {
     fecharModalLP();
     mostrarModalListagemPecas(lpId);
     await loadListagensPecas();
+    if (typeof loadOrdens === 'function') await loadOrdens();
     render();
   }
 }
