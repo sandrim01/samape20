@@ -41,7 +41,35 @@ const initDb = async () => {
             )
         `);
 
-        // Tabela de Peças na OS
+        // Tabela de Listagem de Peças (Novo Módulo)
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS listagens_pecas (
+                id SERIAL PRIMARY KEY,
+                numero_lista VARCHAR(50) UNIQUE,
+                cliente_id INTEGER REFERENCES clientes(id),
+                maquina_id INTEGER REFERENCES maquinas(id),
+                maquina_modelo VARCHAR(255),
+                valor_total DECIMAL(10,2) DEFAULT 0,
+                status VARCHAR(20) DEFAULT 'ABERTA',
+                observacoes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Tabela de Itens da Listagem
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS listagem_pecas_itens (
+                id SERIAL PRIMARY KEY,
+                listagem_id INTEGER REFERENCES listagens_pecas(id) ON DELETE CASCADE,
+                peca_id INTEGER REFERENCES pecas(id),
+                quantidade DECIMAL(10,2) NOT NULL,
+                preco_unitario DECIMAL(10,2) NOT NULL,
+                preco_total DECIMAL(10,2) NOT NULL
+            )
+        `);
+
+        // Tabela de Peças na OS (Repurposed for legacy support or link)
         await pool.query(`
             CREATE TABLE IF NOT EXISTS ordem_servico_pecas (
                 id SERIAL PRIMARY KEY,
@@ -603,13 +631,13 @@ app.post('/api/ordens', authenticateToken, async (req, res) => {
        (numero_os, cliente_id, maquina_id, mecanico_id, status, prioridade,
         descricao_problema, diagnostico, servicos_realizados,
         valor_mao_obra, valor_pecas, valor_total, observacoes,
-        km_ida, km_volta, valor_por_km)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        km_ida, km_volta, valor_por_km, listagem_pecas_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
        RETURNING *`,
             [numero_os, cliente_id, maquina_id, mecanico_id, status || 'ABERTA', prioridade || 'MEDIA',
                 descricao_problema, diagnostico, servicos_realizados,
                 valor_mao_obra, valor_pecas, valor_total, observacoes,
-                km_ida, km_volta, valor_por_km]
+                km_ida, km_volta, valor_por_km, req.body.listagem_pecas_id || null]
         );
 
         await logActivity(req, 'OS_CRIADA', `Nova OS criada: ${numero_os}`);
@@ -667,8 +695,8 @@ app.put('/api/ordens/:id', authenticateToken, async (req, res) => {
            valor_pecas = $7, valor_total = $8, observacoes = $9, 
            data_fechamento = $10, cliente_id = $11, maquina_id = $12,
            mecanico_id = $13, km_ida = $14, km_volta = $15, valor_por_km = $16,
-           updated_at = CURRENT_TIMESTAMP
-       WHERE id = $17
+           listagem_pecas_id = $17, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $18
        RETURNING *`,
             [
                 status || 'ABERTA',
@@ -687,6 +715,7 @@ app.put('/api/ordens/:id', authenticateToken, async (req, res) => {
                 km_ida,
                 km_volta,
                 valor_por_km,
+                req.body.listagem_pecas_id || null,
                 id
             ]
         );
@@ -714,9 +743,164 @@ app.delete('/api/ordens/:id', authenticateToken, authorize(['ADMIN']), async (re
     }
 });
 
-// --- PEÇAS NA OS (SUB-ROTAS) ---
+// --- LISTAGEM DE PEÇAS (NOVO MÓDULO) ---
 
-// Listar peças de uma OS
+// Listar todas as listagens
+app.get('/api/listagens-pecas', authenticateToken, async (req, res) => {
+    try {
+        const { cliente_id } = req.query;
+        let query = `
+            SELECT lp.*, c.nome as cliente_nome, m.modelo as maquina_modelo
+            FROM listagens_pecas lp
+            LEFT JOIN clientes c ON lp.cliente_id = c.id
+            LEFT JOIN maquinas m ON lp.maquina_id = m.id
+        `;
+        const params = [];
+
+        if (cliente_id) {
+            query += ` WHERE lp.cliente_id = $1`;
+            params.push(cliente_id);
+        }
+
+        query += ` ORDER BY lp.created_at DESC`;
+        const result = await pool.query(query, params);
+        res.json({ success: true, listagens: result.rows });
+    } catch (error) {
+        console.error('Erro ao listar listagens:', error);
+        res.status(500).json({ success: false, message: 'Erro no servidor' });
+    }
+});
+
+// Criar nova listagem
+app.post('/api/listagens-pecas', authenticateToken, async (req, res) => {
+    try {
+        const { cliente_id, maquina_id, observacoes } = req.body;
+
+        // Gerar número LP-ANO-SEQ
+        const date = new Date();
+        const year = date.getFullYear();
+        const countResult = await pool.query('SELECT COUNT(*) FROM listagens_pecas WHERE EXTRACT(YEAR FROM created_at) = $1', [year]);
+        const seq = (parseInt(countResult.rows[0].count) + 1).toString().padStart(4, '0');
+        const numero_lista = `LP-${year}-${seq}`;
+
+        const result = await pool.query(
+            `INSERT INTO listagens_pecas (numero_lista, cliente_id, maquina_id, maquina_modelo, observacoes)
+             VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+            [numero_lista, cliente_id, maquina_id, req.body.maquina_modelo || null, observacoes]
+        );
+
+        await logActivity(req, 'CRIAR_LISTAGEM', `Criou listagem ${numero_lista}`);
+        res.json({ success: true, listagem: result.rows[0] });
+    } catch (error) {
+        console.error('Erro ao criar listagem:', error);
+        res.status(500).json({ success: false, message: 'Erro ao criar listagem: ' + error.message });
+    }
+});
+
+// Obter uma listagem específica com itens
+app.get('/api/listagens-pecas/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const lpResult = await pool.query(
+            `SELECT lp.*, c.nome as cliente_nome, m.modelo as maquina_modelo
+             FROM listagens_pecas lp
+             LEFT JOIN clientes c ON lp.cliente_id = c.id
+             LEFT JOIN maquinas m ON lp.maquina_id = m.id
+             WHERE lp.id = $1`, [id]);
+
+        if (lpResult.rows.length === 0) return res.status(404).json({ success: false, message: 'Listagem não encontrada' });
+
+        const itemsResult = await pool.query(
+            `SELECT lpi.*, p.nome as peca_nome, p.codigo as peca_codigo
+             FROM listagem_pecas_itens lpi
+             JOIN pecas p ON lpi.peca_id = p.id
+             WHERE lpi.listagem_id = $1`, [id]);
+
+        res.json({ success: true, listagem: lpResult.rows[0], itens: itemsResult.rows });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Adicionar item na listagem
+app.post('/api/listagens-pecas/:id/itens', authenticateToken, async (req, res) => {
+    const client = await pool.connect();
+    try {
+        const { id } = req.params;
+        let { peca_id, quantidade, preco_unitario, peca_nome, peca_codigo } = req.body;
+        const preco_total = quantidade * preco_unitario;
+
+        await client.query('BEGIN');
+
+        if (!peca_id && peca_nome) {
+            const checkPeca = await client.query('SELECT id FROM pecas WHERE nome = $1 OR codigo = $2 LIMIT 1', [peca_nome, peca_codigo || '']);
+            if (checkPeca.rows.length > 0) peca_id = checkPeca.rows[0].id;
+            else {
+                const newPeca = await client.query(
+                    `INSERT INTO pecas (codigo, nome, preco_custo, preco_venda, quantidade_estoque, estoque_minimo)
+                     VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+                    [peca_codigo || 'S/C', peca_nome, preco_unitario * 0.7, preco_unitario, 0, 0]
+                );
+                peca_id = newPeca.rows[0].id;
+            }
+        }
+
+        await client.query(
+            `INSERT INTO listagem_pecas_itens (listagem_id, peca_id, quantidade, preco_unitario, preco_total)
+             VALUES ($1, $2, $3, $4, $5)`,
+            [id, peca_id, quantidade, preco_unitario, preco_total]
+        );
+
+        // Atualizar total da listagem
+        const totalResult = await client.query(`SELECT SUM(preco_total) as total FROM listagem_pecas_itens WHERE listagem_id = $1`, [id]);
+        const novoTotal = parseFloat(totalResult.rows[0].total) || 0;
+        await client.query(`UPDATE listagens_pecas SET valor_total = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`, [novoTotal, id]);
+
+        await client.query('COMMIT');
+        res.json({ success: true });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ success: false, message: error.message });
+    } finally {
+        client.release();
+    }
+});
+
+// Remover item da listagem
+app.delete('/api/listagens-pecas/:lp_id/itens/:item_id', authenticateToken, async (req, res) => {
+    const client = await pool.connect();
+    try {
+        const { lp_id, item_id } = req.params;
+        await client.query('BEGIN');
+        await client.query('DELETE FROM listagem_pecas_itens WHERE id = $1', [item_id]);
+
+        const totalResult = await client.query(`SELECT SUM(preco_total) as total FROM listagem_pecas_itens WHERE listagem_id = $1`, [lp_id]);
+        const novoTotal = parseFloat(totalResult.rows[0].total) || 0;
+        await client.query(`UPDATE listagens_pecas SET valor_total = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`, [novoTotal, lp_id]);
+
+        await client.query('COMMIT');
+        res.json({ success: true });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ success: false, message: error.message });
+    } finally {
+        client.release();
+    }
+});
+
+// Excluir listagem
+app.delete('/api/listagens-pecas/:id', authenticateToken, authorize(['ADMIN']), async (req, res) => {
+    try {
+        const { id } = req.params;
+        await pool.query('DELETE FROM listagens_pecas WHERE id = $1', [id]);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// --- PEÇAS NA OS (LEGACY / LINK) ---
+
 app.get('/api/ordens/:id/pecas', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;

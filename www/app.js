@@ -13,6 +13,7 @@ const AppState = {
     pecas: [],
     vendas: [],
     usuarios: [],
+    listagens: [],
     logs: [],
     stats: {}
   },
@@ -21,7 +22,8 @@ const AppState = {
     maquinas: { search: '' },
     pecas: { search: '' },
     clientes: { search: '' },
-    vendas: { search: '' }
+    vendas: { search: '' },
+    listagens: { search: '' }
   }
 };
 
@@ -30,8 +32,8 @@ const PERMISSIONS = {
   ADMIN: ['*'], // Acesso total
   DIRETOR: ['dashboard', 'relatorios', 'financeiro', 'operacional', 'vendas', 'clientes'],
   FINANCEIRO: ['dashboard', 'financeiro', 'clientes', 'relatorios-financeiros'],
-  VENDAS: ['dashboard', 'vendas', 'pecas', 'clientes', 'estoque'],
-  MECANICO: ['dashboard', 'operacional', 'ordens-servico', 'maquinas']
+  VENDAS: ['dashboard', 'vendas', 'pecas', 'clientes', 'estoque', 'listagens-pecas'],
+  MECANICO: ['dashboard', 'operacional', 'ordens-servico', 'maquinas', 'listagens-pecas']
 };
 
 // Verificar se usuário tem permissão
@@ -151,6 +153,7 @@ function renderSidebar() {
     { id: 'dashboard', label: 'Dashboard', icon: '📊', permission: 'dashboard' },
     { section: 'Operacional' },
     { id: 'ordens-servico', label: 'Ordens de Serviço', icon: '🔧', permission: 'operacional' },
+    { id: 'listagens-pecas', label: 'Listagem de Peças', icon: '📝', permission: 'listagens-pecas' },
     { id: 'maquinas', label: 'Máquinas', icon: '🚜', permission: 'operacional' },
     { section: 'Vendas e Estoque' },
     { id: 'vendas', label: 'Vendas de Peças', icon: '🛒', permission: 'vendas' },
@@ -264,6 +267,7 @@ function renderPage() {
   switch (AppState.currentPage) {
     case 'dashboard': return renderDashboard();
     case 'ordens-servico': return renderOrdensServico();
+    case 'listagens-pecas': return renderListagensPecas();
     case 'maquinas': return renderMaquinas();
     case 'vendas': return renderVendas();
     case 'pecas': return renderPecas();
@@ -275,7 +279,89 @@ function renderPage() {
   }
 }
 
-// ==================== DASHBOARD ====================
+// ==================== LISTAGEM DE PEÇAS (MÓDULO OPERACIONAL) ====================
+function renderListagensPecas() {
+  const listagens = AppState.data.listagens || [];
+  const search = AppState.filters.listagens.search.toLowerCase();
+
+  const filtered = listagens.filter(l =>
+    l.numero_lista.toLowerCase().includes(search) ||
+    (l.cliente_nome && l.cliente_nome.toLowerCase().includes(search))
+  );
+
+  return `
+    <div class="page-header">
+      <div class="header-content">
+        <h2 class="page-title">📝 Listagens de Peças</h2>
+        <p class="page-description">Gerencie listagens e orçamentos de peças independentes ou vinculados a OS.</p>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-primary" onclick="mostrarModalListagemPecas()">+ Nova Listagem</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="filters-bar">
+        <div class="search-input-wrapper">
+          <span class="search-icon">🔍</span>
+          <input type="text" class="form-input search-input" placeholder="Buscar por número ou cliente..." 
+            value="${AppState.filters.listagens.search}" 
+            oninput="AppState.filters.listagens.search = this.value; render();">
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Número</th>
+              <th>Data</th>
+              <th>Cliente</th>
+              <th>Máquina</th>
+              <th>Valor Total</th>
+              <th>Status</th>
+              <th style="width: 80px;">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filtered.length === 0 ? '<tr><td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-muted);">Nenhuma listagem encontrada</td></tr>' :
+      filtered.map(l => `
+                <tr>
+                  <td><strong style="color: var(--primary);">${l.numero_lista}</strong></td>
+                  <td><div style="font-size: 0.85rem;">${formatDate(l.created_at)}</div></td>
+                  <td><div>${l.cliente_nome || '-'}</div></td>
+                  <td><div>${l.maquina_modelo || '-'}</div></td>
+                  <td><div style="font-weight: 700; color: var(--success);">R$ ${formatMoney(l.valor_total)}</div></td>
+                  <td><span class="badge ${l.status === 'ABERTA' ? 'badge-primary' : (l.status === 'VINCULADA' ? 'badge-info' : 'badge-secondary')}">${l.status}</span></td>
+                  <td>
+                    <div class="action-menu-container">
+                      <button class="btn-action-trigger" onclick="toggleActionMenu(event)">⋮</button>
+                      <div class="action-menu">
+                        <div class="action-menu-item" onclick="mostrarModalListagemPecas(${l.id})"><span>✏️</span> Editar / Itens</div>
+                        <div class="action-menu-item" onclick="gerarPDFListagem(${l.id})"><span>🖨️</span> Imprimir</div>
+                        <div class="action-menu-item danger" onclick="confirmarExcluirListagem(${l.id}, '${l.numero_lista}')"><span>🗑️</span> Excluir</div>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+async function confirmarExcluirListagem(id, numero) {
+  if (AppState.currentUser.cargo !== 'ADMIN' && AppState.currentUser.cargo !== 'DIRETOR') return alert('Acesso negado');
+  if (confirm(`Excluir listagem ${numero}?`)) {
+    const res = await window.api.excluirListagemPecas(id);
+    if (res.success) {
+      await loadListagensPecas();
+      render();
+    }
+  }
+}
 function renderDashboard() {
   const stats = AppState.data.stats;
 
@@ -1977,6 +2063,7 @@ async function loadAllData() {
     loadPecas(),
     loadVendas(),
     loadUsuarios(),
+    loadListagensPecas(),
     loadStats(),
     AppState.currentUser.cargo === 'ADMIN' ? loadLogs() : Promise.resolve()
   ]);
@@ -2198,6 +2285,11 @@ async function loadLogs() {
   if (AppState.currentUser.cargo !== 'ADMIN') return;
   const result = await window.api.listarLogs();
   if (result.success) AppState.data.logs = result.logs;
+}
+
+async function loadListagensPecas() {
+  const result = await window.api.listarListagensPecas();
+  if (result.success) AppState.data.listagens = result.listagens;
 }
 
 // ==================== INICIALIZAÇÃO ====================

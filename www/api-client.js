@@ -255,6 +255,37 @@ const WebAPI = {
         return await apiFetch(`/ordens/${id}`, { method: 'DELETE' });
     },
 
+    // Listagem de Peças (Novo Módulo)
+    async listarListagensPecas(clienteId = '') {
+        const url = clienteId ? `/listagens-pecas?cliente_id=${clienteId}` : '/listagens-pecas';
+        return await apiFetch(url);
+    },
+    async criarListagemPecas(dados) {
+        return await apiFetch('/listagens-pecas', {
+            method: 'POST',
+            body: JSON.stringify(dados)
+        });
+    },
+    async obterListagemPecas(id) {
+        return await apiFetch(`/listagens-pecas/${id}`);
+    },
+    async adicionarItemListagem(lpId, dados) {
+        return await apiFetch(`/listagens-pecas/${lpId}/itens`, {
+            method: 'POST',
+            body: JSON.stringify(dados)
+        });
+    },
+    async removerItemListagem(lpId, itemId) {
+        return await apiFetch(`/listagens-pecas/${lpId}/itens/${itemId}`, {
+            method: 'DELETE'
+        });
+    },
+    async excluirListagemPecas(id) {
+        return await apiFetch(`/listagens-pecas/${id}`, {
+            method: 'DELETE'
+        });
+    },
+
     // Peças na OS
     async listarPecasOS(id) {
         return await apiFetch(`/ordens/${id}/pecas`);

@@ -4,31 +4,27 @@ async function mostrarModalOS(osId = null) {
   const isEdicao = osId !== null;
   let osData = null;
   let currentStepOS = 1;
-  let pecasOS = []; // Lista de peças vinculadas a esta OS
 
   if (isEdicao) {
-    const [osRes, pecasOSRes] = await Promise.all([
-      window.api.obterOS(osId),
-      window.api.listarPecasOS(osId)
-    ]);
-
-    if (osRes.success) {
-      osData = osRes.os;
-      pecasOS = pecasOSRes.pecas || [];
+    const result = await window.api.obterOS(osId);
+    if (result.success) {
+      osData = result.os;
     } else {
       showAlert('Erro ao carregar OS', 'danger');
       return;
     }
   }
 
-  // Carregar dados necessários
-  const [clientesRes, mecanicosRes] = await Promise.all([
+  // Carregar dados necessários (Clientes, Mecânicos e Listagens de Peças)
+  const [clientesRes, mecanicosRes, listagensRes] = await Promise.all([
     window.api.listarClientes(),
-    window.api.listarUsuarios()
+    window.api.listarUsuarios(),
+    window.api.listarListagensPecas()
   ]);
 
   const clientes = clientesRes.clientes || [];
   const mecanicos = (mecanicosRes.usuarios || []).filter(u => u.cargo === 'MECANICO' || u.cargo === 'ADMIN');
+  const listagens = listagensRes.listagens || [];
 
   const modalHTML = `
     <div class="modal-overlay" id="modal-os" style="z-index: 9999; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center;">
@@ -51,22 +47,17 @@ async function mostrarModalOS(osId = null) {
              
              <div class="os-step-item" id="step-dot-1" style="z-index: 3; position: relative; text-align: center;">
                 <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; margin: 0 auto 0.5rem; border: 3px solid var(--bg-secondary); transition: var(--transition);">1</div>
-                <span style="font-size: 0.6rem; font-weight: 600; color: var(--text-primary);">Identificação</span>
+                <span style="font-size: 0.7rem; font-weight: 600; color: var(--text-primary);">Identificação</span>
              </div>
              
              <div class="os-step-item" id="step-dot-2" style="z-index: 3; position: relative; text-align: center;">
                 <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--bg-tertiary); color: var(--text-muted); display: flex; align-items: center; justify-content: center; font-weight: bold; margin: 0 auto 0.5rem; border: 3px solid var(--bg-secondary); transition: var(--transition);">2</div>
-                <span style="font-size: 0.6rem; font-weight: 500; color: var(--text-muted);">Serviços</span>
-             </div>
-
-             <div class="os-step-item" id="step-dot-3" style="z-index: 3; position: relative; text-align: center;">
-                <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--bg-tertiary); color: var(--text-muted); display: flex; align-items: center; justify-content: center; font-weight: bold; margin: 0 auto 0.5rem; border: 3px solid var(--bg-secondary); transition: var(--transition);">3</div>
-                <span style="font-size: 0.6rem; font-weight: 500; color: var(--text-muted);">Peças</span>
+                <span style="font-size: 0.7rem; font-weight: 500; color: var(--text-muted);">Descrição</span>
              </div>
              
-             <div class="os-step-item" id="step-dot-4" style="z-index: 3; position: relative; text-align: center;">
-                <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--bg-tertiary); color: var(--text-muted); display: flex; align-items: center; justify-content: center; font-weight: bold; margin: 0 auto 0.5rem; border: 3px solid var(--bg-secondary); transition: var(--transition);">4</div>
-                <span style="font-size: 0.6rem; font-weight: 500; color: var(--text-muted);">Financ.</span>
+             <div class="os-step-item" id="step-dot-3" style="z-index: 3; position: relative; text-align: center;">
+                <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--bg-tertiary); color: var(--text-muted); display: flex; align-items: center; justify-content: center; font-weight: bold; margin: 0 auto 0.5rem; border: 3px solid var(--bg-secondary); transition: var(--transition);">3</div>
+                <span style="font-size: 0.7rem; font-weight: 500; color: var(--text-muted);">Valores</span>
              </div>
           </div>
         </div>
@@ -78,7 +69,7 @@ async function mostrarModalOS(osId = null) {
             <div style="display: grid; gap: 1.5rem;">
               <div class="card" style="border-left: 4px solid var(--primary); background: var(--bg-secondary);">
                 <div style="margin-bottom: 1rem; font-weight: 700; color: var(--primary); display: flex; align-items: center; gap: 0.5rem;">
-                  <span>👤</span> Dados do Cliente
+                   <span>👤</span> Dados do Cliente
                 </div>
                 <div class="form-group">
                   <label class="form-label">Cliente *</label>
@@ -145,77 +136,27 @@ async function mostrarModalOS(osId = null) {
             </div>
           </div>
 
-          </div>
-
-          <!-- ETAPA 3: PEÇAS (EXCLUSIVO EDIÇÃO OU APÓS SALVAR INICIAL) -->
+          <!-- ETAPA 3: VALORES E STATUS -->
           <div id="os-step-3" class="os-form-step" style="display: none;">
-             ${!isEdicao ? `
-                <div class="alert alert-info" style="margin-bottom: 0;">
-                  Para adicionar peças, primeiro salve as informações básicas da OS no final do assistente (Etapa 4).
-                </div>
-             ` : `
-                <div style="background: rgba(255,255,255,0.03); padding: 1rem; border-radius: var(--radius); border: 1px solid var(--border); margin-bottom: 1.5rem;">
-                   <h4 style="margin: 0 0 1rem 0; font-size: 0.9rem; color: var(--primary);">Adicionar Peça do Estoque</h4>
-                   <div style="display: grid; grid-template-columns: 2fr 0.8fr 0.8fr 1fr auto; gap: 0.75rem; align-items: flex-end;">
-                      <div class="form-group" style="margin:0;">
-                         <label class="form-label" style="font-size: 0.75rem;">Peça (Selecione ou Digite)</label>
-                         <input list="os-pecas-datalist" class="form-input" id="os-peca-input" placeholder="Nome da peça..." style="font-size: 0.85rem;">
-                         <datalist id="os-pecas-datalist">
-                            ${(AppState.data.pecas || []).map(p => `
-                               <option value="${p.nome}" data-id="${p.id}" data-codigo="${p.codigo}" data-preco="${p.preco_venda}">${p.codigo ? `[${p.codigo}] ` : ''}${p.nome} (Sald: ${p.quantidade_estoque})</option>
-                            `).join('')}
-                         </datalist>
-                      </div>
-                      <div class="form-group" style="margin:0;">
-                         <label class="form-label" style="font-size: 0.75rem;">Código</label>
-                         <input type="text" class="form-input" id="os-peca-codigo-input" placeholder="Opcional" style="font-size: 0.85rem;">
-                      </div>
-                      <div class="form-group" style="margin:0;">
-                         <label class="form-label" style="font-size: 0.75rem;">Qtd</label>
-                         <input type="number" class="form-input" id="os-peca-qtd" value="1" min="1" step="1" style="font-size: 0.85rem;">
-                      </div>
-                      <div class="form-group" style="margin:0;">
-                         <label class="form-label" style="font-size: 0.75rem;">Preço Unit. (R$)</label>
-                         <input type="number" class="form-input" id="os-peca-preco" step="0.01" style="font-size: 0.85rem;">
-                      </div>
-                      <button type="button" class="btn btn-primary" onclick="window.adicionarPecaOSFunc()" style="height: 38px; padding: 0 1rem;">+</button>
-                   </div>
-                </div>
-
-                <div class="table-container" style="max-height: 250px; overflow-y: auto;">
-                   <table style="font-size: 0.85rem;">
-                      <thead style="position: sticky; top: 0; background: var(--bg-tertiary); z-index: 2;">
-                         <tr>
-                            <th>Código/Peça</th>
-                            <th>Valor Unit.</th>
-                            <th>Qtd</th>
-                            <th>Total</th>
-                            <th style="width: 50px;"></th>
-                         </tr>
-                      </thead>
-                      <tbody id="os-pecas-list">
-                         ${pecasOS.length === 0 ? '<tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">Nenhuma peça adicionada</td></tr>' :
-      pecasOS.map(p => `
-                             <tr>
-                               <td><strong>${p.peca_codigo}</strong><br><small>${p.peca_nome}</small></td>
-                               <td>R$ ${formatMoney(p.preco_unitario)}</td>
-                               <td>${p.quantidade}</td>
-                               <td>R$ ${formatMoney(p.preco_total)}</td>
-                               <td style="text-align: right;">
-                                  <button type="button" class="btn btn-danger btn-sm" onclick="window.removerPecaOSFunc(${p.id})">&times;</button>
-                               </td>
-                             </tr>
-                           `).join('')}
-                      </tbody>
-                   </table>
-                </div>
-             `}
-          </div>
-
-          <!-- ETAPA 4: VALORES E STATUS -->
-          <div id="os-step-4" class="os-form-step" style="display: none;">
             <div style="display: grid; gap: 1.5rem;">
               
+              <!-- PEÇAS (VINCULAR LISTAGEM) -->
+              <div class="card" style="border-left: 4px solid var(--primary); background: var(--bg-secondary);">
+                <div style="margin-bottom: 1rem; font-weight: 700; color: var(--primary);">📦 Listagem de Peças</div>
+                <div class="form-group">
+                  <label class="form-label">Vincular Listagem Numerada</label>
+                  <select class="form-input" id="os-listagem-pecas">
+                    <option value="">Nenhuma listagem vinculada</option>
+                    ${listagens.map(l => `
+                      <option value="${l.id}" data-valor="${l.valor_total}" ${osData && osData.listagem_pecas_id === l.id ? 'selected' : ''}>
+                         ${l.numero_lista} - R$ ${formatMoney(l.valor_total)} (${l.cliente_nome})
+                      </option>
+                    `).join('')}
+                  </select>
+                  <small style="color: var(--text-muted);">O valor total desta listagem será somado ao total da OS.</small>
+                </div>
+              </div>
+
               <!-- DESLOCAMENTO -->
               <div class="card" style="border-left: 4px solid var(--warning); background: var(--bg-secondary);">
                 <div style="margin-bottom: 1rem; font-weight: 700; color: var(--warning);">🚗 Deslocamento</div>
@@ -249,8 +190,7 @@ async function mostrarModalOS(osId = null) {
                   </div>
                   <div class="form-group">
                     <label class="form-label">Peças (R$)</label>
-                    <input type="number" class="form-input" id="os-valor-pecas" step="0.01" value="${osData ? osData.valor_pecas : 0}" readonly style="background: var(--bg-tertiary); cursor: not-allowed;">
-                    <small style="font-size: 0.7rem; color: var(--text-muted);">Gerado pela lista de peças (Etapa 3)</small>
+                    <input type="number" class="form-input" id="os-valor-pecas" step="0.01" value="${osData ? osData.valor_pecas : 0}" readonly style="background: var(--bg-tertiary);">
                   </div>
                 </div>
                 <div style="margin-top: 1rem; padding: 1.5rem; background: var(--primary); border-radius: var(--radius-lg); text-align: center;">
@@ -259,9 +199,9 @@ async function mostrarModalOS(osId = null) {
                 </div>
               </div>
 
-                </div>
-
-                <div class="form-group" style="margin-top: 1rem;">
+              <!-- STATUS E OBS -->
+              <div class="card" style="background: var(--bg-secondary);">
+                <div class="form-group">
                   <label class="form-label">Status da OS</label>
                   <select class="form-input" id="os-status">
                     <option value="ABERTA" ${osData?.status === 'ABERTA' ? 'selected' : ''}>🔵 Aberta</option>
@@ -269,17 +209,9 @@ async function mostrarModalOS(osId = null) {
                     <option value="FECHADA" ${osData?.status === 'FECHADA' ? 'selected' : ''}>🟢 Fechada</option>
                   </select>
                 </div>
-
-                ${isEdicao && osData.status === 'FECHADA' && osData.data_fechamento ? `
-                  <div style="padding: 1rem; background: rgba(16, 185, 129, 0.1); border-radius: var(--radius); border-left: 3px solid var(--success); margin-bottom: 1rem;">
-                    <strong style="color: var(--success); font-size: 0.85rem;">✓ Concluída em:</strong> 
-                    <span style="color: var(--text-primary); font-weight: 600; font-size: 0.85rem;">${formatDate(osData.data_fechamento)}</span>
-                  </div>
-                ` : ''}
-
                 <div class="form-group">
                   <label class="form-label">Observações Internas</label>
-                  <textarea class="form-input" id="os-observacoes" rows="2" placeholder="Anotações para controle interno...">${osData && osData.observacoes ? osData.observacoes : ''}</textarea>
+                  <textarea class="form-input" id="os-observacoes" rows="3" placeholder="Anotações para controle interno...">${osData && osData.observacoes ? osData.observacoes : ''}</textarea>
                 </div>
               </div>
             </div>
@@ -318,7 +250,7 @@ async function mostrarModalOS(osId = null) {
     document.getElementById(`os-step-${currentStepOS}`).style.display = 'block';
 
     // Atualizar indicadores (bolinhas)
-    for (let i = 1; i <= 4; i++) {
+    for (let i = 1; i <= 3; i++) {
       const dot = document.getElementById(`step-dot-${i}`);
       const line = document.getElementById('step-line-progress');
       const circle = dot.querySelector('div');
@@ -347,12 +279,12 @@ async function mostrarModalOS(osId = null) {
       }
 
       // Linha de progresso
-      line.style.width = currentStepOS === 1 ? '0%' : (currentStepOS === 2 ? '33%' : (currentStepOS === 3 ? '66%' : '100%'));
+      line.style.width = currentStepOS === 1 ? '0%' : (currentStepOS === 2 ? '50%' : '100%');
     }
 
     // Gerenciar botões do footer
     document.getElementById('btn-prev-os').style.display = currentStepOS === 1 ? 'none' : 'block';
-    if (currentStepOS === 4) {
+    if (currentStepOS === 3) {
       document.getElementById('btn-next-os').style.display = 'none';
       document.getElementById('btn-save-os').style.display = 'block';
     } else {
@@ -364,12 +296,23 @@ async function mostrarModalOS(osId = null) {
     document.querySelector('#form-os').scrollTop = 0;
   };
 
-  // Adicionar listeners de input para recalcular valores em tempo real
+  // Função para carregar valor da listagem selecionada
+  const updateValorPecasFromLP = () => {
+    const lpSelect = document.getElementById('os-listagem-pecas');
+    const selectedOption = lpSelect.options[lpSelect.selectedIndex];
+    const valor = parseFloat(selectedOption.getAttribute('data-valor')) || 0;
+    document.getElementById('os-valor-pecas').value = valor;
+    calcularValoresOS();
+  };
+
+  // Listeners para recalcular valores
   const camposCalculo = ['os-km-ida', 'os-km-volta', 'os-valor-km', 'os-valor-mao-obra', 'os-valor-pecas'];
   camposCalculo.forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('input', calcularValoresOS);
   });
+
+  document.getElementById('os-listagem-pecas').addEventListener('change', updateValorPecasFromLP);
 
   // Listeners de navegação
   document.getElementById('btn-next-os').addEventListener('click', () => {
@@ -392,136 +335,20 @@ async function mostrarModalOS(osId = null) {
     updateWizard();
   });
 
-  // Event listeners normais
   document.getElementById('os-cliente').addEventListener('change', carregarMaquinasCliente);
   document.getElementById('form-os').addEventListener('submit', (e) => {
     e.preventDefault();
     salvarOS(osId);
   });
 
-  // Carregar máquinas se for edição
+  // Carregar máquinas e valores iniciais
   if (isEdicao && osData.cliente_id) {
     await carregarMaquinasCliente();
-    const maquinaSelect = document.getElementById('os-maquina');
-    maquinaSelect.value = osData.maquina_id;
+    document.getElementById('os-maquina').value = osData.maquina_id;
   }
 
-  // Calcular valores iniciais
   calcularValoresOS();
   updateWizard();
-
-  // --- FUNÇÕES DE PEÇAS DENTRO DO MODAL ---
-  window.adicionarPecaOSFunc = async () => {
-    const pecaInput = document.getElementById('os-peca-input');
-    const pecaNome = pecaInput.value;
-    const pecaCodigo = document.getElementById('os-peca-codigo-input').value;
-    const qtd = parseFloat(document.getElementById('os-peca-qtd').value) || 0;
-    const preco = parseFloat(document.getElementById('os-peca-preco').value) || 0;
-
-    if (!pecaNome || qtd <= 0 || preco <= 0) return alert('Preencha os dados da peça corretamente.');
-
-    // Tentar encontrar se o que foi digitado corresponde a uma peça existente no datalist
-    const datalist = document.getElementById('os-pecas-datalist');
-    const option = Array.from(datalist.options).find(opt => opt.value === pecaNome);
-    const pecaId = option ? option.getAttribute('data-id') : null;
-
-    const result = await window.api.adicionarPecaOS(osId, {
-      peca_id: pecaId,
-      peca_nome: pecaNome,
-      peca_codigo: pecaCodigo,
-      quantidade: qtd,
-      preco_unitario: preco
-    });
-
-    if (result.success) {
-      // Recarregar dados do AppState e atualizar lista
-      await loadPecas();
-      const pecasRes = await window.api.listarPecasOS(osId);
-      const osNewRes = await window.api.obterOS(osId);
-
-      const pecas = pecasRes.pecas || [];
-      const tbody = document.getElementById('os-pecas-list');
-      tbody.innerHTML = pecas.map(p => `
-        <tr>
-          <td><strong>${p.peca_codigo}</strong><br><small>${p.peca_nome}</small></td>
-          <td>R$ ${formatMoney(p.preco_unitario)}</td>
-          <td>${p.quantidade}</td>
-          <td>R$ ${formatMoney(p.preco_total)}</td>
-          <td style="text-align: right;">
-             <button type="button" class="btn btn-danger btn-sm" onclick="window.removerPecaOSFunc(${p.id})">&times;</button>
-          </td>
-        </tr>
-      `).join('');
-
-      // Atualizar input de valor_pecas no Passo 4
-      if (osNewRes.success) {
-        document.getElementById('os-valor-pecas').value = osNewRes.os.valor_pecas;
-        calcularValoresOS();
-      }
-
-      // Limpar campos
-      pecaInput.value = '';
-      document.getElementById('os-peca-codigo-input').value = '';
-      document.getElementById('os-peca-preco').value = '';
-      document.getElementById('os-peca-qtd').value = '1';
-
-      // Atualizar datalist para inclusões futuras (peça nova agora existe)
-      const pecasGlobais = AppState.data.pecas || [];
-      datalist.innerHTML = pecasGlobais.map(p => `
-        <option value="${p.nome}" data-id="${p.id}" data-codigo="${p.codigo}" data-preco="${p.preco_venda}">${p.codigo ? `[${p.codigo}] ` : ''}${p.nome} (Sald: ${p.quantidade_estoque})</option>
-      `).join('');
-    } else {
-      alert('Erro ao adicionar peça: ' + result.message);
-    }
-  };
-
-  window.removerPecaOSFunc = async (itemId) => {
-    if (!confirm('Deseja remover esta peça da OS?')) return;
-
-    const result = await window.api.removerPecaOS(osId, itemId);
-    if (result.success) {
-      const pecasRes = await window.api.listarPecasOS(osId);
-      const osNewRes = await window.api.obterOS(osId);
-
-      const pecas = pecasRes.pecas || [];
-      const tbody = document.getElementById('os-pecas-list');
-      if (pecas.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">Nenhuma peça adicionada</td></tr>';
-      } else {
-        tbody.innerHTML = pecas.map(p => `
-            <tr>
-              <td><strong>${p.peca_codigo}</strong><br><small>${p.peca_nome}</small></td>
-              <td>R$ ${formatMoney(p.preco_unitario)}</td>
-              <td>${p.quantidade}</td>
-              <td>R$ ${formatMoney(p.preco_total)}</td>
-              <td style="text-align: right;">
-                 <button type="button" class="btn btn-danger btn-sm" onclick="window.removerPecaOSFunc(${p.id})">&times;</button>
-              </td>
-            </tr>
-          `).join('');
-      }
-
-      if (osNewRes.success) {
-        document.getElementById('os-valor-pecas').value = osNewRes.os.valor_pecas;
-        calcularValoresOS();
-      }
-    }
-  };
-
-  // Listener para carregar preço automático ao digitar/selecionar
-  const pecaInput = document.getElementById('os-peca-input');
-  if (pecaInput) {
-    pecaInput.addEventListener('input', () => {
-      const datalist = document.getElementById('os-pecas-datalist');
-      const option = Array.from(datalist.options).find(opt => opt.value === pecaInput.value);
-      if (option) {
-        const preco = option.getAttribute('data-preco');
-        const codigo = option.getAttribute('data-codigo');
-        if (preco) document.getElementById('os-peca-preco').value = preco;
-        if (codigo) document.getElementById('os-peca-codigo-input').value = codigo;
-      }
-    });
-  }
 }
 
 async function carregarMaquinasCliente() {
@@ -552,7 +379,6 @@ function calcularValoresOS() {
   const valorMaoObra = parseFloat(document.getElementById('os-valor-mao-obra').value) || 0;
   const valorPecas = parseFloat(document.getElementById('os-valor-pecas').value) || 0;
 
-  // Distância é a diferença entre os odômetros. Se chegada < saída, assumimos 0
   const kmPercorrido = odoChegada > odoSaida ? (odoChegada - odoSaida) : 0;
   const valorDeslocamento = kmPercorrido * valorPorKm;
   const valorTotal = valorMaoObra + valorPecas + valorDeslocamento;
@@ -566,14 +392,11 @@ function calcularValoresOS() {
 }
 
 async function salvarOS(osId) {
-  // Ler valores dos campos
   const odoSaida = parseFloat(document.getElementById('os-km-ida').value) || 0;
   const odoChegada = parseFloat(document.getElementById('os-km-volta').value) || 0;
   const valorPorKm = parseFloat(document.getElementById('os-valor-km').value) || 0;
   const valorMaoObra = parseFloat(document.getElementById('os-valor-mao-obra').value) || 0;
   const valorPecas = parseFloat(document.getElementById('os-valor-pecas').value) || 0;
-
-  // Calcular distância e total no frontend (fonte de verdade)
   const kmPercorrido = odoChegada > odoSaida ? (odoChegada - odoSaida) : 0;
   const valorDeslocamento = kmPercorrido * valorPorKm;
   const valorTotal = valorMaoObra + valorPecas + valorDeslocamento;
@@ -590,191 +413,78 @@ async function salvarOS(osId) {
     valor_por_km: valorPorKm,
     valor_mao_obra: valorMaoObra,
     valor_pecas: valorPecas,
-    valor_total: valorTotal,       // ← envia calculado corretamente
+    valor_total: valorTotal,
+    listagem_pecas_id: document.getElementById('os-listagem-pecas').value || null,
     observacoes: document.getElementById('os-observacoes').value,
     status: document.getElementById('os-status').value
   };
 
   try {
-    let result;
-    if (osId) {
-      result = await window.api.atualizarOS(osId, dados);
-    } else {
-      result = await window.api.criarOS(dados);
-    }
+    const result = osId ? await window.api.atualizarOS(osId, dados) : await window.api.criarOS(dados);
 
     if (result.success) {
-      showAlert(osId ? 'OS atualizada com sucesso!' : `OS ${result.numero_os} criada com sucesso!`, 'success');
+      showAlert(osId ? 'OS atualizada!' : `OS ${result.numero_os} criada!`, 'success');
       fecharModal('modal-os');
       await loadOrdens();
-      if (AppState.currentPage === 'ordens-servico') {
-        render();
-      }
+      if (AppState.currentPage === 'ordens-servico') render();
     } else {
-      showAlert(result.message || 'Erro ao salvar OS', 'danger');
+      showAlert(result.message || 'Erro ao salvar', 'danger');
     }
   } catch (error) {
-    console.error('Erro ao salvar OS:', error);
-    showAlert('Erro ao salvar OS', 'danger');
+    showAlert('Erro ao salvar', 'danger');
   }
 }
 
 async function fecharOS(osId) {
-  if (!confirm('Tem certeza que deseja fechar esta OS? Esta ação não pode ser desfeita.')) {
-    return;
-  }
-
-  const dados = {
-    status: 'FECHADA'
-  };
-
+  if (!confirm('Deseja fechar esta OS?')) return;
   try {
-    const result = await window.api.atualizarOS(osId, dados);
-
+    const result = await window.api.atualizarOS(osId, { status: 'FECHADA' });
     if (result.success) {
-      showAlert('OS fechada com sucesso!', 'success');
-      fecharModal('modal-os');
-
-      if (confirm('Deseja gerar o PDF da OS agora?')) {
-        await gerarPDFOS(osId);
-      }
-
+      showAlert('OS fechada!', 'success');
+      if (confirm('Gerar PDF?')) await gerarPDFOS(osId);
       await loadOrdens();
-      if (AppState.currentPage === 'ordens-servico') {
-        render();
-      }
-    } else {
-      showAlert(result.message || 'Erro ao fechar OS', 'danger');
+      if (AppState.currentPage === 'ordens-servico') render();
     }
   } catch (error) {
-    console.error('Erro ao fechar OS:', error);
-    showAlert('Erro ao fechar OS', 'danger');
+    showAlert('Erro ao fechar', 'danger');
   }
 }
 
 async function gerarPDFOS(osId) {
   try {
     const result = await window.api.obterOS(osId);
-    if (!result.success) {
-      showAlert('Erro ao carregar dados da OS', 'danger');
-      return;
-    }
-
+    if (!result.success) return;
     const os = result.os;
-    if (!os) {
-      showAlert('Dados da OS não encontrados', 'danger');
-      return;
-    }
-
-    // Normalizar valores
-    const normalizedOS = { ...os };
-    const odoSaida = parseFloat(os.km_ida) || 0;
-    const odoChegada = parseFloat(os.km_volta) || 0;
-    normalizedOS.km_total = odoChegada > odoSaida ? (odoChegada - odoSaida) : 0;
-    normalizedOS.valor_por_km = parseFloat(os.valor_por_km) || 0;
-    normalizedOS.valor_deslocamento = (normalizedOS.km_total * normalizedOS.valor_por_km);
-    normalizedOS.valor_mao_obra = parseFloat(os.valor_mao_obra) || 0;
-    normalizedOS.valor_pecas = parseFloat(os.valor_pecas) || 0;
-    normalizedOS.valor_total = parseFloat(os.valor_total) || (normalizedOS.valor_mao_obra + normalizedOS.valor_pecas + normalizedOS.valor_deslocamento);
-
-    // Criar conteúdo HTML para impressão
     const printContent = `
-        <div class="header">
-          <img src="resources/logonova2.png" alt="SAMAPE" style="width: 150px;">
-          <h1>ORDEM DE SERVIÇO</h1>
-          <div class="os-number">${normalizedOS.numero_os}</div>
-        </div>
-
-        <div class="section">
-          <div class="section-header">INFORMAÇÕES GERAIS</div>
-          <div class="section-body">
-            <div class="info-row"><div class="info-label">Cliente:</div><div>${normalizedOS.cliente_nome}</div></div>
-            <div class="info-row"><div class="info-label">Máquina:</div><div>${normalizedOS.maquina_modelo}</div></div>
-            <div class="info-row"><div class="info-label">Técnico:</div><div>${normalizedOS.mecanico_nome}</div></div>
-            <div class="info-row"><div class="info-label">Data:</div><div>${formatDate(normalizedOS.data_abertura)}</div></div>
-          </div>
-        </div>
-
-        <div class="section">
-          <div class="section-header">DESCRIÇÃO DOS SERVIÇOS</div>
-          <div class="section-body">
-            <p><strong>Problema:</strong> ${normalizedOS.descricao_problema}</p>
-            <p><strong>Diagnóstico:</strong> ${normalizedOS.diagnostico || '-'}</p>
-            <p><strong>Solução:</strong> ${normalizedOS.solucao || '-'}</p>
-          </div>
-        </div>
-
-        <div class="section">
-          <div class="section-header">VALORES</div>
-          <div class="section-body">
-            <div class="info-row"><div class="info-label">Odôm. Saída/Chegada:</div><div>${parseFloat(os.km_ida) || 0} / ${parseFloat(os.km_volta) || 0}</div></div>
-            <div class="info-row"><div class="info-label">Distância Percorrida:</div><div>${normalizedOS.km_total.toFixed(1)} KM</div></div>
-            <div class="info-row"><div class="info-label">Deslocamento:</div><div>R$ ${formatMoney(normalizedOS.valor_deslocamento)}</div></div>
-            <div class="info-row"><div class="info-label">Mão de Obra:</div><div>R$ ${formatMoney(normalizedOS.valor_mao_obra)}</div></div>
-            <div class="info-row"><div class="info-label">Peças:</div><div>R$ ${formatMoney(normalizedOS.valor_pecas)}</div></div>
-          </div>
-        </div>
-
-        <div class="total-box">TOTAL: R$ ${formatMoney(normalizedOS.valor_total)}</div>
-
-        <div class="footer">
-          <p>SAMAPE ÍNDIO - Sistema de Gerenciamento de Manutenção</p>
-          <p>Impressão realizada em ${new Date().toLocaleString('pt-BR')}</p>
+        <div style="font-family: sans-serif; padding: 20px;">
+          <h1 style="text-align: center; color: #2563eb;">ORDEM DE SERVIÇO</h1>
+          <h2 style="text-align: center;">${os.numero_os}</h2>
+          <hr>
+          <p><strong>Cliente:</strong> ${os.cliente_nome}</p>
+          <p><strong>Máquina:</strong> ${os.maquina_modelo}</p>
+          <p><strong>Técnico:</strong> ${os.mecanico_nome}</p>
+          <p><strong>Status:</strong> ${os.status}</p>
+          <hr>
+          <h3>Serviços</h3>
+          <p><strong>Problema:</strong> ${os.descricao_problema}</p>
+          <p><strong>Solução:</strong> ${os.solucao || '-'}</p>
+          <hr>
+          <h3>Financeiro</h3>
+          <p>Mão de Obra: R$ ${formatMoney(os.valor_mao_obra)}</p>
+          <p>Peças: R$ ${formatMoney(os.valor_pecas)}</p>
+          <p>Total: R$ ${formatMoney(os.valor_total)}</p>
         </div>
     `;
-
-    // Criar overlay para visualização
     const overlay = document.createElement('div');
     overlay.id = 'print-overlay';
-    overlay.style.cssText = `
-        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-        background: white; z-index: 20000; overflow-y: auto; color: #333;
-        font-family: sans-serif;
-    `;
-
+    overlay.style.cssText = 'position: fixed; top:0; left:0; width:100%; height:100%; background:white; z-index:20000; overflow-y:auto;';
     overlay.innerHTML = `
-        <style>
-          .print-container { max-width: 800px; margin: 0 auto; padding: 20px; }
-          .header { text-align: center; border-bottom: 2px solid #2563eb; margin-bottom: 20px; padding-bottom: 10px; }
-          .os-number { font-size: 24px; font-weight: bold; color: #2563eb; }
-          .section { margin-bottom: 20px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }
-          .section-header { background: #f3f4f6; padding: 10px; font-weight: bold; border-bottom: 1px solid #ddd; }
-          .section-body { padding: 15px; }
-          .info-row { display: flex; margin-bottom: 5px; }
-          .info-label { font-weight: bold; width: 150px; }
-          .total-box { background: #2563eb; color: white; padding: 20px; text-align: center; border-radius: 8px; font-size: 24px; font-weight: bold; margin-top: 20px; }
-          .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #666; }
-          
-          .print-controls {
-            position: fixed; bottom: 20px; right: 20px; display: flex; gap: 10px; z-index: 20001;
-            background: white; padding: 10px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-          }
-          .btn-print { background: #2563eb; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; }
-          .btn-close { background: #ef4444; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; }
-          
-          @media print { 
-            .print-controls { display: none; }
-            .print-container { width: 100%; max-width: none; padding: 0; }
-          }
-          @media (max-width: 600px) {
-            .info-row { flex-direction: column; }
-            .info-label { width: 100%; margin-bottom: 2px; color: #666; font-size: 0.9em; }
-          }
-        </style>
-        <div class="print-container">
-            ${printContent}
-        </div>
-        <div class="print-controls">
-            <button class="btn-close" onclick="document.getElementById('print-overlay').remove()">Fechar</button>
-            <button class="btn-print" onclick="window.print()">🖨️ Imprimir / PDF</button>
-        </div>
+      ${printContent}
+      <button onclick="window.print()" style="position:fixed; bottom:20px; right:20px; padding:10px 20px; background:#2563eb; color:white; border:none; border-radius:8px;">Imprimir</button>
+      <button onclick="this.parentElement.remove()" style="position:fixed; bottom:20px; right:120px; padding:10px 20px; background:#ef4444; color:white; border:none; border-radius:8px;">Fechar</button>
     `;
-
     document.body.appendChild(overlay);
-
-  } catch (error) {
-    console.error('Erro ao gerar PDF:', error);
-  }
+  } catch (e) { }
 }
 
 function fecharModal(modalId) {
@@ -784,16 +494,14 @@ function fecharModal(modalId) {
 
 function showAlert(message, type) {
   const alertDiv = document.createElement('div');
-  alertDiv.style.cssText = `position: fixed; top: 20px; right: 20px; padding: 15px 25px; border-radius: 8px; color: white; font-weight: 600; z-index: 9999; background: ${type === 'success' ? 'var(--success)' : 'var(--danger)'}; box-shadow: var(--shadow-lg);`;
+  alertDiv.style.cssText = `position: fixed; top: 20px; right: 20px; padding: 15px 25px; border-radius: 8px; color: white; font-weight: 600; z-index: 9999; background: ${type === 'success' ? 'var(--success)' : 'var(--danger)'};`;
   alertDiv.textContent = message;
   document.body.appendChild(alertDiv);
   setTimeout(() => alertDiv.remove(), 3000);
 }
 
 async function loadOrdens() {
-  if (typeof loadOrdensServico === 'function') {
-    await loadOrdensServico();
-  }
+  if (typeof loadOrdensServico === 'function') await loadOrdensServico();
 }
 
 window.gerarPDFOS = gerarPDFOS;
