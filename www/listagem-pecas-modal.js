@@ -148,7 +148,10 @@ async function mostrarModalListagemPecas(lpId = null) {
 
         clearTimeout(timeoutId);
         timeoutId = setTimeout(async () => {
-          dropdown.innerHTML = '<div style="padding: 15px; text-align: center; color: var(--text-muted); font-size: 0.85rem;"><span style="display:inline-block; animation: spin 1s linear infinite;">🔄</span> Buscando no sistema e na internet...</div>';
+          dropdown.innerHTML = `<div style="padding: 15px; text-align: center; color: var(--text-muted); font-size: 0.85rem; background: var(--bg-card);">
+               <span style="display:inline-block; animation: spin 1s linear infinite; margin-right: 8px;">🔄</span> 
+               Buscando no sistema e na internet...
+            </div>`;
           dropdown.style.display = 'block';
 
           let html = '';
@@ -161,15 +164,15 @@ async function mostrarModalListagemPecas(lpId = null) {
 
           if (localResults.length > 0) {
             html += '<div style="background: var(--bg-secondary); padding: 8px 12px; font-size: 0.75rem; font-weight: 800; color: var(--primary); border-bottom: 1px solid var(--border);">📦 BANCO DE DADOS LOCAL</div>';
-            localResults.slice(0, 5).forEach(p => {
+            localResults.slice(0, 6).forEach(p => {
               const codStr = p.codigo ? `[Cód: ${p.codigo}] ` : '';
               const descStr = p.descricao ? ` <span style="color:var(--text-muted); font-size:0.8em; display:block;">${p.descricao}</span>` : '';
               html += `
-                <div style="padding: 10px 12px; cursor: pointer; border-bottom: 1px solid var(--border); font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s;"
-                     onmouseover="this.style.background='var(--bg-tertiary)'" onmouseout="this.style.background='white'"
-                     onclick="window.selecionarPeca('${(p.nome).replace(/'/g, "\\'")}', '${(p.codigo || '').replace(/'/g, "\\'")}', ${p.preco_venda || 0})">
+                <div style="padding: 12px; cursor: pointer; border-bottom: 1px solid var(--border); font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s; background: var(--bg-card); color: var(--text-primary);"
+                     onmouseover="this.style.background='var(--bg-tertiary)'" onmouseout="this.style.background='var(--bg-card)'"
+                     onclick="window.selecionarPeca(\`${(p.nome).replace(/`/g, "\\`")}\`, \`${(p.codigo || '').replace(/`/g, "\\`")}\`, ${p.preco_venda || 0})">
                    <div style="flex:1;"><strong>${codStr}${p.nome}</strong>${descStr}</div>
-                   <div style="font-weight: 800; color: var(--success); margin-left: 10px; background: #f0fdf4; padding: 4px 8px; border-radius: 4px;">R$ ${formatMoney(p.preco_venda || 0)}</div>
+                   <div style="font-weight: 800; color: var(--success); margin-left: 10px; background: rgba(16, 185, 129, 0.1); padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(16, 185, 129, 0.2);">R$ ${formatMoney(p.preco_venda || 0)}</div>
                 </div>
               `;
             });
@@ -179,31 +182,36 @@ async function mostrarModalListagemPecas(lpId = null) {
           const searchTerms = `${maquina} ${query}`.trim();
           if (searchTerms.length > 3) {
             try {
-              const res = await fetch(`https://api.mercadolibre.com/sites/MLB/search?q=${encodeURIComponent(searchTerms)}&limit=10`);
+              const controller = new AbortController();
+              const sigId = setTimeout(() => controller.abort(), 8000);
+
+              const res = await fetch(`https://api.mercadolibre.com/sites/MLB/search?q=${encodeURIComponent(searchTerms)}&limit=10`, { signal: controller.signal });
+              clearTimeout(sigId);
               const data = await res.json();
 
               if (data.results && data.results.length > 0) {
-                html += '<div style="background: var(--bg-secondary); padding: 8px 12px; font-size: 0.75rem; font-weight: 800; color: #d97706; border-bottom: 1px solid var(--border); display:flex; align-items:center; gap:5px;"><span>🌐</span> SUGESTÕES DA INTERNET <small style="font-weight:normal; opacity:0.8;">(Clique para usar)</small></div>';
+                html += '<div style="background: var(--bg-secondary); padding: 8px 12px; font-size: 0.75rem; font-weight: 800; color: #f59e0b; border-bottom: 1px solid var(--border); display:flex; align-items:center; gap:5px;"><span>🌐</span> SUGESTÕES DO GOOGLE / WEB <small style="font-weight:normal; opacity:0.8;">(Clique para usar)</small></div>';
 
                 // Filtrar resultados muito absurdos e limitar a 5
                 const internetResults = data.results.slice(0, 5);
 
                 internetResults.forEach(item => {
                   html += `
-                    <div style="padding: 10px 12px; cursor: pointer; border-bottom: 1px solid var(--border); font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s;"
-                         onmouseover="this.style.background='#fffbeb'" onmouseout="this.style.background='white'"
-                         onclick="window.selecionarPeca('${item.title.replace(/'/g, "\\'")}', '', ${item.price || 0})">
+                    <div style="padding: 12px; cursor: pointer; border-bottom: 1px solid var(--border); font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s; background: var(--bg-card); color: var(--text-primary);"
+                         onmouseover="this.style.background='var(--bg-tertiary)'" onmouseout="this.style.background='var(--bg-card)'"
+                         onclick="window.selecionarPeca(\`${item.title.replace(/`/g, "\\`").replace(/'/g, "")}\`, '', ${item.price || 0})">
                        <div style="flex:1; padding-right: 10px;">
-                          <strong>${item.title}</strong>
-                          <div style="font-size: 0.75em; color: var(--text-muted); margin-top: 2px;">Encontrado na web para: ${maquina}</div>
+                          <strong style="color: #f59e0b;">${item.title}</strong>
+                          <div style="font-size: 0.75em; color: var(--text-muted); margin-top: 2px;">Web para: ${maquina}</div>
                        </div>
-                       <div style="font-weight: 800; color: #d97706; margin-left: 10px; background: #fef3c7; padding: 4px 8px; border-radius: 4px; white-space: nowrap;">R$ ${formatMoney(item.price || 0)}</div>
+                       <div style="font-weight: 800; color: #f59e0b; margin-left: 10px; background: rgba(245, 158, 11, 0.1); padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(245, 158, 11, 0.2); white-space: nowrap;">R$ ${formatMoney(item.price || 0)}</div>
                     </div>
                   `;
                 });
               }
             } catch (err) {
               console.error('Erro na busca externa:', err);
+              html += `<div style="padding: 10px; text-align: center; color: var(--danger); font-size: 0.8rem; background: var(--bg-card);">⚠️ Erro ao conectar com a internet. Verifique sua conexão.</div>`;
             }
           }
 
@@ -212,7 +220,7 @@ async function mostrarModalListagemPecas(lpId = null) {
           }
 
           dropdown.innerHTML = html;
-        }, 800); // 800ms debounce para evitar spam na API de fora
+        }, 500); // 500ms debounce para evitar spam na API de fora
       });
     }
   }
