@@ -871,10 +871,19 @@ app.post('/api/listagens-pecas/:id/itens', authenticateToken, async (req, res) =
             [id, peca_id, quantidade, preco_unitario, preco_total]
         );
 
-        // Atualizar total da listagem
+        // Atualizar total da listagem e sincronizar OS vinculadas
         const totalResult = await client.query(`SELECT SUM(preco_total) as total FROM listagem_pecas_itens WHERE listagem_id = $1`, [id]);
         const novoTotal = parseFloat(totalResult.rows[0].total) || 0;
         await client.query(`UPDATE listagens_pecas SET valor_total = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`, [novoTotal, id]);
+
+        // Sincronizar OS que usam esta listagem
+        await client.query(
+            `UPDATE ordens_servico 
+             SET valor_pecas = $1,
+                 valor_total = COALESCE(valor_mao_obra, 0) + $1 + (GREATEST(0, COALESCE(km_volta, 0) - COALESCE(km_ida, 0)) * COALESCE(valor_por_km, 0))
+             WHERE listagem_pecas_id = $2`,
+            [novoTotal, id]
+        );
 
         await client.query('COMMIT');
         res.json({ success: true });
@@ -894,9 +903,19 @@ app.delete('/api/listagens-pecas/:lp_id/itens/:item_id', authenticateToken, asyn
         await client.query('BEGIN');
         await client.query('DELETE FROM listagem_pecas_itens WHERE id = $1', [item_id]);
 
+        // Atualizar total da listagem e sincronizar OS vinculadas
         const totalResult = await client.query(`SELECT SUM(preco_total) as total FROM listagem_pecas_itens WHERE listagem_id = $1`, [lp_id]);
         const novoTotal = parseFloat(totalResult.rows[0].total) || 0;
         await client.query(`UPDATE listagens_pecas SET valor_total = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`, [novoTotal, lp_id]);
+
+        // Sincronizar OS que usam esta listagem
+        await client.query(
+            `UPDATE ordens_servico 
+             SET valor_pecas = $1,
+                 valor_total = COALESCE(valor_mao_obra, 0) + $1 + (GREATEST(0, COALESCE(km_volta, 0) - COALESCE(km_ida, 0)) * COALESCE(valor_por_km, 0))
+             WHERE listagem_pecas_id = $2`,
+            [novoTotal, lp_id]
+        );
 
         await client.query('COMMIT');
         res.json({ success: true });
@@ -910,12 +929,32 @@ app.delete('/api/listagens-pecas/:lp_id/itens/:item_id', authenticateToken, asyn
 
 // Excluir listagem
 app.delete('/api/listagens-pecas/:id', authenticateToken, authorize(['ADMIN']), async (req, res) => {
+    const client = await pool.connect();
     try {
         const { id } = req.params;
-        await pool.query('DELETE FROM listagens_pecas WHERE id = $1', [id]);
+        await client.query('BEGIN');
+
+        // 1. Antes de excluir, zerar os campos de valor de peças nas OS vinculadas
+        await client.query(
+            `UPDATE ordens_servico 
+             SET valor_pecas = 0,
+                 valor_total = COALESCE(valor_mao_obra, 0) + (GREATEST(0, COALESCE(km_volta, 0) - COALESCE(km_ida, 0)) * COALESCE(valor_por_km, 0)),
+                 listagem_pecas_id = NULL
+             WHERE listagem_pecas_id = $1`,
+            [id]
+        );
+
+        // 2. Excluir a listagem (os itens serão excluídos pelo ON DELETE CASCADE no banco)
+        await client.query('DELETE FROM listagens_pecas WHERE id = $1', [id]);
+
+        await client.query('COMMIT');
         res.json({ success: true });
     } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Erro ao excluir listagem:', error);
         res.status(500).json({ success: false, message: error.message });
+    } finally {
+        client.release();
     }
 });
 
@@ -1236,6 +1275,7 @@ app.post('/api/vendas/:id/finalizar', authenticateToken, authorize(['ADMIN', 'DI
 
         res.json({ success: true, venda: result.rows[0] });
     } catch (error) {
+
         console.error('Erro ao finalizar venda:', error);
         res.status(500).json({ success: false, message: 'Erro no servidor' });
     }
