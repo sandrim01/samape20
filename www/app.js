@@ -334,14 +334,11 @@ function renderListagensPecas() {
                   <td><div style="font-weight: 700; color: var(--success);">R$ ${formatMoney(l.valor_total)}</div></td>
                   <td><span class="badge ${l.status === 'ABERTA' ? 'badge-primary' : (l.status === 'VINCULADA' ? 'badge-info' : 'badge-secondary')}">${l.status}</span></td>
                   <td>
-                    <div class="action-menu-container">
-                      <button class="btn-action-trigger" onclick="toggleActionMenu(event)">⋮</button>
-                      <div class="action-menu">
-                        <div class="action-menu-item" onclick="mostrarModalListagemPecas(${l.id})"><span>✏️</span> Editar / Itens</div>
-                        <div class="action-menu-item" onclick="gerarPDFListagem(${l.id})"><span>🖨️</span> Imprimir</div>
-                        <div class="action-menu-item danger" onclick="confirmarExcluirListagem(${l.id}, '${l.numero_lista}')"><span>🗑️</span> Excluir</div>
-                      </div>
-                    </div>
+                    ${renderActionMenu(`lp-${l.id}`, [
+        { label: 'Editar / Itens', icon: '✏️', onclick: `mostrarModalListagemPecas(${l.id})` },
+        { label: 'Imprimir', icon: '🖨️', onclick: `gerarPDFListagem(${l.id})` },
+        { label: 'Excluir', icon: '🗑️', onclick: `confirmarExcluirListagem(${l.id}, '${l.numero_lista}')`, class: 'danger', show: AppState.currentUser.cargo === 'ADMIN' || AppState.currentUser.cargo === 'DIRETOR' }
+      ], '⋮')}
                   </td>
                 </tr>
               `).join('')}
