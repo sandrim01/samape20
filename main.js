@@ -929,3 +929,18 @@ ipcMain.handle('remover-item-listagem', async (event, { lpId, itemId }) => {
     client.release();
   }
 });
+
+ipcMain.handle('buscar-internet-pecas', async (event, query) => {
+  try {
+    const res = await fetch(`https://api.mercadolibre.com/sites/MLB/search?q=${encodeURIComponent(query)}&limit=10`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      }
+    });
+    const data = await res.json();
+    return { success: true, results: data.results || [] };
+  } catch (error) {
+    console.error('Erro na pesquisa internet:', error);
+    return { success: false, message: error.message };
+  }
+});

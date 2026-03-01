@@ -170,7 +170,7 @@ async function mostrarModalListagemPecas(lpId = null) {
               html += `
                 <div style="padding: 12px; cursor: pointer; border-bottom: 1px solid var(--border); font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s; background: var(--bg-card); color: var(--text-primary);"
                      onmouseover="this.style.background='var(--bg-tertiary)'" onmouseout="this.style.background='var(--bg-card)'"
-                     onclick="window.selecionarPeca(\`${(p.nome).replace(/`/g, "\\`")}\`, \`${(p.codigo || '').replace(/`/g, "\\`")}\`, ${p.preco_venda || 0})">
+                     onclick="window.selecionarPeca(\`${(p.nome).replace(/`/g, "\\`")}\`, \`${(p.codigo || '').replace(/`/g, "\\`")}\`, ${p.preco_venda || 0}, ${p.id})">
                    <div style="flex:1;"><strong>${codStr}${p.nome}</strong>${descStr}</div>
                    <div style="font-weight: 800; color: var(--success); margin-left: 10px; background: rgba(16, 185, 129, 0.1); padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(16, 185, 129, 0.2);">R$ ${formatMoney(p.preco_venda || 0)}</div>
                 </div>
@@ -178,23 +178,16 @@ async function mostrarModalListagemPecas(lpId = null) {
             });
           }
 
-          // 2. BUSCA NA INTERNET (MERCADO LIVRE)
+          // 2. BUSCA NA INTERNET (MERCADO LIVRE - VIA BACKEND PARA EVITAR 403/CORS)
           const searchTerms = `${maquina} ${query}`.trim();
           if (searchTerms.length > 3) {
             try {
-              const controller = new AbortController();
-              const sigId = setTimeout(() => controller.abort(), 8000);
+              const resInternet = await window.api.buscarInternetPecas(searchTerms);
 
-              const res = await fetch(`https://api.mercadolibre.com/sites/MLB/search?q=${encodeURIComponent(searchTerms)}&limit=10`, { signal: controller.signal });
-              clearTimeout(sigId);
-              const data = await res.json();
-
-              if (data.results && data.results.length > 0) {
+              if (resInternet.success && resInternet.results && resInternet.results.length > 0) {
                 html += '<div style="background: var(--bg-secondary); padding: 8px 12px; font-size: 0.75rem; font-weight: 800; color: #f59e0b; border-bottom: 1px solid var(--border); display:flex; align-items:center; gap:5px;"><span>🌐</span> SUGESTÕES DO GOOGLE / WEB <small style="font-weight:normal; opacity:0.8;">(Clique para usar)</small></div>';
 
-                // Filtrar resultados muito absurdos e limitar a 5
-                const internetResults = data.results.slice(0, 5);
-
+                const internetResults = resInternet.results.slice(0, 6);
                 internetResults.forEach(item => {
                   html += `
                     <div style="padding: 12px; cursor: pointer; border-bottom: 1px solid var(--border); font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s; background: var(--bg-card); color: var(--text-primary);"
@@ -211,7 +204,7 @@ async function mostrarModalListagemPecas(lpId = null) {
               }
             } catch (err) {
               console.error('Erro na busca externa:', err);
-              html += `<div style="padding: 10px; text-align: center; color: var(--danger); font-size: 0.8rem; background: var(--bg-card);">⚠️ Erro ao conectar com a internet. Verifique sua conexão.</div>`;
+              html += `<div style="padding: 10px; text-align: center; color: var(--danger); font-size: 0.8rem; background: var(--bg-card);">⚠️ Hubo um problema na busca online.</div>`;
             }
           }
 
@@ -225,8 +218,10 @@ async function mostrarModalListagemPecas(lpId = null) {
     }
   }
 
-  window.selecionarPeca = (nome, codigo, vlr) => {
-    document.getElementById('lp-peca-input').value = nome;
+  window.selecionarPeca = (nome, codigo, vlr, id = null) => {
+    const input = document.getElementById('lp-peca-input');
+    input.value = nome;
+    input.dataset.selectedId = id || '';
     document.getElementById('lp-peca-codigo').value = codigo;
     document.getElementById('lp-peca-vlr').value = parseFloat(vlr).toFixed(2);
     document.getElementById('lp-pecas-dropdown').style.display = 'none';
@@ -294,10 +289,8 @@ async function adicionarItemLP(lpId) {
 
   if (!pecaNome || isNaN(qtd) || isNaN(vlr)) return alert('Preencha os campos da peça corretamente');
 
-  // Tentar pegar ID se existir no datalist
-  const datalist = document.getElementById('lp-pecas-datalist');
-  const option = Array.from(datalist.options).find(opt => opt.value === pecaNome);
-  const pecaId = option ? option.getAttribute('data-id') : null;
+  // Tentar pegar ID se foi selecionado do dropdown
+  const pecaId = document.getElementById('lp-peca-input').dataset.selectedId || null;
 
   const res = await window.api.adicionarItemListagem(lpId, {
     peca_id: pecaId,

@@ -92,7 +92,8 @@ try {
         atualizarListagemPecas: (id, dados) => ipcRenderer.invoke('atualizar-listagem-pecas', { id, dados }),
         excluirListagemPecas: (id) => ipcRenderer.invoke('excluir-listagem-pecas', id),
         adicionarItemListagem: (lpId, dados) => ipcRenderer.invoke('adicionar-item-listagem', { lpId, dados }),
-        removerItemListagem: (lpId, itemId) => ipcRenderer.invoke('remover-item-listagem', { lpId, itemId })
+        removerItemListagem: (lpId, itemId) => ipcRenderer.invoke('remover-item-listagem', { lpId, itemId }),
+        buscarInternetPecas: (query) => ipcRenderer.invoke('buscar-internet-pecas', query)
     });
     console.log('✅ preload.js: window.api exportado com sucesso');
 } catch (error) {
