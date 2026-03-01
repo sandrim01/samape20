@@ -31,6 +31,44 @@ const pool = new Pool({
   }
 });
 
+// Inicializar tabelas necessárias
+const initDb = async () => {
+  try {
+    // Tabela de Listagem de Peças (Novo Módulo)
+    await pool.query(`
+            CREATE TABLE IF NOT EXISTS listagens_pecas (
+                id SERIAL PRIMARY KEY,
+                numero_lista VARCHAR(50) UNIQUE,
+                cliente_id INTEGER REFERENCES clientes(id),
+                maquina_id INTEGER REFERENCES maquinas(id),
+                maquina_modelo VARCHAR(255),
+                valor_total DECIMAL(10,2) DEFAULT 0,
+                status VARCHAR(20) DEFAULT 'ABERTA',
+                observacoes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+    // Tabela de Itens da Listagem
+    await pool.query(`
+            CREATE TABLE IF NOT EXISTS listagem_pecas_itens (
+                id SERIAL PRIMARY KEY,
+                listagem_id INTEGER REFERENCES listagens_pecas(id) ON DELETE CASCADE,
+                peca_id INTEGER REFERENCES pecas(id),
+                quantidade DECIMAL(10,2) NOT NULL,
+                preco_unitario DECIMAL(10,2) NOT NULL,
+                preco_total DECIMAL(10,2) NOT NULL
+            )
+        `);
+    console.log('✅ Tabelas de Listagem verificadas');
+  } catch (err) {
+    console.error('❌ Erro ao inicializar banco para listagens:', err);
+  }
+};
+initDb();
+
+
 // Criar janela principal
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -727,5 +765,147 @@ ipcMain.handle('criar-venda', async (event, dados) => {
     return { success: true, id: result.rows[0].id };
   } catch (error) {
     return { success: false, message: error.message };
+  }
+});
+
+// --- LISTAGEM DE PEÇAS (IPC) ---
+
+ipcMain.handle('listar-listagens-pecas', async (event, clienteId) => {
+  try {
+    let query = `
+        SELECT lp.*, c.nome as cliente_nome, m.modelo as maquina_modelo_vinculo
+        FROM listagens_pecas lp
+        LEFT JOIN clientes c ON lp.cliente_id = c.id
+        LEFT JOIN maquinas m ON lp.maquina_id = m.id
+    `;
+    const params = [];
+    if (clienteId) {
+      query += ` WHERE lp.cliente_id = $1`;
+      params.push(clienteId);
+    }
+    query += ` ORDER BY lp.created_at DESC`;
+    const result = await pool.query(query, params);
+    return { success: true, listagens: result.rows };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('criar-listagens-pecas', async (event, dados) => {
+  try {
+    const { cliente_id, maquina_id, maquina_modelo, observacoes } = dados;
+    const year = new Date().getFullYear();
+    const countResult = await pool.query('SELECT COUNT(*) FROM listagens_pecas WHERE EXTRACT(YEAR FROM created_at) = $1', [year]);
+    const seq = (parseInt(countResult.rows[0].count) + 1).toString().padStart(4, '0');
+    const numero_lista = `LP-${year}-${seq}`;
+
+    const result = await pool.query(
+      `INSERT INTO listagens_pecas (numero_lista, cliente_id, maquina_id, maquina_modelo, observacoes)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [numero_lista, cliente_id || null, maquina_id || null, maquina_modelo || '', observacoes || '']
+    );
+    return { success: true, listagem: result.rows[0] };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('obter-listagem-pecas', async (event, id) => {
+  try {
+    const lpRes = await pool.query(`
+        SELECT lp.*, c.nome as cliente_nome
+        FROM listagens_pecas lp
+        LEFT JOIN clientes c ON lp.cliente_id = c.id
+        WHERE lp.id = $1
+    `, [id]);
+
+    if (lpRes.rows.length === 0) return { success: false, message: 'Listagem não encontrada' };
+
+    const itensRes = await pool.query(`
+        SELECT lpi.*, p.nome as peca_nome, p.codigo as peca_codigo
+        FROM listagem_pecas_itens lpi
+        LEFT JOIN pecas p ON lpi.peca_id = p.id
+        WHERE lpi.listagem_id = $1
+    `, [id]);
+
+    return { success: true, listagem: lpRes.rows[0], itens: itensRes.rows };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('atualizar-listagem-pecas', async (event, { id, dados }) => {
+  try {
+    const { cliente_id, maquina_id, maquina_modelo, status, observacoes } = dados;
+    const result = await pool.query(
+      `UPDATE listagens_pecas SET cliente_id = $1, maquina_id = $2, maquina_modelo = $3, status = $4, observacoes = $5, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $6 RETURNING *`,
+      [cliente_id || null, maquina_id || null, maquina_modelo || '', status || 'ABERTA', observacoes || '', id]
+    );
+    return { success: true, listagem: result.rows[0] };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('excluir-listagem-pecas', async (event, id) => {
+  try {
+    await pool.query('DELETE FROM listagens_pecas WHERE id = $1', [id]);
+    return { success: true };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('adicionar-item-listagem', async (event, { lpId, dados }) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { peca_id, quantidade, preco_unitario } = dados;
+    const preco_total = quantidade * preco_unitario;
+
+    const result = await client.query(
+      `INSERT INTO listagem_pecas_itens (listagem_id, peca_id, quantidade, preco_unitario, preco_total)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [lpId, peca_id || null, quantidade, preco_unitario, preco_total]
+    );
+
+    // Atualizar total da listagem
+    await client.query(
+      `UPDATE listagens_pecas SET valor_total = (SELECT SUM(preco_total) FROM listagem_pecas_itens WHERE listagem_id = $1)
+       WHERE id = $1`,
+      [lpId]
+    );
+
+    await client.query('COMMIT');
+    return { success: true, item: result.rows[0] };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    return { success: false, message: error.message };
+  } finally {
+    client.release();
+  }
+});
+
+ipcMain.handle('remover-item-listagem', async (event, { lpId, itemId }) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('DELETE FROM listagem_pecas_itens WHERE id = $1 AND listagem_id = $2', [itemId, lpId]);
+
+    // Atualizar total da listagem
+    await client.query(
+      `UPDATE listagens_pecas SET valor_total = COALESCE((SELECT SUM(preco_total) FROM listagem_pecas_itens WHERE listagem_id = $1), 0)
+       WHERE id = $1`,
+      [lpId]
+    );
+
+    await client.query('COMMIT');
+    return { success: true };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    return { success: false, message: error.message };
+  } finally {
+    client.release();
   }
 });

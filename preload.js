@@ -80,5 +80,14 @@ contextBridge.exposeInMainWorld('api', {
     verificarAtualizacao: () => ipcRenderer.invoke('verificar-atualizacao'),
     baixarArquivo: (url, nome) => ipcRenderer.invoke('baixar-arquivo', { url, nomeArquivo: nome }),
     executarArquivo: (path) => ipcRenderer.invoke('executar-arquivo', path),
-    onDownloadProgress: (callback) => ipcRenderer.on('download-progress', (event, data) => callback(data))
+    onDownloadProgress: (callback) => ipcRenderer.on('download-progress', (event, data) => callback(data)),
+
+    // Listagem de Peças (Novo Módulo)
+    listarListagensPecas: (clienteId) => ipcRenderer.invoke('listar-listagens-pecas', clienteId),
+    criarListagemPecas: (dados) => ipcRenderer.invoke('criar-listagens-pecas', dados),
+    obterListagemPecas: (id) => ipcRenderer.invoke('obter-listagem-pecas', id),
+    atualizarListagemPecas: (id, dados) => ipcRenderer.invoke('atualizar-listagem-pecas', { id, dados }),
+    excluirListagemPecas: (id) => ipcRenderer.invoke('excluir-listagem-pecas', id),
+    adicionarItemListagem: (lpId, dados) => ipcRenderer.invoke('adicionar-item-listagem', { lpId, dados }),
+    removerItemListagem: (lpId, itemId) => ipcRenderer.invoke('remover-item-listagem', { lpId, itemId })
 });
