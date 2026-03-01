@@ -55,14 +55,10 @@ async function mostrarModalListagemPecas(lpId = null) {
             <div class="card" style="background: var(--bg-secondary); border: 1px solid var(--border); margin-bottom: 1.5rem;">
                <h4 style="margin: 0 0 1rem 0; font-size: 0.9rem; color: var(--primary);">Adicionar Peça / Item</h4>
                <div style="display: grid; grid-template-columns: 2fr 0.8fr 0.8fr 1fr auto; gap: 0.75rem; align-items: flex-end;">
-                  <div class="form-group" style="margin:0;">
-                     <label class="form-label" style="font-size: 0.75rem;">Peça (Selecione ou Digite)</label>
-                     <input list="lp-pecas-datalist" class="form-input" id="lp-peca-input" placeholder="Nome da peça ou descrição..." style="font-size: 0.85rem;">
-                     <datalist id="lp-pecas-datalist">
-                        ${(AppState.data.pecas || []).map(p => `
-                           <option value="${p.nome}" data-id="${p.id}" data-codigo="${p.codigo}" data-preco="${p.preco_venda}">${p.codigo ? `[Cód: ${p.codigo}]` : ''} ${p.descricao ? `- ${p.descricao}` : ''}</option>
-                        `).join('')}
-                     </datalist>
+                  <div class="form-group" style="margin:0; position: relative;">
+                     <label class="form-label" style="font-size: 0.75rem;">Peça (Buscador Inteligente)</label>
+                     <input type="text" class="form-input" id="lp-peca-input" placeholder="Pesquise peça + máquina..." style="font-size: 0.85rem;" autocomplete="off">
+                     <div id="lp-pecas-dropdown" style="display:none; position: absolute; top: 100%; left: 0; width: 100%; min-width: 350px; background: white; border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); z-index: 99999; max-height: 350px; overflow-y: auto; margin-top: 5px;"></div>
                   </div>
                   <div class="form-group" style="margin:0;">
                      <label class="form-label" style="font-size: 0.75rem;">Código</label>
@@ -127,20 +123,106 @@ async function mostrarModalListagemPecas(lpId = null) {
 
   document.body.insertAdjacentHTML('beforeend', modalHTML);
 
-  // Listener para preencher preço e código automaticamente
+  // Lógica do Buscador Inteligente (Local + Internet)
   if (isEdicao) {
     const pecaInput = document.getElementById('lp-peca-input');
-    if (pecaInput) {
-      pecaInput.addEventListener('input', () => {
-        const datalist = document.getElementById('lp-pecas-datalist');
-        const option = Array.from(datalist.options).find(opt => opt.value === pecaInput.value);
-        if (option) {
-          document.getElementById('lp-peca-vlr').value = option.getAttribute('data-preco') || '';
-          document.getElementById('lp-peca-codigo').value = option.getAttribute('data-codigo') || '';
+    const dropdown = document.getElementById('lp-pecas-dropdown');
+    let timeoutId;
+
+    if (pecaInput && dropdown) {
+      // FECHAR DROPDOWN AO CLICAR FORA
+      document.addEventListener('click', (e) => {
+        if (!pecaInput.contains(e.target) && !dropdown.contains(e.target)) {
+          dropdown.style.display = 'none';
         }
+      });
+
+      pecaInput.addEventListener('input', () => {
+        const query = pecaInput.value.trim().toLowerCase();
+        const maquina = (document.getElementById('lp-maquina').value || '').trim();
+
+        if (query.length < 2) {
+          dropdown.style.display = 'none';
+          return;
+        }
+
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(async () => {
+          dropdown.innerHTML = '<div style="padding: 15px; text-align: center; color: var(--text-muted); font-size: 0.85rem;"><span style="display:inline-block; animation: spin 1s linear infinite;">🔄</span> Buscando no sistema e na internet...</div>';
+          dropdown.style.display = 'block';
+
+          let html = '';
+
+          // 1. BUSCA LOCAL NO BANCO DE DADOS
+          const localResults = (AppState.data.pecas || []).filter(p => {
+            const str = (p.nome + ' ' + (p.descricao || '') + ' ' + (p.codigo || '')).toLowerCase();
+            return str.includes(query);
+          });
+
+          if (localResults.length > 0) {
+            html += '<div style="background: var(--bg-secondary); padding: 8px 12px; font-size: 0.75rem; font-weight: 800; color: var(--primary); border-bottom: 1px solid var(--border);">📦 BANCO DE DADOS LOCAL</div>';
+            localResults.slice(0, 5).forEach(p => {
+              const codStr = p.codigo ? `[Cód: ${p.codigo}] ` : '';
+              const descStr = p.descricao ? ` <span style="color:var(--text-muted); font-size:0.8em; display:block;">${p.descricao}</span>` : '';
+              html += `
+                <div style="padding: 10px 12px; cursor: pointer; border-bottom: 1px solid var(--border); font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s;"
+                     onmouseover="this.style.background='var(--bg-tertiary)'" onmouseout="this.style.background='white'"
+                     onclick="window.selecionarPeca('${(p.nome).replace(/'/g, "\\'")}', '${(p.codigo || '').replace(/'/g, "\\'")}', ${p.preco_venda || 0})">
+                   <div style="flex:1;"><strong>${codStr}${p.nome}</strong>${descStr}</div>
+                   <div style="font-weight: 800; color: var(--success); margin-left: 10px; background: #f0fdf4; padding: 4px 8px; border-radius: 4px;">R$ ${formatMoney(p.preco_venda || 0)}</div>
+                </div>
+              `;
+            });
+          }
+
+          // 2. BUSCA NA INTERNET (MERCADO LIVRE)
+          const searchTerms = `${maquina} ${query}`.trim();
+          if (searchTerms.length > 3) {
+            try {
+              const res = await fetch(`https://api.mercadolibre.com/sites/MLB/search?q=${encodeURIComponent(searchTerms)}&limit=10`);
+              const data = await res.json();
+
+              if (data.results && data.results.length > 0) {
+                html += '<div style="background: var(--bg-secondary); padding: 8px 12px; font-size: 0.75rem; font-weight: 800; color: #d97706; border-bottom: 1px solid var(--border); display:flex; align-items:center; gap:5px;"><span>🌐</span> SUGESTÕES DA INTERNET <small style="font-weight:normal; opacity:0.8;">(Clique para usar)</small></div>';
+
+                // Filtrar resultados muito absurdos e limitar a 5
+                const internetResults = data.results.slice(0, 5);
+
+                internetResults.forEach(item => {
+                  html += `
+                    <div style="padding: 10px 12px; cursor: pointer; border-bottom: 1px solid var(--border); font-size: 0.85rem; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s;"
+                         onmouseover="this.style.background='#fffbeb'" onmouseout="this.style.background='white'"
+                         onclick="window.selecionarPeca('${item.title.replace(/'/g, "\\'")}', '', ${item.price || 0})">
+                       <div style="flex:1; padding-right: 10px;">
+                          <strong>${item.title}</strong>
+                          <div style="font-size: 0.75em; color: var(--text-muted); margin-top: 2px;">Encontrado na web para: ${maquina}</div>
+                       </div>
+                       <div style="font-weight: 800; color: #d97706; margin-left: 10px; background: #fef3c7; padding: 4px 8px; border-radius: 4px; white-space: nowrap;">R$ ${formatMoney(item.price || 0)}</div>
+                    </div>
+                  `;
+                });
+              }
+            } catch (err) {
+              console.error('Erro na busca externa:', err);
+            }
+          }
+
+          if (!html) {
+            html = '<div style="padding: 15px; text-align: center; color: var(--text-muted); font-size: 0.85rem;">Nenhuma peça encontrada no sistema ou na internet.<br><small>Tente detalhar melhor a pesquisa ou preencha a máquina.</small></div>';
+          }
+
+          dropdown.innerHTML = html;
+        }, 800); // 800ms debounce para evitar spam na API de fora
       });
     }
   }
+
+  window.selecionarPeca = (nome, codigo, vlr) => {
+    document.getElementById('lp-peca-input').value = nome;
+    document.getElementById('lp-peca-codigo').value = codigo;
+    document.getElementById('lp-peca-vlr').value = parseFloat(vlr).toFixed(2);
+    document.getElementById('lp-pecas-dropdown').style.display = 'none';
+  };
 
   // Preencher Datalist de Máquinas de acordo com Cliente Selecionado
   const carregarMaquinasLista = async () => {
