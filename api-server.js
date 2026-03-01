@@ -172,11 +172,11 @@ function authorize(allowedRoles = []) {
 app.get('/api/check-updates', (req, res) => {
     res.json({
         success: true,
-        version: '1.0.2',
-        notes: 'Correções: inputs de formulário, cálculo de odômetro em tempo real.',
+        version: '1.2.1',
+        notes: 'Correções: sincronização automática de valores, correção de vínculo de listagem e estabilidade de conexão.',
         downloads: {
             windows: 'https://github.com/sandrim01/samape20/raw/main/SAMAPEOP-Portable.exe',
-            android: 'https://github.com/sandrim01/samape20/raw/main/SAMAPE_2.0.apk'
+            android: 'https://github.com/sandrim01/samape20/raw/main/SAMAPE_1.2.1.apk'
         }
     });
 });
@@ -1517,7 +1517,7 @@ app.get('/api/health', (req, res) => {
     res.json({
         success: true,
         message: 'API SAMAPEOP funcionando!',
-        version: 'v1.0.5-fullscreen-sync',
+        version: 'v1.2.1-fullscreen-sync',
         timestamp: new Date()
     });
 });

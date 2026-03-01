@@ -1,6 +1,6 @@
 {
     "appId": "com.samapeindio.app",
-    "appName": "SAMAPE 2.0",
+    "appName": "SAMAPE 1.2.1",
     "webDir": "www",
     "server": {
         "androidScheme": "https"
