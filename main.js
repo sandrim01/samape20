@@ -535,8 +535,9 @@ ipcMain.handle('atualizar-os', async (event, { id, dados }) => {
            descricao_problema = $5, diagnostico = $6, km_ida = $7, km_volta = $8, 
            valor_por_km = $9, valor_mao_obra = $10, valor_pecas = $11, 
            valor_total = $12, observacoes = $13, data_fechamento = $14,
+           listagem_pecas_id = $15,
            updated_at = CURRENT_TIMESTAMP 
-       WHERE id = $15`,
+       WHERE id = $16`,
       [
         parseInt(dados.cliente_id),
         parseInt(dados.maquina_id),
@@ -552,6 +553,7 @@ ipcMain.handle('atualizar-os', async (event, { id, dados }) => {
         valor_total,
         dados.observacoes,
         dataFechamento,
+        dados.listagem_pecas_id || null,
         id
       ]
     );
@@ -877,6 +879,15 @@ ipcMain.handle('adicionar-item-listagem', async (event, { lpId, dados }) => {
       [lpId]
     );
 
+    // Sincronizar OS vinculadas
+    await client.query(
+      `UPDATE ordens_servico 
+       SET valor_pecas = (SELECT valor_total FROM listagens_pecas WHERE id = $1),
+           valor_total = COALESCE(valor_mao_obra,0) + (SELECT valor_total FROM listagens_pecas WHERE id = $1) + ((COALESCE(km_volta,0) - COALESCE(km_ida,0)) * COALESCE(valor_por_km,0))
+       WHERE listagem_pecas_id = $1`,
+      [lpId]
+    );
+
     await client.query('COMMIT');
     return { success: true, item: result.rows[0] };
   } catch (error) {
@@ -897,6 +908,15 @@ ipcMain.handle('remover-item-listagem', async (event, { lpId, itemId }) => {
     await client.query(
       `UPDATE listagens_pecas SET valor_total = COALESCE((SELECT SUM(preco_total) FROM listagem_pecas_itens WHERE listagem_id = $1), 0)
        WHERE id = $1`,
+      [lpId]
+    );
+
+    // Sincronizar OS vinculadas
+    await client.query(
+      `UPDATE ordens_servico 
+       SET valor_pecas = (SELECT valor_total FROM listagens_pecas WHERE id = $1),
+           valor_total = COALESCE(valor_mao_obra,0) + (SELECT valor_total FROM listagens_pecas WHERE id = $1) + ((COALESCE(km_volta,0) - COALESCE(km_ida,0)) * COALESCE(valor_por_km,0))
+       WHERE listagem_pecas_id = $1`,
       [lpId]
     );
 

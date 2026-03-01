@@ -456,23 +456,41 @@ async function gerarPDFOS(osId) {
     if (!result.success) return;
     const os = result.os;
     const printContent = `
-        <div style="font-family: sans-serif; padding: 20px;">
-          <h1 style="text-align: center; color: #2563eb;">ORDEM DE SERVIÇO</h1>
-          <h2 style="text-align: center;">${os.numero_os}</h2>
-          <hr>
+        <div style="font-family: sans-serif; padding: 20px; max-width: 800px; margin: 0 auto;">
+          <div style="text-align: center; margin-bottom: 20px;">
+            <img src="resources/logonova2.png" alt="SAMAPE ÍNDIO" style="max-height: 80px; width: auto; margin-bottom: 10px;" onerror="this.style.display='none'">
+            <h1 style="color: #2563eb; margin: 0;">ORDEM DE SERVIÇO</h1>
+            <h2 style="margin: 5px 0;">${os.numero_os}</h2>
+          </div>
+          <hr style="border: none; border-top: 2px solid #2563eb; margin-bottom: 20px;">
           <p><strong>Cliente:</strong> ${os.cliente_nome}</p>
           <p><strong>Máquina:</strong> ${os.maquina_modelo}</p>
           <p><strong>Técnico:</strong> ${os.mecanico_nome}</p>
           <p><strong>Status:</strong> ${os.status}</p>
-          <hr>
-          <h3>Serviços</h3>
-          <p><strong>Problema:</strong> ${os.descricao_problema}</p>
-          <p><strong>Solução:</strong> ${os.solucao || '-'}</p>
-          <hr>
-          <h3>Financeiro</h3>
-          <p>Mão de Obra: R$ ${formatMoney(os.valor_mao_obra)}</p>
-          <p>Peças: R$ ${formatMoney(os.valor_pecas)}</p>
-          <p>Total: R$ ${formatMoney(os.valor_total)}</p>
+          <hr style="margin: 20px 0;">
+          <h3 style="color: #4b5563;">Serviços</h3>
+          <p><strong>Problema Reportado:</strong><br/> ${os.descricao_problema.replace(/\n/g, '<br>')}</p>
+          <p><strong>Solução / Serviços:</strong><br/> ${os.solucao ? os.solucao.replace(/\n/g, '<br>') : '-'}</p>
+          <hr style="margin: 20px 0;">
+          <h3 style="color: #4b5563;">Financeiro</h3>
+          <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #ccc; padding: 5px 0;">
+             <span>Mão de Obra</span>
+             <strong>R$ ${formatMoney(os.valor_mao_obra)}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #ccc; padding: 5px 0;">
+             <span>Peças (Listagem Vinculada)</span>
+             <strong>R$ ${formatMoney(os.valor_pecas)}</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #ccc; padding: 5px 0;">
+             <span>Deslocamento</span>
+             <strong>R$ ${formatMoney((os.km_volta > os.km_ida ? (os.km_volta - os.km_ida) : 0) * os.valor_por_km)}</strong>
+          </div>
+          <div style="text-align: right; margin-top: 15px; font-size: 1.5rem; color: #166534; background: #f0fdf4; padding: 10px; border-radius: 8px;">
+             <strong>TOTAL: R$ ${formatMoney(os.valor_total)}</strong>
+          </div>
+          <div style="margin-top: 60px; text-align: center; color: #6b7280; font-size: 0.8rem;">
+             SAMAPE Sistema de Gerenciamento de Manutenção
+          </div>
         </div>
     `;
     const overlay = document.createElement('div');
