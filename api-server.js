@@ -797,6 +797,26 @@ app.post('/api/listagens-pecas', authenticateToken, async (req, res) => {
     }
 });
 
+// Atualizar cabeçalho da listagem
+app.put('/api/listagens-pecas/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { cliente_id, maquina_id, maquina_modelo, observacoes } = req.body;
+
+        await pool.query(
+            `UPDATE listagens_pecas 
+             SET cliente_id = $1, maquina_id = $2, maquina_modelo = $3, observacoes = $4, updated_at = CURRENT_TIMESTAMP
+             WHERE id = $5`,
+            [cliente_id || null, maquina_id || null, maquina_modelo || null, observacoes || null, id]
+        );
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Erro ao atualizar listagem:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 // Obter uma listagem específica com itens
 app.get('/api/listagens-pecas/:id', authenticateToken, async (req, res) => {
     try {

@@ -1,23 +1,23 @@
 // ==================== MODAL DE LISTAGEM DE PEÇAS ====================
 
 async function mostrarModalListagemPecas(lpId = null) {
-    const isEdicao = lpId !== null;
-    let lpData = null;
-    let itensLP = [];
+  const isEdicao = lpId !== null;
+  let lpData = null;
+  let itensLP = [];
 
-    if (isEdicao) {
-        const res = await window.api.obterListagemPecas(lpId);
-        if (res.success) {
-            lpData = res.listagem;
-            itensLP = res.itens || [];
-        } else {
-            return alert('Erro ao carregar listagem');
-        }
+  if (isEdicao) {
+    const res = await window.api.obterListagemPecas(lpId);
+    if (res.success) {
+      lpData = res.listagem;
+      itensLP = res.itens || [];
+    } else {
+      return alert('Erro ao carregar listagem');
     }
+  }
 
-    const clientes = AppState.data.clientes || [];
+  const clientes = AppState.data.clientes || [];
 
-    const modalHTML = `
+  const modalHTML = `
     <div class="modal-overlay" id="modal-lp" style="z-index: 9999; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center;">
       <div class="modal-container" style="max-width: 850px; width: 95%; max-height: 95vh; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-xl); overflow: hidden; display: flex; flex-direction: column;">
         
@@ -92,7 +92,7 @@ async function mostrarModalListagemPecas(lpId = null) {
                   </thead>
                   <tbody id="lp-itens-list">
                     ${itensLP.length === 0 ? '<tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">Nenhum item na lista</td></tr>' :
-            itensLP.map(item => `
+      itensLP.map(item => `
                         <tr>
                           <td><strong>${item.peca_codigo || ''}</strong><br><small>${item.peca_nome}</small></td>
                           <td>R$ ${formatMoney(item.preco_unitario)}</td>
@@ -124,96 +124,104 @@ async function mostrarModalListagemPecas(lpId = null) {
     </div>
   `;
 
-    document.body.insertAdjacentHTML('beforeend', modalHTML);
+  document.body.insertAdjacentHTML('beforeend', modalHTML);
 
-    // Listener para preencher preço e código automaticamente
-    if (isEdicao) {
-        const pecaInput = document.getElementById('lp-peca-input');
-        pecaInput.addEventListener('input', () => {
-            const datalist = document.getElementById('lp-pecas-datalist');
-            const option = Array.from(datalist.options).find(opt => opt.value === pecaInput.value);
-            if (option) {
-                document.getElementById('lp-peca-vlr').value = option.getAttribute('data-preco') || '';
-                document.getElementById('lp-peca-codigo').value = option.getAttribute('data-codigo') || '';
-            }
-        });
-    }
+  // Listener para preencher preço e código automaticamente
+  if (isEdicao) {
+    const pecaInput = document.getElementById('lp-peca-input');
+    pecaInput.addEventListener('input', () => {
+      const datalist = document.getElementById('lp-pecas-datalist');
+      const option = Array.from(datalist.options).find(opt => opt.value === pecaInput.value);
+      if (option) {
+        document.getElementById('lp-peca-vlr').value = option.getAttribute('data-preco') || '';
+        document.getElementById('lp-peca-codigo').value = option.getAttribute('data-codigo') || '';
+      }
+    });
+  }
 }
 
 async function salvarCabecalhoLP(lpId = null) {
-    const dados = {
-        cliente_id: document.getElementById('lp-cliente').value || null,
-        maquina_modelo: document.getElementById('lp-maquina').value || ''
-    };
+  const dados = {
+    cliente_id: document.getElementById('lp-cliente').value || null,
+    maquina_modelo: document.getElementById('lp-maquina').value || ''
+  };
 
-    const res = lpId ? await window.api.criarListagemPecas(dados) : await window.api.criarListagemPecas(dados);
-    // Nota: o backend lida com criação. Se for edição do cabeçalho, podemos precisar de um PUT.
-    // Por ora, vamos focar na criação e adição de itens.
+  let res;
+  if (lpId) {
+    // Se já existe, atualizamos o cabeçalho (precisamos garantir que a API tenha essa rota ou usar a de criação se ela for inteligente)
+    // Como o backend atual não tem PUT /api/listagens-pecas/:id para o cabeçalho, vamos criar ou ajustar.
+    res = await window.api.atualizarListagemPecas(lpId, dados);
+  } else {
+    res = await window.api.criarListagemPecas(dados);
+  }
 
-    if (res.success) {
-        fecharModalLP();
-        await loadListagensPecas();
-        mostrarModalListagemPecas(lpId || res.listagem.id);
-        render();
-    }
+  if (res.success) {
+    fecharModalLP();
+    await loadListagensPecas();
+    // Abrir o modal novamente com o ID da listagem (nova ou existente) para permitir adicionar itens
+    mostrarModalListagemPecas(lpId || res.listagem.id);
+    render();
+  } else {
+    alert('Erro ao salvar: ' + (res.message || 'Erro desconhecido'));
+  }
 }
 
 async function adicionarItemLP(lpId) {
-    const pecaNome = document.getElementById('lp-peca-input').value;
-    const codigo = document.getElementById('lp-peca-codigo').value;
-    const qtd = parseFloat(document.getElementById('lp-peca-qtd').value);
-    const vlr = parseFloat(document.getElementById('lp-peca-vlr').value);
+  const pecaNome = document.getElementById('lp-peca-input').value;
+  const codigo = document.getElementById('lp-peca-codigo').value;
+  const qtd = parseFloat(document.getElementById('lp-peca-qtd').value);
+  const vlr = parseFloat(document.getElementById('lp-peca-vlr').value);
 
-    if (!pecaNome || isNaN(qtd) || isNaN(vlr)) return alert('Preencha os campos da peça corretamente');
+  if (!pecaNome || isNaN(qtd) || isNaN(vlr)) return alert('Preencha os campos da peça corretamente');
 
-    // Tentar pegar ID se existir no datalist
-    const datalist = document.getElementById('lp-pecas-datalist');
-    const option = Array.from(datalist.options).find(opt => opt.value === pecaNome);
-    const pecaId = option ? option.getAttribute('data-id') : null;
+  // Tentar pegar ID se existir no datalist
+  const datalist = document.getElementById('lp-pecas-datalist');
+  const option = Array.from(datalist.options).find(opt => opt.value === pecaNome);
+  const pecaId = option ? option.getAttribute('data-id') : null;
 
-    const res = await window.api.adicionarItemListagem(lpId, {
-        peca_id: pecaId,
-        peca_nome: pecaNome,
-        peca_codigo: codigo,
-        quantidade: qtd,
-        preco_unitario: vlr
-    });
+  const res = await window.api.adicionarItemListagem(lpId, {
+    peca_id: pecaId,
+    peca_nome: pecaNome,
+    peca_codigo: codigo,
+    quantidade: qtd,
+    preco_unitario: vlr
+  });
 
-    if (res.success) {
-        // Recarregar modal
-        fecharModalLP();
-        mostrarModalListagemPecas(lpId);
-        await loadPecas(); // Atualizar estoque global se necessário
-        await loadListagensPecas();
-        render();
-    } else {
-        alert('Erro: ' + res.message);
-    }
+  if (res.success) {
+    // Recarregar modal
+    fecharModalLP();
+    mostrarModalListagemPecas(lpId);
+    await loadPecas(); // Atualizar estoque global se necessário
+    await loadListagensPecas();
+    render();
+  } else {
+    alert('Erro: ' + res.message);
+  }
 }
 
 async function removerItemLP(lpId, itemId) {
-    if (!confirm('Remover item?')) return;
-    const res = await window.api.removerItemListagem(lpId, itemId);
-    if (res.success) {
-        fecharModalLP();
-        mostrarModalListagemPecas(lpId);
-        await loadListagensPecas();
-        render();
-    }
+  if (!confirm('Remover item?')) return;
+  const res = await window.api.removerItemListagem(lpId, itemId);
+  if (res.success) {
+    fecharModalLP();
+    mostrarModalListagemPecas(lpId);
+    await loadListagensPecas();
+    render();
+  }
 }
 
 function fecharModalLP() {
-    const modal = document.getElementById('modal-lp');
-    if (modal) modal.remove();
+  const modal = document.getElementById('modal-lp');
+  if (modal) modal.remove();
 }
 
 async function gerarPDFListagem(id) {
-    const res = await window.api.obterListagemPecas(id);
-    if (!res.success) return;
-    const lp = res.listagem;
-    const itens = res.itens;
+  const res = await window.api.obterListagemPecas(id);
+  if (!res.success) return;
+  const lp = res.listagem;
+  const itens = res.itens;
 
-    const html = `
+  const html = `
         <div style="font-family: sans-serif; padding: 20px;">
             <h1 style="text-align: center; color: var(--primary);">LISTAGEM DE PEÇAS</h1>
             <h2 style="text-align: center;">${lp.numero_lista}</h2>
@@ -250,15 +258,15 @@ async function gerarPDFListagem(id) {
         </div>
     `;
 
-    const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:white; z-index:20000; overflow-y:auto;';
-    overlay.innerHTML = html + `
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:white; z-index:20000; overflow-y:auto;';
+  overlay.innerHTML = html + `
         <div style="position:fixed; bottom:20px; right:20px;">
             <button onclick="window.print()" class="btn btn-primary">Imprimir</button>
             <button onclick="this.parentElement.parentElement.remove()" class="btn btn-secondary">Fechar</button>
         </div>
     `;
-    document.body.appendChild(overlay);
+  document.body.appendChild(overlay);
 }
 
 window.mostrarModalListagemPecas = mostrarModalListagemPecas;

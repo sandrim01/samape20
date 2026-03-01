@@ -269,6 +269,12 @@ const WebAPI = {
     async obterListagemPecas(id) {
         return await apiFetch(`/listagens-pecas/${id}`);
     },
+    async atualizarListagemPecas(id, dados) {
+        return await apiFetch(`/listagens-pecas/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(dados)
+        });
+    },
     async adicionarItemListagem(lpId, dados) {
         return await apiFetch(`/listagens-pecas/${lpId}/itens`, {
             method: 'POST',
