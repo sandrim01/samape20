@@ -111,14 +111,17 @@ app.use(helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
-// Proteção contra ataques de força bruta (Rate Limiting)
+// Proteção contra ataques de força bruta (Rate Limiting) - Relaxado para uso normal
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutos
-    max: 100, // limite de 100 requisições por IP por janela
-    message: { success: false, message: 'Muitas requisições deste IP, tente novamente mais tarde.' }
+    max: 5000, // Limite aumentado para evitar bloqueios em uso normal
+    message: { success: false, message: 'Muitas requisições deste IP, tente novamente mais tarde.' },
+    standardHeaders: true,
+    legacyHeaders: false,
 });
 
-// Aplicar limite apenas na API (não nos arquivos estáticos)
+// Configurações do Express
+app.set('trust proxy', 1); // Necessário para Railway/Proxies identificarem o IP real do cliente
 app.use('/api/', limiter);
 
 app.use(cors());
