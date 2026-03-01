@@ -56,10 +56,10 @@ async function mostrarModalListagemPecas(lpId = null) {
                <div style="display: grid; grid-template-columns: 2fr 0.8fr 0.8fr 1fr auto; gap: 0.75rem; align-items: flex-end;">
                   <div class="form-group" style="margin:0;">
                      <label class="form-label" style="font-size: 0.75rem;">Peça (Selecione ou Digite)</label>
-                     <input list="lp-pecas-datalist" class="form-input" id="lp-peca-input" placeholder="Nome da peça..." style="font-size: 0.85rem;">
+                     <input list="lp-pecas-datalist" class="form-input" id="lp-peca-input" placeholder="Nome da peça ou descrição..." style="font-size: 0.85rem;">
                      <datalist id="lp-pecas-datalist">
                         ${(AppState.data.pecas || []).map(p => `
-                           <option value="${p.nome}" data-id="${p.id}" data-codigo="${p.codigo}" data-preco="${p.preco_venda}">${p.codigo ? `[${p.codigo}] ` : ''}${p.nome}</option>
+                           <option value="${p.nome}" data-id="${p.id}" data-codigo="${p.codigo}" data-preco="${p.preco_venda}">${p.codigo ? `[Cód: ${p.codigo}]` : ''} ${p.descricao ? `- ${p.descricao}` : ''}</option>
                         `).join('')}
                      </datalist>
                   </div>
@@ -222,48 +222,73 @@ async function gerarPDFListagem(id) {
   const itens = res.itens;
 
   const html = `
-        <div style="font-family: sans-serif; padding: 20px;">
-            <h1 style="text-align: center; color: var(--primary);">LISTAGEM DE PEÇAS</h1>
-            <h2 style="text-align: center;">${lp.numero_lista}</h2>
-            <hr>
+        <div style="font-family: sans-serif; padding: 20px; max-width: 800px; margin: 0 auto;">
+            <div style="text-align: center; margin-bottom: 20px;">
+              <img src="resources/logonova2.png" alt="SAMAPE" style="max-height: 80px; width: auto; margin-bottom: 10px;" onerror="this.style.display='none'">
+              <h1 style="color: #2563eb; margin: 0;">LISTAGEM DE PEÇAS</h1>
+              <h2 style="margin: 5px 0;">${lp.numero_lista}</h2>
+            </div>
+            <hr style="border: none; border-top: 2px solid #2563eb; margin-bottom: 20px;">
             <p><strong>Cliente:</strong> ${lp.cliente_nome || '-'}</p>
             <p><strong>Máquina:</strong> ${lp.maquina_modelo || '-'}</p>
             <p><strong>Data:</strong> ${new Date(lp.created_at).toLocaleDateString()}</p>
-            <hr>
-            <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+            <hr style="margin: 20px 0;">
+            <table style="width: 100%; border-collapse: collapse; margin-top: 20px; border: 1px solid #e5e7eb;">
                 <thead>
-                    <tr style="background: #f3f4f6;">
-                        <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Cód</th>
-                        <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Peça</th>
-                        <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Vlr Unit</th>
-                        <th style="border: 1px solid #ddd; padding: 8px; text-align: center;">Qtd</th>
-                        <th style="border: 1px solid #ddd; padding: 8px; text-align: right;">Total</th>
+                    <tr style="background: #2563eb; color: white;">
+                        <th style="padding: 10px; text-align: left; border-right: 1px solid #3b82f6;">Cód</th>
+                        <th style="padding: 10px; text-align: left; border-right: 1px solid #3b82f6;">Peça / Descrição</th>
+                        <th style="padding: 10px; text-align: right; border-right: 1px solid #3b82f6;">Vlr Unit</th>
+                        <th style="padding: 10px; text-align: center; border-right: 1px solid #3b82f6;">Qtd</th>
+                        <th style="padding: 10px; text-align: right;">Total</th>
                     </tr>
                 </thead>
                 <tbody>
                     ${itens.map(i => `
-                        <tr>
-                            <td style="border: 1px solid #ddd; padding: 8px;">${i.peca_codigo || ''}</td>
-                            <td style="border: 1px solid #ddd; padding: 8px;">${i.peca_nome}</td>
-                            <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">R$ ${formatMoney(i.preco_unitario)}</td>
-                            <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">${i.quantidade}</td>
-                            <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">R$ ${formatMoney(i.preco_total)}</td>
+                        <tr style="border-bottom: 1px solid #e5e7eb;">
+                            <td style="padding: 10px; border-right: 1px solid #e5e7eb; font-size: 0.9em;">${i.peca_codigo || ''}</td>
+                            <td style="padding: 10px; border-right: 1px solid #e5e7eb; font-weight: 500;">${i.peca_nome}</td>
+                            <td style="padding: 10px; border-right: 1px solid #e5e7eb; text-align: right; font-size: 0.9em;">R$ ${formatMoney(i.preco_unitario)}</td>
+                            <td style="padding: 10px; border-right: 1px solid #e5e7eb; text-align: center; font-weight: bold;">${i.quantidade}</td>
+                            <td style="padding: 10px; text-align: right; font-weight: bold; color: #1e293b;">R$ ${formatMoney(i.preco_total)}</td>
                         </tr>
                     `).join('')}
                 </tbody>
             </table>
-            <div style="margin-top: 20px; text-align: right; font-size: 1.5rem; font-weight: bold;">
-                TOTAL: R$ ${formatMoney(lp.valor_total)}
+            <div style="margin-top: 20px; text-align: right; font-size: 1.5rem; color: #166534; background: #f0fdf4; padding: 15px; border-radius: 8px;">
+                <strong>TOTAL DA LISTAGEM: R$ ${formatMoney(lp.valor_total)}</strong>
+            </div>
+            
+            <div style="margin-top: 60px; text-align: center; color: #6b7280; font-size: 0.8rem;">
+               SAMAPE Sistema de Gerenciamento de Manutenção
             </div>
         </div>
     `;
 
   const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:white; z-index:20000; overflow-y:auto;';
-  overlay.innerHTML = html + `
-        <div style="position:fixed; bottom:20px; right:20px;">
-            <button onclick="window.print()" class="btn btn-primary">Imprimir</button>
-            <button onclick="this.parentElement.parentElement.remove()" class="btn btn-secondary">Fechar</button>
+  overlay.id = 'print-overlay';
+  overlay.style.cssText = 'position:absolute; top:0; left:0; width:100%; min-height:100vh; background:#f1f5f9; z-index:20000; overflow-y:auto; padding: 20px 0; display: flex; flex-direction: column; align-items: center;';
+  overlay.innerHTML = `
+        <style>
+          @media print {
+            body > :not(#print-overlay) { display: none !important; }
+            #print-overlay {
+              position: absolute !important;
+              top: 0 !important;
+              left: 0 !important;
+              width: 100% !important;
+              background: white !important;
+              padding: 0 !important;
+            }
+            .no-print { display: none !important; }
+          }
+        </style>
+        <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); width: 100%; max-width: 850px; margin-bottom: 80px;">
+          ${html}
+        </div>
+        <div class="no-print" style="position:fixed; bottom:20px; right:20px; display: flex; gap: 10px;">
+            <button onclick="document.body.removeChild(this.parentNode.parentNode);" style="padding:10px 20px; background:#64748b; color:white; border:none; border-radius:8px; cursor: pointer; font-weight: bold;">Cancelar e Fechar</button>
+            <button onclick="window.print()" style="padding:10px 20px; background:#2563eb; color:white; border:none; border-radius:8px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 12px rgba(37,99,235,0.3);">🖨️ Imprimir Listagem</button>
         </div>
     `;
   document.body.appendChild(overlay);

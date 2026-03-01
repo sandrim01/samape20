@@ -455,54 +455,172 @@ async function gerarPDFOS(osId) {
     const result = await window.api.obterOS(osId);
     if (!result.success) return;
     const os = result.os;
+
+    const km_total = (os.km_volta > os.km_ida) ? (os.km_volta - os.km_ida) : 0;
+    const valor_deslocamento = km_total * (os.valor_por_km || 0);
+
     const printContent = `
-        <div style="font-family: sans-serif; padding: 20px; max-width: 800px; margin: 0 auto;">
-          <div style="text-align: center; margin-bottom: 20px;">
-            <img src="resources/logonova2.png" alt="SAMAPE ÍNDIO" style="max-height: 80px; width: auto; margin-bottom: 10px;" onerror="this.style.display='none'">
-            <h1 style="color: #2563eb; margin: 0;">ORDEM DE SERVIÇO</h1>
-            <h2 style="margin: 5px 0;">${os.numero_os}</h2>
+      <div id="print-os-content" style="
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        color: #333;
+        line-height: 1.4;
+        background: white;
+        font-size: 11px;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      ">
+        <!-- HEADER COM LOGO -->
+        <div style="text-align: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #2563eb;">
+          <div style="margin-bottom: 8px;">
+            <img src="resources/logonova2.png" alt="SAMAPE" style="width: 150px; height: auto;" onerror="this.style.display='none'" />
           </div>
-          <hr style="border: none; border-top: 2px solid #2563eb; margin-bottom: 20px;">
-          <p><strong>Cliente:</strong> ${os.cliente_nome}</p>
-          <p><strong>Máquina:</strong> ${os.maquina_modelo}</p>
-          <p><strong>Técnico:</strong> ${os.mecanico_nome}</p>
-          <p><strong>Status:</strong> ${os.status}</p>
-          <hr style="margin: 20px 0;">
-          <h3 style="color: #4b5563;">Serviços</h3>
-          <p><strong>Problema Reportado:</strong><br/> ${os.descricao_problema.replace(/\n/g, '<br>')}</p>
-          <p><strong>Solução / Serviços:</strong><br/> ${os.solucao ? os.solucao.replace(/\n/g, '<br>') : '-'}</p>
-          <hr style="margin: 20px 0;">
-          <h3 style="color: #4b5563;">Financeiro</h3>
-          <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #ccc; padding: 5px 0;">
-             <span>Mão de Obra</span>
-             <strong>R$ ${formatMoney(os.valor_mao_obra)}</strong>
-          </div>
-          <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #ccc; padding: 5px 0;">
-             <span>Peças (Listagem Vinculada)</span>
-             <strong>R$ ${formatMoney(os.valor_pecas)}</strong>
-          </div>
-          <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #ccc; padding: 5px 0;">
-             <span>Deslocamento</span>
-             <strong>R$ ${formatMoney((os.km_volta > os.km_ida ? (os.km_volta - os.km_ida) : 0) * os.valor_por_km)}</strong>
-          </div>
-          <div style="text-align: right; margin-top: 15px; font-size: 1.5rem; color: #166534; background: #f0fdf4; padding: 10px; border-radius: 8px;">
-             <strong>TOTAL: R$ ${formatMoney(os.valor_total)}</strong>
-          </div>
-          <div style="margin-top: 60px; text-align: center; color: #6b7280; font-size: 0.8rem;">
-             SAMAPE Sistema de Gerenciamento de Manutenção
+          <div style="font-size: 0.75em; color: #64748b; font-weight: 500; margin-bottom: 8px;">Sistema de Gerenciamento de Manutenção</div>
+          <div style="font-size: 1.3em; font-weight: 700; color: #1e293b; margin: 8px 0 5px 0;">ORDEM DE SERVIÇO</div>
+          <div style="font-size: 1.5em; font-weight: 800; color: #2563eb; margin: 5px 0;">${os.numero_os}</div>
+          <div style="display: flex; justify-content: center; gap: 20px; margin-top: 8px; font-size: 0.85em; color: #475569;">
+            <span><strong style="color: #1e293b;">Data de Abertura:</strong> ${new Date(os.data_abertura).toLocaleDateString()}</span>
+            ${os.data_fechamento ? `<span><strong style="color: #1e293b;">Fechamento:</strong> ${new Date(os.data_fechamento).toLocaleDateString()}</span>` : ''}
           </div>
         </div>
+
+        <!-- CLIENTE -->
+        <div style="margin: 12px 0;">
+          <div style="background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%); color: white; padding: 6px 12px; border-radius: 4px 4px 0 0; font-size: 0.95em; font-weight: 700;">
+            👤 Informações do Cliente
+          </div>
+          <div style="border: 1px solid #e2e8f0; border-top: none; padding: 10px; border-radius: 0 0 4px 4px; background: #f8fafc;">
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;">
+              <div><strong style="font-size: 0.75em; color: #475569;">NOME / RAZÃO SOCIAL</strong><br><span style="font-size: 0.9em;">${os.cliente_nome}</span></div>
+              <div><strong style="font-size: 0.75em; color: #475569;">CNPJ</strong><br><span style="font-size: 0.9em;">${os.cliente_cnpj || '-'}</span></div>
+              <div><strong style="font-size: 0.75em; color: #475569;">TELEFONE</strong><br><span style="font-size: 0.9em;">${os.cliente_telefone || '-'}</span></div>
+              <div><strong style="font-size: 0.75em; color: #475569;">ENDEREÇO</strong><br><span style="font-size: 0.9em;">${os.cliente_endereco || '-'}</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- MAQUINÁRIO E RESPONSÁVEL -->
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 12px 0;">
+          <div>
+            <div style="background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%); color: white; padding: 6px 12px; border-radius: 4px 4px 0 0; font-size: 0.95em; font-weight: 700;">🚜 Máquina</div>
+            <div style="border: 1px solid #e2e8f0; border-top: none; padding: 10px; border-radius: 0 0 4px 4px; background: #f8fafc;">
+              <strong style="font-size: 0.75em; color: #475569;">MODELO</strong><br><span style="font-size: 0.9em;">${os.maquina_modelo}</span>
+            </div>
+          </div>
+          <div>
+            <div style="background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%); color: white; padding: 6px 12px; border-radius: 4px 4px 0 0; font-size: 0.95em; font-weight: 700;">👨‍🔧 Responsável</div>
+            <div style="border: 1px solid #e2e8f0; border-top: none; padding: 10px; border-radius: 0 0 4px 4px; background: #f8fafc;">
+              <strong style="font-size: 0.75em; color: #475569;">TÉCNICO</strong><br><span style="font-size: 0.9em;">${os.mecanico_nome}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- SERVIÇOS -->
+        <div style="margin: 12px 0;">
+          <div style="background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%); color: white; padding: 6px 12px; border-radius: 4px 4px 0 0; font-size: 0.95em; font-weight: 700;">
+            📝 Descrição do Serviço
+          </div>
+          <div style="border: 1px solid #e2e8f0; border-top: none; padding: 10px; border-radius: 0 0 4px 4px; background: #f8fafc;">
+            <div style="margin-bottom: 10px;">
+              <strong style="font-size: 0.75em; color: #475569;">PROBLEMA REPORTADO</strong><br>
+              <div style="font-size: 0.9em; padding: 8px; background: white; border: 1px solid #cbd5e1; border-radius: 4px; margin-top: 4px;">${os.descricao_problema.replace(/\\n/g, '<br>')}</div>
+            </div>
+            ${os.diagnostico ? `
+            <div style="margin-bottom: 10px;">
+              <strong style="font-size: 0.75em; color: #475569;">DIAGNÓSTICO TÉCNICO</strong><br>
+              <div style="font-size: 0.9em; padding: 8px; background: white; border: 1px solid #cbd5e1; border-radius: 4px; margin-top: 4px;">${os.diagnostico.replace(/\\n/g, '<br>')}</div>
+            </div>` : ''}
+            ${os.solucao ? `
+            <div>
+              <strong style="font-size: 0.75em; color: #475569;">SOLUÇÃO APLICADA</strong><br>
+              <div style="font-size: 0.9em; padding: 8px; background: white; border: 1px solid #cbd5e1; border-radius: 4px; margin-top: 4px;">${os.solucao.replace(/\\n/g, '<br>')}</div>
+            </div>` : ''}
+          </div>
+        </div>
+
+        <!-- VALORES -->
+        <div style="margin: 12px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <!-- Deslocamento -->
+          <div>
+            <div style="background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%); color: white; padding: 6px 12px; border-radius: 4px 4px 0 0; font-size: 0.95em; font-weight: 700;">🛣️ Deslocamento</div>
+            <div style="border: 1px solid #e2e8f0; border-top: none; padding: 10px; border-radius: 0 0 4px 4px; background: #f8fafc;">
+              <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding: 4px 0;">
+                <span style="font-size: 0.85em; color: #475569; font-weight: 600;">Distância (${os.km_volta} - ${os.km_ida})</span>
+                <span style="font-size: 0.85em; font-weight: 700;">${km_total.toFixed(1)} km</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; padding: 4px 0;">
+                <span style="font-size: 0.85em; color: #475569; font-weight: 600;">Custo</span>
+                <span style="font-size: 0.85em; font-weight: 700;">R$ ${formatMoney(valor_deslocamento)}</span>
+              </div>
+            </div>
+          </div>
+          <!-- Financeiro -->
+          <div>
+            <div style="background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%); color: white; padding: 6px 12px; border-radius: 4px 4px 0 0; font-size: 0.95em; font-weight: 700;">💰 Financeiro</div>
+            <div style="border: 1px solid #e2e8f0; border-top: none; padding: 10px; border-radius: 0 0 4px 4px; background: #f8fafc;">
+              <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding: 4px 0;">
+                <span style="font-size: 0.85em; color: #475569; font-weight: 600;">Mão de Obra</span>
+                <span style="font-size: 0.85em; font-weight: 700;">R$ ${formatMoney(os.valor_mao_obra || 0)}</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; padding: 4px 0;">
+                <span style="font-size: 0.85em; color: #475569; font-weight: 600;">Peças / Materiais</span>
+                <span style="font-size: 0.85em; font-weight: 700;">R$ ${formatMoney(os.valor_pecas || 0)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TOTAL -->
+        <div style="background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%); color: white; padding: 15px; text-align: center; border-radius: 6px; margin: 15px 0;">
+          <div style="font-size: 0.85em; font-weight: 600; letter-spacing: 1.5px; margin-bottom: 6px;">VALOR TOTAL DO SERVIÇO</div>
+          <div style="font-size: 2em; font-weight: 900; text-shadow: 0 2px 4px rgba(0,0,0,0.2);">R$ ${formatMoney(os.valor_total || 0)}</div>
+        </div>
+
+        <!-- ASSINATURAS -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin: 50px 0 20px 0; text-align: center;">
+          <div>
+            <div style="border-top: 1px solid #1e293b; margin: 0 15px 6px 15px;"></div>
+            <div style="font-weight: 600; color: #475569; font-size: 0.85em;">Assinatura do Cliente</div>
+          </div>
+          <div>
+            <div style="border-top: 1px solid #1e293b; margin: 0 15px 6px 15px;"></div>
+            <div style="font-weight: 600; color: #475569; font-size: 0.85em;">Assinatura do Técnico</div>
+          </div>
+        </div>
+      </div>
     `;
+
     const overlay = document.createElement('div');
     overlay.id = 'print-overlay';
-    overlay.style.cssText = 'position: fixed; top:0; left:0; width:100%; height:100%; background:white; z-index:20000; overflow-y:auto;';
+    overlay.style.cssText = 'position: absolute; top:0; left:0; width:100%; min-height:100vh; background:#f1f5f9; z-index:20000; overflow-y:auto; padding: 20px 0; display: flex; flex-direction: column; align-items: center;';
+
     overlay.innerHTML = `
-      ${printContent}
-      <button onclick="window.print()" style="position:fixed; bottom:20px; right:20px; padding:10px 20px; background:#2563eb; color:white; border:none; border-radius:8px;">Imprimir</button>
-      <button onclick="this.parentElement.remove()" style="position:fixed; bottom:20px; right:120px; padding:10px 20px; background:#ef4444; color:white; border:none; border-radius:8px;">Fechar</button>
+      <style>
+        @media print {
+          body > :not(#print-overlay) { display: none !important; }
+          #print-overlay {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            background: white !important;
+            padding: 0 !important;
+          }
+          .no-print { display: none !important; }
+        }
+      </style>
+      <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); width: 100%; max-width: 850px; margin-bottom: 80px;">
+        ${printContent}
+      </div>
+      <div class="no-print" style="position:fixed; bottom:20px; right:20px; display: flex; gap: 10px;">
+        <button onclick="document.body.removeChild(this.parentNode.parentNode);" style="padding:10px 20px; background:#64748b; color:white; border:none; border-radius:8px; cursor: pointer; font-weight: bold;">Cancelar e Fechar</button>
+        <button onclick="window.print()" style="padding:10px 20px; background:#2563eb; color:white; border:none; border-radius:8px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 12px rgba(37,99,235,0.3);">🖨️ Imprimir OS</button>
+      </div>
     `;
     document.body.appendChild(overlay);
-  } catch (e) { }
+  } catch (e) {
+    console.error('Erro ao gerar PDF', e);
+  }
 }
 
 function fecharModal(modalId) {
@@ -512,7 +630,7 @@ function fecharModal(modalId) {
 
 function showAlert(message, type) {
   const alertDiv = document.createElement('div');
-  alertDiv.style.cssText = `position: fixed; top: 20px; right: 20px; padding: 15px 25px; border-radius: 8px; color: white; font-weight: 600; z-index: 9999; background: ${type === 'success' ? 'var(--success)' : 'var(--danger)'};`;
+  alertDiv.style.cssText = `position: fixed; top: 20px; right: 20px; padding: 15px 25px; border - radius: 8px; color: white; font - weight: 600; z - index: 9999; background: ${type === 'success' ? 'var(--success)' : 'var(--danger)'}; `;
   alertDiv.textContent = message;
   document.body.appendChild(alertDiv);
   setTimeout(() => alertDiv.remove(), 3000);
