@@ -40,7 +40,20 @@ const initDb = async () => {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
-        console.log('✅ Tabela system_logs verificada/criada');
+
+        // Tabela de Peças na OS
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS ordem_servico_pecas (
+                id SERIAL PRIMARY KEY,
+                ordem_servico_id INTEGER REFERENCES ordens_servico(id) ON DELETE CASCADE,
+                peca_id INTEGER REFERENCES pecas(id),
+                quantidade DECIMAL(10,2) NOT NULL,
+                preco_unitario DECIMAL(10,2) NOT NULL,
+                preco_total DECIMAL(10,2) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        console.log('✅ Tabelas verificadas/criadas');
     } catch (err) {
         console.error('❌ Erro ao inicializar banco de dados:', err);
     }
@@ -698,6 +711,153 @@ app.delete('/api/ordens/:id', authenticateToken, authorize(['ADMIN']), async (re
     } catch (error) {
         console.error('Erro ao excluir ordem:', error);
         res.status(500).json({ success: false, message: 'Erro ao excluir ordem: ' + error.message });
+    }
+});
+
+// --- PEÇAS NA OS (SUB-ROTAS) ---
+
+// Listar peças de uma OS
+app.get('/api/ordens/:id/pecas', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query(
+            `SELECT osp.*, p.nome as peca_nome, p.codigo as peca_codigo
+             FROM ordem_servico_pecas osp
+             JOIN pecas p ON osp.peca_id = p.id
+             WHERE osp.ordem_servico_id = $1
+             ORDER BY osp.created_at`,
+            [id]
+        );
+        res.json({ success: true, pecas: result.rows });
+    } catch (error) {
+        console.error('Erro ao listar peças da OS:', error);
+        res.status(500).json({ success: false, message: 'Erro no servidor' });
+    }
+});
+
+// Adicionar peça na OS
+app.post('/api/ordens/:id/pecas', authenticateToken, async (req, res) => {
+    const client = await pool.connect();
+    try {
+        const { id } = req.params;
+        let { peca_id, quantidade, preco_unitario, peca_nome, peca_codigo } = req.body;
+        const preco_total = quantidade * preco_unitario;
+
+        await client.query('BEGIN');
+
+        // Se não tem peca_id, tentar encontrar por nome/codigo ou criar
+        if (!peca_id && peca_nome) {
+            const checkPeca = await client.query(
+                'SELECT id FROM pecas WHERE nome = $1 OR codigo = $2 LIMIT 1',
+                [peca_nome, peca_codigo || '']
+            );
+
+            if (checkPeca.rows.length > 0) {
+                peca_id = checkPeca.rows[0].id;
+            } else {
+                // Criar nova peça automaticamente
+                const newPeca = await client.query(
+                    `INSERT INTO pecas (codigo, nome, preco_custo, preco_venda, quantidade_estoque, estoque_minimo)
+                     VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+                    [peca_codigo || 'S/C', peca_nome, preco_unitario * 0.7, preco_unitario, 0, 0]
+                );
+                peca_id = newPeca.rows[0].id;
+            }
+        }
+
+        if (!peca_id) {
+            throw new Error('Identificação da peça é obrigatória (ID ou Nome)');
+        }
+
+        // 1. Inserir o item
+        const result = await client.query(
+            `INSERT INTO ordem_servico_pecas (ordem_servico_id, peca_id, quantidade, preco_unitario, preco_total)
+             VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+            [id, peca_id, quantidade, preco_unitario, preco_total]
+        );
+
+        // 2. Abater estoque
+        await client.query(
+            `UPDATE pecas SET quantidade_estoque = quantidade_estoque - $1, updated_at = CURRENT_TIMESTAMP 
+             WHERE id = $2`,
+            [quantidade, peca_id]
+        );
+
+        // 3. Atualizar valor_pecas e valor_total da OS
+        const totalPecasResult = await client.query(
+            `SELECT SUM(preco_total) as total FROM ordem_servico_pecas WHERE ordem_servico_id = $1`,
+            [id]
+        );
+        const novoValorPecas = parseFloat(totalPecasResult.rows[0].total) || 0;
+
+        await client.query(
+            `UPDATE ordens_servico 
+             SET valor_pecas = $1, 
+                 valor_total = valor_mao_obra + $1 + (COALESCE((km_volta - km_ida), 0) * valor_por_km),
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = $2`,
+            [novoValorPecas, id]
+        );
+
+        await client.query('COMMIT');
+        res.json({ success: true, item: result.rows[0] });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Erro ao adicionar peça na OS:', error);
+        res.status(500).json({ success: false, message: 'Erro ao adicionar peça: ' + error.message });
+    } finally {
+        client.release();
+    }
+});
+
+// Remover peça da OS
+app.delete('/api/ordens/:ordem_id/pecas/:item_id', authenticateToken, async (req, res) => {
+    const client = await pool.connect();
+    try {
+        const { ordem_id, item_id } = req.params;
+
+        await client.query('BEGIN');
+
+        // 1. Obter dados do item antes de excluir para repor estoque
+        const itemResult = await client.query('SELECT peca_id, quantidade FROM ordem_servico_pecas WHERE id = $1', [item_id]);
+        if (itemResult.rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Item não encontrado' });
+        }
+        const item = itemResult.rows[0];
+
+        // 2. Repor estoque
+        await client.query(
+            'UPDATE pecas SET quantidade_estoque = quantidade_estoque + $1 WHERE id = $2',
+            [item.quantidade, item.peca_id]
+        );
+
+        // 3. Excluir o item
+        await client.query('DELETE FROM ordem_servico_pecas WHERE id = $1', [item_id]);
+
+        // 4. Recalcular e atualizar OS
+        const totalPecasResult = await client.query(
+            `SELECT SUM(preco_total) as total FROM ordem_servico_pecas WHERE ordem_servico_id = $1`,
+            [ordem_id]
+        );
+        const novoValorPecas = parseFloat(totalPecasResult.rows[0].total) || 0;
+
+        await client.query(
+            `UPDATE ordens_servico 
+             SET valor_pecas = $1, 
+                 valor_total = valor_mao_obra + $1 + (COALESCE((km_volta - km_ida), 0) * valor_por_km),
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = $2`,
+            [novoValorPecas, ordem_id]
+        );
+
+        await client.query('COMMIT');
+        res.json({ success: true });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Erro ao remover peça da OS:', error);
+        res.status(500).json({ success: false, message: 'Erro ao remover peça: ' + error.message });
+    } finally {
+        client.release();
     }
 });
 

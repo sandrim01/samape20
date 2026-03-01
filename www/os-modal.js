@@ -4,11 +4,17 @@ async function mostrarModalOS(osId = null) {
   const isEdicao = osId !== null;
   let osData = null;
   let currentStepOS = 1;
+  let pecasOS = []; // Lista de peças vinculadas a esta OS
 
   if (isEdicao) {
-    const result = await window.api.obterOS(osId);
-    if (result.success) {
-      osData = result.os;
+    const [osRes, pecasOSRes] = await Promise.all([
+      window.api.obterOS(osId),
+      window.api.listarPecasOS(osId)
+    ]);
+
+    if (osRes.success) {
+      osData = osRes.os;
+      pecasOS = pecasOSRes.pecas || [];
     } else {
       showAlert('Erro ao carregar OS', 'danger');
       return;
@@ -45,17 +51,22 @@ async function mostrarModalOS(osId = null) {
              
              <div class="os-step-item" id="step-dot-1" style="z-index: 3; position: relative; text-align: center;">
                 <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; margin: 0 auto 0.5rem; border: 3px solid var(--bg-secondary); transition: var(--transition);">1</div>
-                <span style="font-size: 0.7rem; font-weight: 600; color: var(--text-primary);">Identificação</span>
+                <span style="font-size: 0.6rem; font-weight: 600; color: var(--text-primary);">Identificação</span>
              </div>
              
              <div class="os-step-item" id="step-dot-2" style="z-index: 3; position: relative; text-align: center;">
                 <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--bg-tertiary); color: var(--text-muted); display: flex; align-items: center; justify-content: center; font-weight: bold; margin: 0 auto 0.5rem; border: 3px solid var(--bg-secondary); transition: var(--transition);">2</div>
-                <span style="font-size: 0.7rem; font-weight: 500; color: var(--text-muted);">Descrição</span>
+                <span style="font-size: 0.6rem; font-weight: 500; color: var(--text-muted);">Serviços</span>
              </div>
-             
+
              <div class="os-step-item" id="step-dot-3" style="z-index: 3; position: relative; text-align: center;">
                 <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--bg-tertiary); color: var(--text-muted); display: flex; align-items: center; justify-content: center; font-weight: bold; margin: 0 auto 0.5rem; border: 3px solid var(--bg-secondary); transition: var(--transition);">3</div>
-                <span style="font-size: 0.7rem; font-weight: 500; color: var(--text-muted);">Valores</span>
+                <span style="font-size: 0.6rem; font-weight: 500; color: var(--text-muted);">Peças</span>
+             </div>
+             
+             <div class="os-step-item" id="step-dot-4" style="z-index: 3; position: relative; text-align: center;">
+                <div style="width: 32px; height: 32px; border-radius: 50%; background: var(--bg-tertiary); color: var(--text-muted); display: flex; align-items: center; justify-content: center; font-weight: bold; margin: 0 auto 0.5rem; border: 3px solid var(--bg-secondary); transition: var(--transition);">4</div>
+                <span style="font-size: 0.6rem; font-weight: 500; color: var(--text-muted);">Financ.</span>
              </div>
           </div>
         </div>
@@ -134,8 +145,75 @@ async function mostrarModalOS(osId = null) {
             </div>
           </div>
 
-          <!-- ETAPA 3: VALORES E STATUS -->
+          </div>
+
+          <!-- ETAPA 3: PEÇAS (EXCLUSIVO EDIÇÃO OU APÓS SALVAR INICIAL) -->
           <div id="os-step-3" class="os-form-step" style="display: none;">
+             ${!isEdicao ? `
+                <div class="alert alert-info" style="margin-bottom: 0;">
+                  Para adicionar peças, primeiro salve as informações básicas da OS no final do assistente (Etapa 4).
+                </div>
+             ` : `
+                <div style="background: rgba(255,255,255,0.03); padding: 1rem; border-radius: var(--radius); border: 1px solid var(--border); margin-bottom: 1.5rem;">
+                   <h4 style="margin: 0 0 1rem 0; font-size: 0.9rem; color: var(--primary);">Adicionar Peça do Estoque</h4>
+                   <div style="display: grid; grid-template-columns: 2fr 0.8fr 0.8fr 1fr auto; gap: 0.75rem; align-items: flex-end;">
+                      <div class="form-group" style="margin:0;">
+                         <label class="form-label" style="font-size: 0.75rem;">Peça (Selecione ou Digite)</label>
+                         <input list="os-pecas-datalist" class="form-input" id="os-peca-input" placeholder="Nome da peça..." style="font-size: 0.85rem;">
+                         <datalist id="os-pecas-datalist">
+                            ${(AppState.data.pecas || []).map(p => `
+                               <option value="${p.nome}" data-id="${p.id}" data-codigo="${p.codigo}" data-preco="${p.preco_venda}">${p.codigo ? `[${p.codigo}] ` : ''}${p.nome} (Sald: ${p.quantidade_estoque})</option>
+                            `).join('')}
+                         </datalist>
+                      </div>
+                      <div class="form-group" style="margin:0;">
+                         <label class="form-label" style="font-size: 0.75rem;">Código</label>
+                         <input type="text" class="form-input" id="os-peca-codigo-input" placeholder="Opcional" style="font-size: 0.85rem;">
+                      </div>
+                      <div class="form-group" style="margin:0;">
+                         <label class="form-label" style="font-size: 0.75rem;">Qtd</label>
+                         <input type="number" class="form-input" id="os-peca-qtd" value="1" min="1" step="1" style="font-size: 0.85rem;">
+                      </div>
+                      <div class="form-group" style="margin:0;">
+                         <label class="form-label" style="font-size: 0.75rem;">Preço Unit. (R$)</label>
+                         <input type="number" class="form-input" id="os-peca-preco" step="0.01" style="font-size: 0.85rem;">
+                      </div>
+                      <button type="button" class="btn btn-primary" onclick="window.adicionarPecaOSFunc()" style="height: 38px; padding: 0 1rem;">+</button>
+                   </div>
+                </div>
+
+                <div class="table-container" style="max-height: 250px; overflow-y: auto;">
+                   <table style="font-size: 0.85rem;">
+                      <thead style="position: sticky; top: 0; background: var(--bg-tertiary); z-index: 2;">
+                         <tr>
+                            <th>Código/Peça</th>
+                            <th>Valor Unit.</th>
+                            <th>Qtd</th>
+                            <th>Total</th>
+                            <th style="width: 50px;"></th>
+                         </tr>
+                      </thead>
+                      <tbody id="os-pecas-list">
+                         ${pecasOS.length === 0 ? '<tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">Nenhuma peça adicionada</td></tr>' :
+      pecasOS.map(p => `
+                             <tr>
+                               <td><strong>${p.peca_codigo}</strong><br><small>${p.peca_nome}</small></td>
+                               <td>R$ ${formatMoney(p.preco_unitario)}</td>
+                               <td>${p.quantidade}</td>
+                               <td>R$ ${formatMoney(p.preco_total)}</td>
+                               <td style="text-align: right;">
+                                  <button type="button" class="btn btn-danger btn-sm" onclick="window.removerPecaOSFunc(${p.id})">&times;</button>
+                               </td>
+                             </tr>
+                           `).join('')}
+                      </tbody>
+                   </table>
+                </div>
+             `}
+          </div>
+
+          <!-- ETAPA 4: VALORES E STATUS -->
+          <div id="os-step-4" class="os-form-step" style="display: none;">
             <div style="display: grid; gap: 1.5rem;">
               
               <!-- DESLOCAMENTO -->
@@ -171,7 +249,8 @@ async function mostrarModalOS(osId = null) {
                   </div>
                   <div class="form-group">
                     <label class="form-label">Peças (R$)</label>
-                    <input type="number" class="form-input" id="os-valor-pecas" step="0.01" value="${osData ? osData.valor_pecas : 0}">
+                    <input type="number" class="form-input" id="os-valor-pecas" step="0.01" value="${osData ? osData.valor_pecas : 0}" readonly style="background: var(--bg-tertiary); cursor: not-allowed;">
+                    <small style="font-size: 0.7rem; color: var(--text-muted);">Gerado pela lista de peças (Etapa 3)</small>
                   </div>
                 </div>
                 <div style="margin-top: 1rem; padding: 1.5rem; background: var(--primary); border-radius: var(--radius-lg); text-align: center;">
@@ -180,26 +259,28 @@ async function mostrarModalOS(osId = null) {
                 </div>
               </div>
 
-              <!-- STATUS E OBS -->
-              <div class="form-group">
-                <label class="form-label">Status da OS</label>
-                <select class="form-input" id="os-status">
-                  <option value="ABERTA" ${osData?.status === 'ABERTA' ? 'selected' : ''}>🔵 Aberta</option>
-                  <option value="EM_ANDAMENTO" ${osData?.status === 'EM_ANDAMENTO' ? 'selected' : ''}>🟡 Em Andamento</option>
-                  <option value="FECHADA" ${osData?.status === 'FECHADA' ? 'selected' : ''}>🟢 Fechada</option>
-                </select>
-              </div>
-
-              ${isEdicao && osData.status === 'FECHADA' && osData.data_fechamento ? `
-                <div style="padding: 1rem; background: rgba(16, 185, 129, 0.1); border-radius: var(--radius); border-left: 3px solid var(--success); margin-top: -0.5rem; margin-bottom: 1rem;">
-                  <strong style="color: var(--success); font-size: 0.85rem;">✓ Concluída em:</strong> 
-                  <span style="color: var(--text-primary); font-weight: 600; font-size: 0.85rem;">${formatDate(osData.data_fechamento)}</span>
                 </div>
-              ` : ''}
 
-              <div class="form-group">
-                <label class="form-label">Observações Internas</label>
-                <textarea class="form-input" id="os-observacoes" rows="3" placeholder="Anotações para controle interno...">${osData && osData.observacoes ? osData.observacoes : ''}</textarea>
+                <div class="form-group" style="margin-top: 1rem;">
+                  <label class="form-label">Status da OS</label>
+                  <select class="form-input" id="os-status">
+                    <option value="ABERTA" ${osData?.status === 'ABERTA' ? 'selected' : ''}>🔵 Aberta</option>
+                    <option value="EM_ANDAMENTO" ${osData?.status === 'EM_ANDAMENTO' ? 'selected' : ''}>🟡 Em Andamento</option>
+                    <option value="FECHADA" ${osData?.status === 'FECHADA' ? 'selected' : ''}>🟢 Fechada</option>
+                  </select>
+                </div>
+
+                ${isEdicao && osData.status === 'FECHADA' && osData.data_fechamento ? `
+                  <div style="padding: 1rem; background: rgba(16, 185, 129, 0.1); border-radius: var(--radius); border-left: 3px solid var(--success); margin-bottom: 1rem;">
+                    <strong style="color: var(--success); font-size: 0.85rem;">✓ Concluída em:</strong> 
+                    <span style="color: var(--text-primary); font-weight: 600; font-size: 0.85rem;">${formatDate(osData.data_fechamento)}</span>
+                  </div>
+                ` : ''}
+
+                <div class="form-group">
+                  <label class="form-label">Observações Internas</label>
+                  <textarea class="form-input" id="os-observacoes" rows="2" placeholder="Anotações para controle interno...">${osData && osData.observacoes ? osData.observacoes : ''}</textarea>
+                </div>
               </div>
             </div>
           </div>
@@ -237,7 +318,7 @@ async function mostrarModalOS(osId = null) {
     document.getElementById(`os-step-${currentStepOS}`).style.display = 'block';
 
     // Atualizar indicadores (bolinhas)
-    for (let i = 1; i <= 3; i++) {
+    for (let i = 1; i <= 4; i++) {
       const dot = document.getElementById(`step-dot-${i}`);
       const line = document.getElementById('step-line-progress');
       const circle = dot.querySelector('div');
@@ -266,12 +347,12 @@ async function mostrarModalOS(osId = null) {
       }
 
       // Linha de progresso
-      line.style.width = currentStepOS === 1 ? '0%' : (currentStepOS === 2 ? '50%' : '100%');
+      line.style.width = currentStepOS === 1 ? '0%' : (currentStepOS === 2 ? '33%' : (currentStepOS === 3 ? '66%' : '100%'));
     }
 
     // Gerenciar botões do footer
     document.getElementById('btn-prev-os').style.display = currentStepOS === 1 ? 'none' : 'block';
-    if (currentStepOS === 3) {
+    if (currentStepOS === 4) {
       document.getElementById('btn-next-os').style.display = 'none';
       document.getElementById('btn-save-os').style.display = 'block';
     } else {
@@ -328,6 +409,119 @@ async function mostrarModalOS(osId = null) {
   // Calcular valores iniciais
   calcularValoresOS();
   updateWizard();
+
+  // --- FUNÇÕES DE PEÇAS DENTRO DO MODAL ---
+  window.adicionarPecaOSFunc = async () => {
+    const pecaInput = document.getElementById('os-peca-input');
+    const pecaNome = pecaInput.value;
+    const pecaCodigo = document.getElementById('os-peca-codigo-input').value;
+    const qtd = parseFloat(document.getElementById('os-peca-qtd').value) || 0;
+    const preco = parseFloat(document.getElementById('os-peca-preco').value) || 0;
+
+    if (!pecaNome || qtd <= 0 || preco <= 0) return alert('Preencha os dados da peça corretamente.');
+
+    // Tentar encontrar se o que foi digitado corresponde a uma peça existente no datalist
+    const datalist = document.getElementById('os-pecas-datalist');
+    const option = Array.from(datalist.options).find(opt => opt.value === pecaNome);
+    const pecaId = option ? option.getAttribute('data-id') : null;
+
+    const result = await window.api.adicionarPecaOS(osId, {
+      peca_id: pecaId,
+      peca_nome: pecaNome,
+      peca_codigo: pecaCodigo,
+      quantidade: qtd,
+      preco_unitario: preco
+    });
+
+    if (result.success) {
+      // Recarregar dados do AppState e atualizar lista
+      await loadPecas();
+      const pecasRes = await window.api.listarPecasOS(osId);
+      const osNewRes = await window.api.obterOS(osId);
+
+      const pecas = pecasRes.pecas || [];
+      const tbody = document.getElementById('os-pecas-list');
+      tbody.innerHTML = pecas.map(p => `
+        <tr>
+          <td><strong>${p.peca_codigo}</strong><br><small>${p.peca_nome}</small></td>
+          <td>R$ ${formatMoney(p.preco_unitario)}</td>
+          <td>${p.quantidade}</td>
+          <td>R$ ${formatMoney(p.preco_total)}</td>
+          <td style="text-align: right;">
+             <button type="button" class="btn btn-danger btn-sm" onclick="window.removerPecaOSFunc(${p.id})">&times;</button>
+          </td>
+        </tr>
+      `).join('');
+
+      // Atualizar input de valor_pecas no Passo 4
+      if (osNewRes.success) {
+        document.getElementById('os-valor-pecas').value = osNewRes.os.valor_pecas;
+        calcularValoresOS();
+      }
+
+      // Limpar campos
+      pecaInput.value = '';
+      document.getElementById('os-peca-codigo-input').value = '';
+      document.getElementById('os-peca-preco').value = '';
+      document.getElementById('os-peca-qtd').value = '1';
+
+      // Atualizar datalist para inclusões futuras (peça nova agora existe)
+      const pecasGlobais = AppState.data.pecas || [];
+      datalist.innerHTML = pecasGlobais.map(p => `
+        <option value="${p.nome}" data-id="${p.id}" data-codigo="${p.codigo}" data-preco="${p.preco_venda}">${p.codigo ? `[${p.codigo}] ` : ''}${p.nome} (Sald: ${p.quantidade_estoque})</option>
+      `).join('');
+    } else {
+      alert('Erro ao adicionar peça: ' + result.message);
+    }
+  };
+
+  window.removerPecaOSFunc = async (itemId) => {
+    if (!confirm('Deseja remover esta peça da OS?')) return;
+
+    const result = await window.api.removerPecaOS(osId, itemId);
+    if (result.success) {
+      const pecasRes = await window.api.listarPecasOS(osId);
+      const osNewRes = await window.api.obterOS(osId);
+
+      const pecas = pecasRes.pecas || [];
+      const tbody = document.getElementById('os-pecas-list');
+      if (pecas.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">Nenhuma peça adicionada</td></tr>';
+      } else {
+        tbody.innerHTML = pecas.map(p => `
+            <tr>
+              <td><strong>${p.peca_codigo}</strong><br><small>${p.peca_nome}</small></td>
+              <td>R$ ${formatMoney(p.preco_unitario)}</td>
+              <td>${p.quantidade}</td>
+              <td>R$ ${formatMoney(p.preco_total)}</td>
+              <td style="text-align: right;">
+                 <button type="button" class="btn btn-danger btn-sm" onclick="window.removerPecaOSFunc(${p.id})">&times;</button>
+              </td>
+            </tr>
+          `).join('');
+      }
+
+      if (osNewRes.success) {
+        document.getElementById('os-valor-pecas').value = osNewRes.os.valor_pecas;
+        calcularValoresOS();
+      }
+    }
+  };
+
+  // Listener para carregar preço automático ao digitar/selecionar
+  const pecaInput = document.getElementById('os-peca-input');
+  if (pecaInput) {
+    pecaInput.addEventListener('input', () => {
+      const datalist = document.getElementById('os-pecas-datalist');
+      const option = Array.from(datalist.options).find(opt => opt.value === pecaInput.value);
+      if (option) {
+        const preco = option.getAttribute('data-preco');
+        const codigo = option.getAttribute('data-codigo');
+        if (preco) document.getElementById('os-peca-preco').value = preco;
+        if (codigo) document.getElementById('os-peca-codigo-input').value = codigo;
+      }
+    });
+  }
 }
 
 async function carregarMaquinasCliente() {

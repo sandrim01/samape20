@@ -255,6 +255,24 @@ const WebAPI = {
         return await apiFetch(`/ordens/${id}`, { method: 'DELETE' });
     },
 
+    // Peças na OS
+    async listarPecasOS(id) {
+        return await apiFetch(`/ordens/${id}/pecas`);
+    },
+
+    async adicionarPecaOS(id, dados) {
+        return await apiFetch(`/ordens/${id}/pecas`, {
+            method: 'POST',
+            body: JSON.stringify(dados)
+        });
+    },
+
+    async removerPecaOS(ordemId, itemId) {
+        return await apiFetch(`/ordens/${ordemId}/pecas/${itemId}`, {
+            method: 'DELETE'
+        });
+    },
+
     // Peças
     async criarPeca(dados) {
         return await apiFetch('/pecas', { method: 'POST', body: JSON.stringify(dados) });
