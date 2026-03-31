@@ -621,11 +621,20 @@ app.post('/api/ordens', authenticateToken, async (req, res) => {
         let numero_os = req.body.numero_os;
         if (!numero_os) {
             const ano = new Date().getFullYear();
-            const countResult = await pool.query(
-                "SELECT COUNT(*) FROM ordens_servico WHERE numero_os LIKE $1",
+            const lastOsResult = await pool.query(
+                "SELECT numero_os FROM ordens_servico WHERE numero_os LIKE $1 ORDER BY numero_os DESC LIMIT 1",
                 [`OS-${ano}-%`]
             );
-            const proximo = parseInt(countResult.rows[0].count) + 1;
+
+            let proximo = 1;
+            if (lastOsResult.rows.length > 0) {
+                const lastOs = lastOsResult.rows[0].numero_os;
+                const parts = lastOs.split('-');
+                const lastSeq = parseInt(parts[parts.length - 1]);
+                if (!isNaN(lastSeq)) {
+                    proximo = lastSeq + 1;
+                }
+            }
             numero_os = `OS-${ano}-${proximo.toString().padStart(5, '0')}`;
         }
 
@@ -782,9 +791,21 @@ app.post('/api/listagens-pecas', authenticateToken, async (req, res) => {
         // Gerar número LP-ANO-SEQ
         const date = new Date();
         const year = date.getFullYear();
-        const countResult = await pool.query('SELECT COUNT(*) FROM listagens_pecas WHERE EXTRACT(YEAR FROM created_at) = $1', [year]);
-        const seq = (parseInt(countResult.rows[0].count) + 1).toString().padStart(4, '0');
-        const numero_lista = `LP-${year}-${seq}`;
+        const lastLpResult = await pool.query(
+            "SELECT numero_lista FROM listagens_pecas WHERE numero_lista LIKE $1 ORDER BY numero_lista DESC LIMIT 1",
+            [`LP-${year}-%`]
+        );
+
+        let proximo = 1;
+        if (lastLpResult.rows.length > 0) {
+            const lastLp = lastLpResult.rows[0].numero_lista;
+            const parts = lastLp.split('-');
+            const lastSeq = parseInt(parts[parts.length - 1]);
+            if (!isNaN(lastSeq)) {
+                proximo = lastSeq + 1;
+            }
+        }
+        const numero_lista = `LP-${year}-${proximo.toString().padStart(4, '0')}`;
 
         const result = await pool.query(
             `INSERT INTO listagens_pecas (numero_lista, cliente_id, maquina_id, maquina_modelo, observacoes)
