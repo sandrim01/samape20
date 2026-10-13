@@ -10,7 +10,8 @@ const {
     calcularStatusPreditivo,
     gerarTemplateEmailMecanicos,
     gerarTemplateAlertaCliente,
-    gerarTextoWhatsAppCliente
+    gerarTextoWhatsAppCliente,
+    gerarTextoWhatsAppMecanico
 } = require('./preventivas-engine');
 
 const emailTransporter = nodemailer.createTransport({
@@ -99,7 +100,8 @@ const initDb = async () => {
 
         // Garantir que a coluna horimetro existe na tabela ordens_servico
         await pool.query(`
-            ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS horimetro VARCHAR(50)
+            ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS horimetro VARCHAR(50);
+        ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS whatsapp VARCHAR(50);
         `);
 
         // Garantir que a coluna id_frota existe na tabela maquinas
@@ -327,7 +329,7 @@ app.post('/api/login', async (req, res) => {
 app.get('/api/usuarios', authenticateToken, authorize(['ADMIN']), async (req, res) => {
     try {
         const result = await pool.query(
-            'SELECT id, nome, email, cargo, ativo, created_at FROM usuarios ORDER BY nome'
+            'SELECT id, nome, email, whatsapp, cargo, ativo, created_at FROM usuarios ORDER BY nome'
         );
         res.json({ success: true, users: result.rows });
     } catch (error) {
@@ -339,7 +341,7 @@ app.get('/api/usuarios', authenticateToken, authorize(['ADMIN']), async (req, re
 // Criar usuário (Apenas Admin)
 app.post('/api/usuarios', authenticateToken, authorize(['ADMIN']), async (req, res) => {
     try {
-        const { nome, email, senha, cargo } = req.body;
+        const { nome, email, senha, cargo, whatsapp } = req.body;
 
         // Verificar se usuário já existe
         const exists = await pool.query('SELECT id FROM usuarios WHERE email = $1', [email]);
@@ -349,10 +351,10 @@ app.post('/api/usuarios', authenticateToken, authorize(['ADMIN']), async (req, r
 
         const hashedPassword = await bcrypt.hash(senha, 10);
         const result = await pool.query(
-            `INSERT INTO usuarios (nome, email, senha, cargo, ativo)
-             VALUES ($1, $2, $3, $4, true)
-             RETURNING id, nome, email, cargo`,
-            [nome, email, hashedPassword, cargo]
+            `INSERT INTO usuarios (nome, email, senha, cargo, ativo, whatsapp)
+             VALUES ($1, $2, $3, $4, true, $5)
+             RETURNING id, nome, email, cargo, whatsapp`,
+            [nome, email, hashedPassword, cargo, whatsapp || null]
         );
 
         res.json({ success: true, user: result.rows[0] });
@@ -366,21 +368,21 @@ app.post('/api/usuarios', authenticateToken, authorize(['ADMIN']), async (req, r
 app.put('/api/usuarios/:id', authenticateToken, authorize(['ADMIN']), async (req, res) => {
     try {
         const { id } = req.params;
-        const { nome, email, senha, cargo, ativo } = req.body;
+        const { nome, email, senha, cargo, ativo, whatsapp } = req.body;
 
-        let query = 'UPDATE usuarios SET nome = $1, email = $2, cargo = $3, ativo = $4';
-        let params = [nome, email, cargo, ativo];
+        let query = 'UPDATE usuarios SET nome = $1, email = $2, cargo = $3, ativo = $4, whatsapp = $5';
+        let params = [nome, email, cargo, ativo, whatsapp !== undefined ? whatsapp : null];
 
         if (senha) {
             const hashedPassword = await bcrypt.hash(senha, 10);
-            query += ', senha = $5 WHERE id = $6';
+            query += ', senha = $6 WHERE id = $7';
             params.push(hashedPassword, id);
         } else {
-            query += ' WHERE id = $5';
+            query += ' WHERE id = $6';
             params.push(id);
         }
 
-        const result = await pool.query(query + ' RETURNING id, nome, email, cargo, ativo', params);
+        const result = await pool.query(query + ' RETURNING id, nome, email, cargo, ativo, whatsapp', params);
         res.json({ success: true, user: result.rows[0] });
     } catch (error) {
         console.error('Erro ao atualizar usuário:', error);
@@ -1823,8 +1825,19 @@ app.get('/api/preventivas/preview-email-mecanicos', authenticateToken, async (re
         const maquinas = maqResult.rows.map(m => ({ ...m, preditivo: calcularStatusPreditivo(m) }));
         const atencao = maquinas.filter(m => m.preditivo.status === 'ATENCAO' || m.preditivo.status === 'VENCIDA');
 
+        const usersResult = await pool.query(`
+            SELECT id, nome, email, whatsapp, cargo 
+            FROM usuarios 
+            WHERE cargo IN ('MECANICO', 'TECNICO', 'ADMIN') AND ativo = true 
+            ORDER BY nome
+        `);
+        const mecanicosComWhats = usersResult.rows.map(u => ({
+            ...u,
+            whatsappTexto: gerarTextoWhatsAppMecanico(u, atencao)
+        }));
+
         const { assunto, html } = gerarTemplateEmailMecanicos('Equipe Técnica SAMAPE', atencao);
-        res.json({ success: true, assunto, html });
+        res.json({ success: true, assunto, html, mecanicos: mecanicosComWhats });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }

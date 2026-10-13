@@ -1592,6 +1592,7 @@ function renderUsuariosTable(usuarios) {
           <tr>
             <th>Nome</th>
             <th class="desktop-only">E-mail</th>
+            <th>WhatsApp</th>
             <th>Cargo</th>
             <th class="desktop-only">Status</th>
             <th class="desktop-only">Cadastrado em</th>
@@ -1603,6 +1604,13 @@ function renderUsuariosTable(usuarios) {
             <tr>
               <td><strong>${usuario.nome}</strong></td>
               <td class="desktop-only">${usuario.email}</td>
+              <td>
+                ${usuario.whatsapp ? `
+                  <a href="https://api.whatsapp.com/send?phone=55${String(usuario.whatsapp).replace(/\D/g, '')}" target="_blank" style="color: #25D366; text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; gap: 4px;">
+                    <span>💬</span> <span>${usuario.whatsapp}</span>
+                  </a>
+                ` : '<span style="color: var(--text-muted); font-size: 0.8rem;">-</span>'}
+              </td>
               <td>${roleLabels[usuario.cargo] || usuario.cargo}</td>
               <td class="desktop-only">
                 <span class="badge badge-${usuario.ativo ? 'success' : 'danger'}">
@@ -2625,6 +2633,10 @@ async function showNovoUsuarioModal(usuarioId = null) {
         <input type="email" class="form-input" id="modal-usuario-email" value="${usuarioData?.email || ''}" required />
       </div>
       <div class="form-group">
+        <label class="form-label">WhatsApp / Celular</label>
+        <input type="tel" class="form-input" id="modal-usuario-whatsapp" value="${usuarioData?.whatsapp || ''}" placeholder="(28) 99999-9999" />
+      </div>
+      <div class="form-group">
         <label class="form-label">Cargo *</label>
         <select class="form-input" id="modal-usuario-cargo" required>
           <option value="">Selecione...</option>
@@ -2653,6 +2665,7 @@ async function showNovoUsuarioModal(usuarioId = null) {
     const dados = {
       nome: document.getElementById('modal-usuario-nome').value,
       email: document.getElementById('modal-usuario-email').value,
+      whatsapp: document.getElementById('modal-usuario-whatsapp')?.value?.trim() || null,
       cargo: document.getElementById('modal-usuario-cargo').value,
       senha: document.getElementById('modal-usuario-senha').value,
       ativo: isEdicao ? document.getElementById('modal-usuario-ativo').value === 'true' : true

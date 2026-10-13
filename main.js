@@ -10,7 +10,8 @@ const {
   calcularStatusPreditivo,
   gerarTemplateEmailMecanicos,
   gerarTemplateAlertaCliente,
-  gerarTextoWhatsAppCliente
+  gerarTextoWhatsAppCliente,
+  gerarTextoWhatsAppMecanico
 } = require('./preventivas-engine');
 
 const emailTransporter = nodemailer.createTransport({
@@ -181,8 +182,8 @@ ipcMain.handle('criar-usuario', async (event, dados) => {
   try {
     const hashedPassword = bcrypt.hashSync(dados.senha, 10);
     const result = await pool.query(
-      'INSERT INTO usuarios (nome, email, senha, cargo, ativo) VALUES ($1, $2, $3, $4, true) RETURNING id',
-      [dados.nome, dados.email, hashedPassword, dados.cargo]
+      'INSERT INTO usuarios (nome, email, senha, cargo, ativo, whatsapp) VALUES ($1, $2, $3, $4, true, $5) RETURNING id',
+      [dados.nome, dados.email, hashedPassword, dados.cargo, dados.whatsapp || null]
     );
     return { success: true, id: result.rows[0].id };
   } catch (error) {
@@ -192,7 +193,7 @@ ipcMain.handle('criar-usuario', async (event, dados) => {
 
 ipcMain.handle('listar-usuarios', async () => {
   try {
-    const result = await pool.query('SELECT id, nome, email, cargo, ativo, created_at FROM usuarios ORDER BY nome');
+    const result = await pool.query('SELECT id, nome, email, whatsapp, cargo, ativo, created_at FROM usuarios ORDER BY nome');
     return { success: true, usuarios: result.rows };
   } catch (error) {
     return { success: false, message: error.message };
@@ -201,7 +202,7 @@ ipcMain.handle('listar-usuarios', async () => {
 
 ipcMain.handle('obter-usuario', async (event, id) => {
   try {
-    const result = await pool.query('SELECT id, nome, email, cargo, ativo FROM usuarios WHERE id = $1', [id]);
+    const result = await pool.query('SELECT id, nome, email, whatsapp, cargo, ativo FROM usuarios WHERE id = $1', [id]);
     return { success: true, usuario: result.rows[0] };
   } catch (error) {
     return { success: false, message: error.message };
@@ -296,11 +297,11 @@ ipcMain.handle('atualizar-usuario', async (event, { id, dados }) => {
     let query, params;
     if (dados.senha) {
       const hashedPassword = bcrypt.hashSync(dados.senha, 10);
-      query = 'UPDATE usuarios SET nome = $1, email = $2, cargo = $3, ativo = $4, senha = $5, updated_at = CURRENT_TIMESTAMP WHERE id = $6';
-      params = [dados.nome, dados.email, dados.cargo, dados.ativo, hashedPassword, id];
+      query = 'UPDATE usuarios SET nome = $1, email = $2, cargo = $3, ativo = $4, whatsapp = $5, senha = $6, updated_at = CURRENT_TIMESTAMP WHERE id = $7';
+      params = [dados.nome, dados.email, dados.cargo, dados.ativo, dados.whatsapp !== undefined ? dados.whatsapp : null, hashedPassword, id];
     } else {
-      query = 'UPDATE usuarios SET nome = $1, email = $2, cargo = $3, ativo = $4, updated_at = CURRENT_TIMESTAMP WHERE id = $5';
-      params = [dados.nome, dados.email, dados.cargo, dados.ativo, id];
+      query = 'UPDATE usuarios SET nome = $1, email = $2, cargo = $3, ativo = $4, whatsapp = $5, updated_at = CURRENT_TIMESTAMP WHERE id = $6';
+      params = [dados.nome, dados.email, dados.cargo, dados.ativo, dados.whatsapp !== undefined ? dados.whatsapp : null, id];
     }
     await pool.query(query, params);
     return { success: true };
@@ -1153,8 +1154,19 @@ ipcMain.handle('obter-preview-email-mecanicos', async () => {
     const maquinas = maqResult.rows.map(m => ({ ...m, preditivo: calcularStatusPreditivo(m) }));
     const atencao = maquinas.filter(m => m.preditivo.status === 'ATENCAO' || m.preditivo.status === 'VENCIDA');
 
+    const usersResult = await pool.query(`
+      SELECT id, nome, email, whatsapp, cargo 
+      FROM usuarios 
+      WHERE cargo IN ('MECANICO', 'TECNICO', 'ADMIN') AND ativo = true 
+      ORDER BY nome
+    `);
+    const mecanicosComWhats = usersResult.rows.map(u => ({
+      ...u,
+      whatsappTexto: gerarTextoWhatsAppMecanico(u, atencao)
+    }));
+
     const { assunto, html } = gerarTemplateEmailMecanicos('Equipe Técnica SAMAPE', atencao);
-    return { success: true, assunto, html };
+    return { success: true, assunto, html, mecanicos: mecanicosComWhats };
   } catch (error) {
     return { success: false, message: error.message };
   }

@@ -340,11 +340,42 @@ Evita parada inesperada na britagem/lavra e desgaste acelerado provocado pela po
 Podemos agendar a visita da equipe técnica para esta revisão? Responda a esta mensagem para combinarmos o melhor dia! 🤝`;
 }
 
+/**
+ * Gera texto formatado para envio no WhatsApp ao mecânico
+ */
+function gerarTextoWhatsAppMecanico(mecanico, maquinasAtencao = []) {
+  const mecNome = mecanico ? (mecanico.nome || 'Equipe') : 'Equipe';
+
+  let listaTexto = '';
+  if (maquinasAtencao && maquinasAtencao.length > 0) {
+    listaTexto = `\n🚜 *Máquinas com revisão próxima na pedreira:*\n` +
+      maquinasAtencao.slice(0, 5).map(m => 
+        `• *${m.modelo}* ${m.id_frota ? `(${m.id_frota})` : ''} — ${m.cliente_nome || '-'} | Est: ~${m.preditivo?.horimetroEstimado || m.horas_uso}h (Faltam ${m.preditivo?.horasRestantes || 0}h)`
+      ).join('\n') + `\n`;
+  }
+
+  return `Fala *${mecNome}*! 👋
+Aqui é da gestão técnica da *SAMAPE — Engenharia & Manutenção*.
+
+Estamos fortalecendo nosso *Plano de Manutenção Preventiva Preditiva* nas pedreiras! 🚜💨
+
+*Por que isso é fundamental para você e para a equipe?*
+✅ *Zero Paradas Inesperadas:* Trocamos óleo e filtros antes que bombas hidráulicas ou motores fundam.
+✅ *Segurança em Primeiro Lugar:* Evita estouro de mangueiras de alta pressão e falhas em rampas.
+✅ *Trabalho Planejado:* Você vai a campo com ferramentas e kit de peças certos, sem correria de emergência.
+
+⚠️ *Seu papel é o mais importante:*
+Como a pedreira muitas vezes não tem sinal de celular, *você é o sensor do sistema*. Ao atender uma máquina, *sempre anote o horímetro exato no app da SAMAPE*. É esse número que calibra todo o nosso plano e protege a frota!
+${listaTexto}
+Contamos com você! Bom trabalho e boa jornada! 🤝🛠️`;
+}
+
 module.exports = {
   calcularDiasUteis,
   adicionarDiasUteis,
   calcularStatusPreditivo,
   gerarTemplateEmailMecanicos,
   gerarTemplateAlertaCliente,
-  gerarTextoWhatsAppCliente
+  gerarTextoWhatsAppCliente,
+  gerarTextoWhatsAppMecanico
 };

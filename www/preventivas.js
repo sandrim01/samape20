@@ -557,21 +557,76 @@ async function abrirModalEmailMecanicos() {
       return alert('Erro ao carregar preview do informativo');
     }
 
+    window._ultimoTextoWhatsAppMecanico = res.whatsappTexto || '';
+
     const html = `
       <div class="modal-overlay" id="modal-email-mec" style="position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000; padding: 1rem;">
-        <div class="modal-container" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; width: 100%; max-width: 680px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;">
+        <div class="modal-container" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; width: 100%; max-width: 720px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;">
           
           <div class="modal-header" style="padding: 1.25rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: var(--bg-secondary);">
             <h3 style="margin: 0; font-size: 1.15rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
-              <span>📧</span>
-              <span>Disparar Informativo aos Mecânicos</span>
+              <span>📢</span>
+              <span>Informativo aos Mecânicos (E-mail & WhatsApp)</span>
             </h3>
             <button onclick="fecharModalEmailMecanicos()" style="background: none; border: none; font-size: 1.4rem; color: var(--text-muted); cursor: pointer;">&times;</button>
           </div>
 
           <div class="modal-body" style="padding: 1.25rem; overflow-y: auto; flex: 1;">
+            
+            <!-- Bloco WhatsApp Mecânicos -->
+            <div class="form-group" style="margin-bottom: 1.25rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <label class="form-label" style="margin: 0; font-weight: 700; color: #10b981; display: flex; align-items: center; gap: 0.4rem;">
+                  <span>📲</span> <span>Envio Direto via WhatsApp aos Mecânicos (${(res.mecanicos || []).length})</span>
+                </label>
+                <button type="button" class="btn btn-outline" style="padding: 3px 10px; font-size: 0.75rem; border-color: #10b981; color: #10b981;" onclick="copiarTextoWhatsAppMecanico()">
+                  📋 Copiar Texto do WhatsApp
+                </button>
+              </div>
+
+              <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; max-height: 180px; overflow-y: auto;">
+                ${(res.mecanicos && res.mecanicos.length > 0) ? `
+                  <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                    ${res.mecanicos.map(mec => {
+                      const telLimpo = (mec.whatsapp || '').replace(/\D/g, '');
+                      const telFormatado = telLimpo ? (telLimpo.startsWith('55') ? telLimpo : '55' + telLimpo) : null;
+                      return `
+                        <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-card); padding: 0.6rem 0.85rem; border-radius: 6px; border: 1px solid var(--border);">
+                          <div>
+                            <strong style="color: var(--text-primary); font-size: 0.9rem;">${mec.nome}</strong>
+                            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px;">
+                              ${mec.whatsapp ? `<span style="color: #10b981; font-weight: 600;">📱 ${mec.whatsapp}</span>` : '<span style="color: #f59e0b;">⚠️ Sem WhatsApp cadastrado</span>'}
+                              ${mec.email ? ` • <span>✉️ ${mec.email}</span>` : ''}
+                            </div>
+                          </div>
+                          <div>
+                            ${telFormatado ? `
+                              <a href="https://api.whatsapp.com/send?phone=${telFormatado}&text=${encodeURIComponent(mec.whatsappTexto || res.whatsappTexto || '')}" target="_blank" class="btn btn-primary" style="padding: 4px 12px; font-size: 0.75rem; background: #25D366; border-color: #25D366; color: #fff; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
+                                <span>💬</span> <span>Abrir WhatsApp</span>
+                              </a>
+                            ` : `
+                              <button type="button" class="btn btn-outline" style="padding: 4px 10px; font-size: 0.75rem; color: var(--text-muted);" onclick="alert('Cadastre o WhatsApp deste mecânico na aba Usuários para habilitar o envio direto.')">
+                                <span>Sem WhatsApp</span>
+                              </button>
+                            `}
+                          </div>
+                        </div>
+                      `;
+                    }).join('')}
+                  </div>
+                ` : `
+                  <div style="font-size: 0.85rem; color: var(--text-secondary); text-align: center; padding: 0.75rem;">
+                    Nenhum mecânico (cargo MECÂNICO) cadastrado no sistema.
+                  </div>
+                `}
+              </div>
+            </div>
+
+            <!-- Bloco E-mail -->
+            <hr style="border: 0; border-top: 1px solid var(--border); margin: 1.25rem 0;" />
+            
             <p style="margin: 0 0 1rem 0; font-size: 0.85rem; color: var(--text-secondary);">
-              Este comunicado será enviado para os e-mails de todos os <strong>Mecânicos e Técnicos ativos</strong> cadastrados no sistema, conscientizando sobre a importância da medição exata do horímetro na pedreira.
+              Você também pode disparar este comunicado para os e-mails de todos os mecânicos com um único clique:
             </p>
 
             <div class="form-group">
@@ -580,17 +635,17 @@ async function abrirModalEmailMecanicos() {
             </div>
 
             <div class="form-group">
-              <label class="form-label">Pré-visualização do Conteúdo</label>
-              <div style="border: 1px solid var(--border); border-radius: 6px; padding: 1rem; background: #ffffff; color: #333; max-height: 280px; overflow-y: auto;">
+              <label class="form-label">Pré-visualização do Conteúdo (E-mail)</label>
+              <div style="border: 1px solid var(--border); border-radius: 6px; padding: 1rem; background: #ffffff; color: #333; max-height: 220px; overflow-y: auto;">
                 ${res.html}
               </div>
             </div>
           </div>
 
           <div class="modal-footer" style="padding: 1rem 1.25rem; border-top: 1px solid var(--border); background: var(--bg-secondary); display: flex; justify-content: flex-end; gap: 0.75rem;">
-            <button type="button" class="btn btn-outline" onclick="fecharModalEmailMecanicos()">Cancelar</button>
+            <button type="button" class="btn btn-outline" onclick="fecharModalEmailMecanicos()">Fechar</button>
             <button type="button" class="btn btn-primary" id="btn-enviar-email-mec" onclick="confirmarDisparoEmailMecanicos()">
-              <span>🚀 Enviar aos Mecânicos Agora</span>
+              <span>✉️ Disparar E-mail para Todos</span>
             </button>
           </div>
 
@@ -612,6 +667,30 @@ function fecharModalEmailMecanicos() {
   const el = document.getElementById('container-modal-email-mec');
   if (el) el.remove();
 }
+
+function copiarTextoWhatsAppMecanico() {
+  const texto = window._ultimoTextoWhatsAppMecanico || '';
+  if (!texto) return alert('Texto não disponível');
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(texto)
+      .then(() => alert('Texto do informativo copiado com sucesso! Você pode colar no WhatsApp.'))
+      .catch(() => fallbackCopiar(texto));
+  } else {
+    fallbackCopiar(texto);
+  }
+}
+
+function fallbackCopiar(texto) {
+  const ta = document.createElement('textarea');
+  ta.value = texto;
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand('copy');
+  ta.remove();
+  alert('Texto do informativo copiado com sucesso!');
+}
+
+window.copiarTextoWhatsAppMecanico = copiarTextoWhatsAppMecanico;
 
 async function confirmarDisparoEmailMecanicos() {
   const assunto = document.getElementById('email-mec-assunto').value;
