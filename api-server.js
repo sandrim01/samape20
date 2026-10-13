@@ -81,6 +81,34 @@ const initDb = async () => {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
+
+        // Garantir que a coluna horimetro existe na tabela ordens_servico
+        await pool.query(`
+            ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS horimetro VARCHAR(50)
+        `);
+
+        // Garantir que a coluna id_frota existe na tabela maquinas
+        await pool.query(`
+            ALTER TABLE maquinas ADD COLUMN IF NOT EXISTS id_frota VARCHAR(50)
+        `);
+
+        // Sincronizar horímetros de máquinas a partir das ordens de serviço existentes
+        try {
+            await pool.query(`
+                UPDATE maquinas m
+                SET horas_uso = sub.max_h
+                FROM (
+                    SELECT maquina_id, MAX(CAST(NULLIF(regexp_replace(horimetro, '[^0-9.]', '', 'g'), '') AS NUMERIC)) as max_h
+                    FROM ordens_servico
+                    WHERE horimetro IS NOT NULL AND horimetro <> '' AND maquina_id IS NOT NULL
+                    GROUP BY maquina_id
+                ) sub
+                WHERE m.id = sub.maquina_id AND (m.horas_uso IS NULL OR m.horas_uso < sub.max_h)
+            `);
+        } catch (eSync) {
+            console.log('Aviso ao sincronizar horímetros:', eSync.message);
+        }
+
         console.log('✅ Tabelas verificadas/criadas');
     } catch (err) {
         console.error('❌ Erro ao inicializar banco de dados:', err);
@@ -471,15 +499,16 @@ app.post('/api/maquinas', authenticateToken, async (req, res) => {
         // Mapeamento de campos do Front-end para o Banco com fallbacks para evitar erros de NOT NULL
         const tipo = req.body.tipo || 'Geral';
         const numero_serie = req.body.numero_serie || '';
+        const id_frota = req.body.id_frota || '';
         const observacoes = req.body.observacoes || '';
         const ano_fabricacao = req.body.ano_fabricacao || req.body.ano || null;
         const horas_uso = req.body.horas_uso || 0;
 
         const result = await pool.query(
-            `INSERT INTO maquinas (cliente_id, tipo, modelo, numero_serie, ano_fabricacao, horas_uso, observacoes, ativo)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, true)
+            `INSERT INTO maquinas (cliente_id, tipo, modelo, numero_serie, ano_fabricacao, horas_uso, observacoes, id_frota, ativo)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
        RETURNING *`,
-            [cliente_id, tipo, modelo, numero_serie, ano_fabricacao, horas_uso, observacoes]
+            [cliente_id, tipo, modelo, numero_serie, ano_fabricacao, horas_uso, observacoes, id_frota]
         );
 
         res.json({ success: true, maquina: result.rows[0] });
@@ -496,23 +525,47 @@ app.put('/api/maquinas/:id', authenticateToken, async (req, res) => {
         const { cliente_id, modelo, numero_serie, observacoes } = req.body;
 
         const tipo = req.body.tipo || 'Geral';
+        const id_frota = req.body.id_frota !== undefined ? req.body.id_frota : '';
         const ano_fabricacao = req.body.ano_fabricacao || req.body.ano || null;
         const horas_uso = req.body.horas_uso || 0;
 
         const result = await pool.query(
             `UPDATE maquinas 
        SET cliente_id = $1, tipo = $2, modelo = $3, numero_serie = $4, 
-           ano_fabricacao = $5, horas_uso = $6, observacoes = $7,
+           ano_fabricacao = $5, horas_uso = $6, observacoes = $7, id_frota = $8,
            updated_at = CURRENT_TIMESTAMP
-       WHERE id = $8
+       WHERE id = $9
        RETURNING *`,
-            [cliente_id, tipo, modelo, numero_serie, ano_fabricacao, horas_uso, observacoes, id]
+            [cliente_id, tipo, modelo, numero_serie, ano_fabricacao, horas_uso, observacoes, id_frota, id]
         );
 
         res.json({ success: true, maquina: result.rows[0] });
     } catch (error) {
         console.error('Erro ao atualizar máquina:', error);
         res.status(500).json({ success: false, message: 'Erro no servidor: ' + error.message });
+    }
+});
+
+// Atualizar horímetro de uma máquina
+app.patch('/api/maquinas/:id/horimetro', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { horas_uso } = req.body;
+        const hNum = parseFloat(String(horas_uso).replace(',', '.'));
+        if (isNaN(hNum) || hNum < 0) {
+            return res.status(400).json({ success: false, message: 'Horímetro inválido' });
+        }
+        const result = await pool.query(
+            `UPDATE maquinas SET horas_uso = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *`,
+            [hNum, id]
+        );
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Máquina não encontrada' });
+        }
+        await logActivity(req, 'MAQUINA_HORIMETRO_ATUALIZADO', `Horímetro da máquina ${id} atualizado para ${hNum}h`);
+        res.json({ success: true, maquina: result.rows[0] });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 
@@ -525,6 +578,7 @@ app.get('/api/ordens', authenticateToken, async (req, res) => {
           SELECT os.*, 
                  c.nome as cliente_nome,
                  m.modelo as maquina_modelo,
+                 m.id_frota as maquina_id_frota,
                  u.nome as mecanico_nome
           FROM ordens_servico os
           LEFT JOIN clientes c ON os.cliente_id = c.id
@@ -571,6 +625,7 @@ app.get('/api/ordens/:id', authenticateToken, async (req, res) => {
               c.email as cliente_email, c.endereco as cliente_endereco,
               m.modelo as maquina_modelo, m.numero_serie as maquina_serie,
               m.ano_fabricacao as maquina_ano, m.tipo as maquina_tipo,
+              m.id_frota as maquina_id_frota,
               u.nome as mecanico_nome
        FROM ordens_servico os
        LEFT JOIN clientes c ON os.cliente_id = c.id
@@ -596,7 +651,7 @@ app.post('/api/ordens', authenticateToken, async (req, res) => {
     try {
         const {
             cliente_id, maquina_id, mecanico_id, status, prioridade,
-            descricao_problema, diagnostico, observacoes
+            descricao_problema, diagnostico, observacoes, horimetro
         } = req.body;
 
         // Mapeamento de campos do front-end
@@ -643,16 +698,31 @@ app.post('/api/ordens', authenticateToken, async (req, res) => {
        (numero_os, cliente_id, maquina_id, mecanico_id, status, prioridade,
         descricao_problema, diagnostico, servicos_realizados,
         valor_mao_obra, valor_pecas, valor_total, observacoes,
-        km_ida, km_volta, valor_por_km, listagem_pecas_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+        km_ida, km_volta, valor_por_km, listagem_pecas_id, horimetro)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
        RETURNING *`,
             [numero_os, cliente_id, maquina_id, mecanico_id, status || 'ABERTA', prioridade || 'MEDIA',
                 descricao_problema, diagnostico, servicos_realizados,
                 valor_mao_obra, valor_pecas, valor_total, observacoes,
-                km_ida, km_volta, valor_por_km, req.body.listagem_pecas_id || null]
+                km_ida, km_volta, valor_por_km, req.body.listagem_pecas_id || null, horimetro || null]
         );
 
         await logActivity(req, 'OS_CRIADA', `Nova OS criada: ${numero_os}`);
+
+        // Atualizar horímetro da máquina se informado
+        if (horimetro && maquina_id) {
+            const hNum = parseFloat(String(horimetro).replace(',', '.'));
+            if (!isNaN(hNum) && hNum > 0) {
+                try {
+                    await pool.query(
+                        `UPDATE maquinas SET horas_uso = GREATEST(COALESCE(horas_uso, 0), $1), updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
+                        [hNum, maquina_id]
+                    );
+                } catch (eH) {
+                    console.error('Erro ao atualizar horas_uso da máquina:', eH);
+                }
+            }
+        }
 
         res.json({ success: true, ordem: result.rows[0], numero_os });
     } catch (error) {
@@ -698,6 +768,8 @@ app.put('/api/ordens/:id', authenticateToken, async (req, res) => {
             finalDataFechamento = new Date();
         }
 
+        const horimetro = req.body.horimetro !== undefined ? req.body.horimetro : null;
+
         // Construir query dinâmica para atualizar apenas o que foi enviado ou manter integridade
         // Aqui usamos um update completo para simplificar, já que o front envia o objeto quase todo
         const result = await pool.query(
@@ -707,8 +779,8 @@ app.put('/api/ordens/:id', authenticateToken, async (req, res) => {
            valor_pecas = $7, valor_total = $8, observacoes = $9, 
            data_fechamento = $10, cliente_id = $11, maquina_id = $12,
            mecanico_id = $13, km_ida = $14, km_volta = $15, valor_por_km = $16,
-           listagem_pecas_id = $17, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $18
+           listagem_pecas_id = $17, horimetro = $18, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $19
        RETURNING *`,
             [
                 status || 'ABERTA',
@@ -728,12 +800,29 @@ app.put('/api/ordens/:id', authenticateToken, async (req, res) => {
                 km_volta,
                 valor_por_km,
                 req.body.listagem_pecas_id || null,
+                horimetro,
                 id
             ]
         );
 
         if (result.rows.length === 0) {
             return res.status(404).json({ success: false, message: 'Ordem de serviço não encontrada' });
+        }
+
+        // Atualizar horímetro da máquina se informado
+        const targetMaqId = machine_id || req.body.maquina_id;
+        if (horimetro && targetMaqId) {
+            const hNum = parseFloat(String(horimetro).replace(',', '.'));
+            if (!isNaN(hNum) && hNum > 0) {
+                try {
+                    await pool.query(
+                        `UPDATE maquinas SET horas_uso = GREATEST(COALESCE(horas_uso, 0), $1), updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
+                        [hNum, targetMaqId]
+                    );
+                } catch (eH) {
+                    console.error('Erro ao atualizar horas_uso da máquina:', eH);
+                }
+            }
         }
 
         res.json({ success: true, ordem: result.rows[0] });

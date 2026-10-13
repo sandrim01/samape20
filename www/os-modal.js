@@ -1,6 +1,10 @@
 // ==================== MODAL DE ORDEM DE SERVIÇO DETALHADA (WIZARD) ====================
 
-async function mostrarModalOS(osId = null) {
+async function mostrarModalOS(osId = null, prefill = null) {
+  if (typeof osId === 'object' && osId !== null) {
+    prefill = osId;
+    osId = null;
+  }
   const isEdicao = osId !== null;
   let osData = null;
   let currentStepOS = 1;
@@ -13,6 +17,8 @@ async function mostrarModalOS(osId = null) {
       showAlert('Erro ao carregar OS', 'danger');
       return;
     }
+  } else if (prefill) {
+    osData = { ...prefill };
   }
 
   // Carregar dados necessários (Clientes, Mecânicos e Listagens de Peças)
@@ -94,6 +100,10 @@ async function mostrarModalOS(osId = null) {
                     <option value="">Selecione uma máquina</option>
                   </select>
                 </div>
+                <div class="form-group" style="margin-top: 1rem;">
+                  <label class="form-label">Horimetro(tempo de trabalho)</label>
+                  <input type="text" class="form-input" id="os-horimetro" placeholder="Ex: 1250 h" value="${osData && osData.horimetro ? osData.horimetro : ''}">
+                </div>
               </div>
 
               <div class="card" style="border-left: 4px solid var(--secondary); background: var(--bg-secondary);">
@@ -119,19 +129,34 @@ async function mostrarModalOS(osId = null) {
           <div id="os-step-2" class="os-form-step" style="display: none;">
             <div style="display: grid; gap: 1.5rem;">
               <div class="form-group">
-                <label class="form-label" style="font-weight: 600;">Problema Reportado *</label>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                  <label class="form-label" style="font-weight: 600; margin-bottom: 0;">Problema Reportado *</label>
+                  <button type="button" class="btn-ditado" onclick="iniciarDitadoVoz('os-problema', this)" title="Falar ao invés de digitar">
+                    🎙️ Falar / Ditado
+                  </button>
+                </div>
                 <textarea class="form-input" id="os-problema" rows="5" required 
-                  placeholder="Descreva o problema reportado pelo cliente...">${osData ? osData.descricao_problema : ''}</textarea>
+                  placeholder="Descreva o problema reportado pelo cliente (ou use o microfone)...">${osData ? osData.descricao_problema : ''}</textarea>
               </div>
               <div class="form-group">
-                <label class="form-label" style="font-weight: 600;">Diagnóstico Técnico</label>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                  <label class="form-label" style="font-weight: 600; margin-bottom: 0;">Diagnóstico Técnico</label>
+                  <button type="button" class="btn-ditado" onclick="iniciarDitadoVoz('os-diagnostico', this)" title="Falar ao invés de digitar">
+                    🎙️ Falar / Ditado
+                  </button>
+                </div>
                 <textarea class="form-input" id="os-diagnostico" rows="5" 
-                  placeholder="Diagnóstico técnico do problema...">${osData && osData.diagnostico ? osData.diagnostico : ''}</textarea>
+                  placeholder="Diagnóstico técnico do problema (ou use o microfone)...">${osData && osData.diagnostico ? osData.diagnostico : ''}</textarea>
               </div>
               <div class="form-group">
-                <label class="form-label" style="font-weight: 600;">Solução / Serviços Realizados</label>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                  <label class="form-label" style="font-weight: 600; margin-bottom: 0;">Solução / Serviços Realizados</label>
+                  <button type="button" class="btn-ditado" onclick="iniciarDitadoVoz('os-solucao', this)" title="Falar ao invés de digitar">
+                    🎙️ Falar / Ditado
+                  </button>
+                </div>
                 <textarea class="form-input" id="os-solucao" rows="5" 
-                  placeholder="Descreva detalhadamente o serviço realizado...">${osData && osData.solucao ? osData.solucao : ''}</textarea>
+                  placeholder="Descreva detalhadamente o serviço realizado (ou use o microfone)...">${osData && osData.solucao ? osData.solucao : ''}</textarea>
               </div>
             </div>
           </div>
@@ -210,8 +235,13 @@ async function mostrarModalOS(osId = null) {
                   </select>
                 </div>
                 <div class="form-group">
-                  <label class="form-label">Observações Internas</label>
-                  <textarea class="form-input" id="os-observacoes" rows="3" placeholder="Anotações para controle interno...">${osData && osData.observacoes ? osData.observacoes : ''}</textarea>
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                    <label class="form-label" style="margin-bottom: 0;">Observações Internas</label>
+                    <button type="button" class="btn-ditado" onclick="iniciarDitadoVoz('os-observacoes', this)" title="Falar ao invés de digitar">
+                      🎙️ Falar / Ditado
+                    </button>
+                  </div>
+                  <textarea class="form-input" id="os-observacoes" rows="3" placeholder="Anotações para controle interno (ou use o microfone)...">${osData && osData.observacoes ? osData.observacoes : ''}</textarea>
                 </div>
               </div>
             </div>
@@ -342,9 +372,11 @@ async function mostrarModalOS(osId = null) {
   });
 
   // Carregar máquinas e valores iniciais
-  if (isEdicao && osData.cliente_id) {
+  if (osData && osData.cliente_id) {
     await carregarMaquinasCliente();
-    document.getElementById('os-maquina').value = osData.maquina_id;
+    if (osData.maquina_id) {
+      document.getElementById('os-maquina').value = osData.maquina_id;
+    }
   }
 
   calcularValoresOS();
@@ -367,7 +399,7 @@ async function carregarMaquinasCliente() {
   maquinaSelect.innerHTML = '<option value="">Selecione uma máquina</option>' +
     maquinas.map(m => `
       <option value="${m.id}" ${m.id == currentValue ? 'selected' : ''}>
-        ${m.modelo}${m.numero_serie ? ` - ${m.numero_serie}` : ''}
+        ${m.id_frota ? `[Frota: ${m.id_frota}] ` : ''}${m.modelo}${m.numero_serie ? ` - ${m.numero_serie}` : ''}
       </option>
     `).join('');
 }
@@ -405,6 +437,7 @@ async function salvarOS(osId) {
     cliente_id: document.getElementById('os-cliente').value,
     maquina_id: document.getElementById('os-maquina').value,
     mecanico_id: document.getElementById('os-mecanico').value,
+    horimetro: document.getElementById('os-horimetro') ? document.getElementById('os-horimetro').value : '',
     descricao_problema: document.getElementById('os-problema').value,
     diagnostico: document.getElementById('os-diagnostico').value,
     solucao: document.getElementById('os-solucao').value,
@@ -504,7 +537,8 @@ async function gerarPDFOS(osId) {
           <div>
             <div style="background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%); color: white; padding: 6px 12px; border-radius: 4px 4px 0 0; font-size: 0.95em; font-weight: 700;">🚜 Máquina</div>
             <div style="border: 1px solid #e2e8f0; border-top: none; padding: 10px; border-radius: 0 0 4px 4px; background: #f8fafc;">
-              <strong style="font-size: 0.75em; color: #475569;">MODELO</strong><br><span style="font-size: 0.9em;">${os.maquina_modelo}</span>
+              <strong style="font-size: 0.75em; color: #475569;">MODELO</strong><br><span style="font-size: 0.9em;">${os.maquina_modelo}${os.maquina_id_frota ? ` (ID Frota: ${os.maquina_id_frota})` : ''}</span>
+              ${os.horimetro ? `<br><strong style="font-size: 0.75em; color: #475569; margin-top: 6px; display: inline-block;">HORÍMETRO (TEMPO DE TRABALHO)</strong><br><span style="font-size: 0.9em;">${os.horimetro}</span>` : ''}
             </div>
           </div>
           <div>
@@ -624,13 +658,16 @@ async function gerarPDFOS(osId) {
 }
 
 function fecharModal(modalId) {
+  if (window._currentRecognition) {
+    try { window._currentRecognition.stop(); } catch (e) {}
+  }
   const modal = document.getElementById(modalId);
   if (modal) modal.remove();
 }
 
 function showAlert(message, type) {
   const alertDiv = document.createElement('div');
-  alertDiv.style.cssText = `position: fixed; top: 20px; right: 20px; padding: 15px 25px; border - radius: 8px; color: white; font - weight: 600; z - index: 9999; background: ${type === 'success' ? 'var(--success)' : 'var(--danger)'}; `;
+  alertDiv.style.cssText = `position: fixed; top: 20px; right: 20px; padding: 15px 25px; border-radius: 8px; color: white; font-weight: 600; z-index: 9999; background: ${type === 'success' ? 'var(--success)' : 'var(--danger)'};`;
   alertDiv.textContent = message;
   document.body.appendChild(alertDiv);
   setTimeout(() => alertDiv.remove(), 3000);
@@ -639,5 +676,79 @@ function showAlert(message, type) {
 async function loadOrdens() {
   if (typeof loadOrdensServico === 'function') await loadOrdensServico();
 }
+
+// Reconhecimento de Voz (Voz em Texto / Ditado)
+window.iniciarDitadoVoz = function(targetInputId, btnElement) {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    alert('O reconhecimento de voz nativo não está disponível neste navegador. Recomendamos o uso do Google Chrome, Microsoft Edge ou Safari.');
+    return;
+  }
+
+  // Se já estiver ouvindo para este mesmo campo, interrompe
+  if (window._currentRecognition && window._currentRecognitionTarget === targetInputId) {
+    window._currentRecognition.stop();
+    return;
+  }
+
+  // Se houver outro gravador ativo, interrompe
+  if (window._currentRecognition) {
+    try { window._currentRecognition.stop(); } catch (e) {}
+  }
+
+  const recognition = new SpeechRecognition();
+  recognition.lang = 'pt-BR';
+  recognition.continuous = true;
+  recognition.interimResults = true;
+
+  const targetInput = document.getElementById(targetInputId);
+  if (!targetInput) return;
+
+  const originalHTML = btnElement.innerHTML;
+  btnElement.innerHTML = '🔴 Ouvindo... (Clique p/ parar)';
+  btnElement.classList.add('recording-pulse');
+
+  window._currentRecognition = recognition;
+  window._currentRecognitionTarget = targetInputId;
+
+  const initialVal = targetInput.value ? (targetInput.value.trim() + ' ') : '';
+  let finalTranscript = '';
+
+  recognition.onresult = (event) => {
+    let interimTranscript = '';
+    for (let i = event.resultIndex; i < event.results.length; ++i) {
+      if (event.results[i].isFinal) {
+        finalTranscript += event.results[i][0].transcript + ' ';
+      } else {
+        interimTranscript += event.results[i][0].transcript;
+      }
+    }
+    targetInput.value = initialVal + finalTranscript + interimTranscript;
+    targetInput.scrollTop = targetInput.scrollHeight;
+  };
+
+  recognition.onerror = (event) => {
+    console.warn('Erro no reconhecimento de voz:', event.error);
+    if (event.error === 'not-allowed') {
+      alert('Permissão de microfone negada. Permita o uso do microfone nas configurações do seu navegador para usar o ditado por voz.');
+    }
+  };
+
+  recognition.onend = () => {
+    btnElement.innerHTML = originalHTML;
+    btnElement.classList.remove('recording-pulse');
+    window._currentRecognition = null;
+    window._currentRecognitionTarget = null;
+    targetInput.dispatchEvent(new Event('input', { bubbles: true }));
+  };
+
+  try {
+    recognition.start();
+  } catch (err) {
+    console.error('Falha ao iniciar microfone:', err);
+    btnElement.innerHTML = originalHTML;
+    btnElement.classList.remove('recording-pulse');
+  }
+};
 
 window.gerarPDFOS = gerarPDFOS;

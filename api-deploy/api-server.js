@@ -256,15 +256,16 @@ app.post('/api/maquinas', authenticateToken, async (req, res) => {
         // Mapeamento de campos do Front-end para o Banco com fallbacks para evitar erros de NOT NULL
         const tipo = req.body.tipo || 'Geral';
         const numero_serie = req.body.numero_serie || '';
+        const id_frota = req.body.id_frota || '';
         const observacoes = req.body.observacoes || '';
         const ano_fabricacao = req.body.ano_fabricacao || req.body.ano || null;
         const horas_uso = req.body.horas_uso || 0;
 
         const result = await pool.query(
-            `INSERT INTO maquinas (cliente_id, tipo, modelo, numero_serie, ano_fabricacao, horas_uso, observacoes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+            `INSERT INTO maquinas (cliente_id, tipo, modelo, numero_serie, ano_fabricacao, horas_uso, observacoes, id_frota)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
-            [cliente_id, tipo, modelo, numero_serie, ano_fabricacao, horas_uso, observacoes]
+            [cliente_id, tipo, modelo, numero_serie, ano_fabricacao, horas_uso, observacoes, id_frota]
         );
 
         res.json({ success: true, maquina: result.rows[0] });
@@ -279,21 +280,44 @@ app.put('/api/maquinas/:id', authenticateToken, async (req, res) => {
     try {
         const { id } = req.params;
         const { cliente_id, tipo, modelo, numero_serie, ano_fabricacao, horas_uso, observacoes } = req.body;
+        const id_frota = req.body.id_frota !== undefined ? req.body.id_frota : '';
 
         const result = await pool.query(
             `UPDATE maquinas 
        SET cliente_id = $1, tipo = $2, modelo = $3, numero_serie = $4, 
-           ano_fabricacao = $5, horas_uso = $6, observacoes = $7,
+           ano_fabricacao = $5, horas_uso = $6, observacoes = $7, id_frota = $8,
            updated_at = CURRENT_TIMESTAMP
-       WHERE id = $8
+       WHERE id = $9
        RETURNING *`,
-            [cliente_id, tipo, modelo, numero_serie, ano_fabricacao, horas_uso, observacoes, id]
+            [cliente_id, tipo, modelo, numero_serie, ano_fabricacao, horas_uso, observacoes, id_frota, id]
         );
 
         res.json({ success: true, maquina: result.rows[0] });
     } catch (error) {
         console.error('Erro ao atualizar máquina:', error);
         res.status(500).json({ success: false, message: 'Erro no servidor' });
+    }
+});
+
+// Atualizar horímetro de uma máquina
+app.patch('/api/maquinas/:id/horimetro', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { horas_uso } = req.body;
+        const hNum = parseFloat(String(horas_uso).replace(',', '.'));
+        if (isNaN(hNum) || hNum < 0) {
+            return res.status(400).json({ success: false, message: 'Horímetro inválido' });
+        }
+        const result = await pool.query(
+            `UPDATE maquinas SET horas_uso = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *`,
+            [hNum, id]
+        );
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Máquina não encontrada' });
+        }
+        res.json({ success: true, maquina: result.rows[0] });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 
@@ -382,17 +406,34 @@ app.post('/api/ordens', authenticateToken, async (req, res) => {
             numero_os = `OS-${ano}-${proximo.toString().padStart(5, '0')}`;
         }
 
+        const horimetro = req.body.horimetro || null;
+
         const result = await pool.query(
             `INSERT INTO ordens_servico 
        (numero_os, cliente_id, maquina_id, mecanico_id, status, prioridade,
         descricao_problema, diagnostico, servicos_realizados,
-        valor_mao_obra, valor_pecas, valor_total, observacoes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        valor_mao_obra, valor_pecas, valor_total, observacoes, horimetro)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        RETURNING *`,
             [numero_os, cliente_id, maquina_id, mecanico_id, status || 'ABERTA', prioridade || 'MEDIA',
                 descricao_problema, diagnostico, servicos_realizados,
-                valor_mao_obra, valor_pecas, valor_total, observacoes]
+                valor_mao_obra, valor_pecas, valor_total, observacoes, horimetro]
         );
+
+        // Atualizar horímetro da máquina se informado
+        if (horimetro && maquina_id) {
+            const hNum = parseFloat(String(horimetro).replace(',', '.'));
+            if (!isNaN(hNum) && hNum > 0) {
+                try {
+                    await pool.query(
+                        `UPDATE maquinas SET horas_uso = GREATEST(COALESCE(horas_uso, 0), $1), updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
+                        [hNum, maquina_id]
+                    );
+                } catch (eH) {
+                    console.error('Erro ao atualizar horas_uso da máquina:', eH);
+                }
+            }
+        }
 
         res.json({ success: true, ordem: result.rows[0], numero_os });
     } catch (error) {
@@ -426,6 +467,8 @@ app.put('/api/ordens/:id', authenticateToken, async (req, res) => {
         // Cálculo de valor total
         const valor_total = req.body.valor_total || (valor_mao_obra + valor_pecas + ((km_ida + km_volta) * valor_por_km));
 
+        const horimetro = req.body.horimetro !== undefined ? req.body.horimetro : null;
+
         const result = await pool.query(
             `UPDATE ordens_servico 
        SET status = $1, prioridade = $2, descricao_problema = $3, 
@@ -433,8 +476,9 @@ app.put('/api/ordens/:id', authenticateToken, async (req, res) => {
            valor_pecas = $7, valor_total = $8, observacoes = $9, 
            data_fechamento = $10, cliente_id = $11, maquina_id = $12,
            mecanico_id = $13, km_ida = $14, km_volta = $15, valor_por_km = $16,
+           horimetro = $17,
            updated_at = CURRENT_TIMESTAMP
-       WHERE id = $17
+       WHERE id = $18
        RETURNING *`,
             [
                 status || 'ABERTA',
@@ -453,12 +497,29 @@ app.put('/api/ordens/:id', authenticateToken, async (req, res) => {
                 km_ida,
                 km_volta,
                 valor_por_km,
+                horimetro,
                 id
             ]
         );
 
         if (result.rows.length === 0) {
             return res.status(404).json({ success: false, message: 'Ordem de serviço não encontrada' });
+        }
+
+        // Atualizar horímetro da máquina se informado
+        const targetMaqId = machine_id || req.body.maquina_id;
+        if (horimetro && targetMaqId) {
+            const hNum = parseFloat(String(horimetro).replace(',', '.'));
+            if (!isNaN(hNum) && hNum > 0) {
+                try {
+                    await pool.query(
+                        `UPDATE maquinas SET horas_uso = GREATEST(COALESCE(horas_uso, 0), $1), updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
+                        [hNum, targetMaqId]
+                    );
+                } catch (eH) {
+                    console.error('Erro ao atualizar horas_uso da máquina:', eH);
+                }
+            }
         }
 
         res.json({ success: true, ordem: result.rows[0] });

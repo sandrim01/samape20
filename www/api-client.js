@@ -1,7 +1,14 @@
 // Configuração da API para Web e Mobile
+const isCapacitor = typeof window !== 'undefined' && (window.Capacitor !== undefined || window.location.protocol === 'capacitor:');
+const isLocalBrowser = typeof window !== 'undefined' && 
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && 
+    !isCapacitor;
+
 const API_CONFIG = {
-    // URL da API - Railway
-    BASE_URL: 'https://samape20-estudioio.up.railway.app/api',
+    // URL da API - Local se estiver no navegador localhost, ou Railway em produção/mobile
+    BASE_URL: isLocalBrowser 
+        ? `${window.location.origin}/api` 
+        : 'https://samape20-estudioio.up.railway.app/api',
 
     // Token de autenticação
     getToken: () => localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token'),
@@ -225,6 +232,10 @@ const WebAPI = {
 
     async excluirMaquina(id) {
         return await apiFetch(`/maquinas/${id}`, { method: 'DELETE' });
+    },
+
+    async atualizarHorimetroMaquina(id, horas_uso) {
+        return await apiFetch(`/maquinas/${id}/horimetro`, { method: 'PATCH', body: JSON.stringify({ horas_uso }) });
     },
 
     // Ordens de Serviço

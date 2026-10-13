@@ -353,9 +353,11 @@ ipcMain.handle('criar-maquina', async (event, dados) => {
     const ano = parseInt(dados.ano_fabricacao || dados.ano) || null;
     const tipo = dados.tipo || 'Geral';
 
+    const horasUso = parseFloat(dados.horas_uso) || 0;
+
     const result = await pool.query(
-      'INSERT INTO maquinas (cliente_id, modelo, numero_serie, ano_fabricacao, observacoes, tipo, ativo) VALUES ($1, $2, $3, $4, $5, $6, true) RETURNING id',
-      [clienteId, dados.modelo, dados.numero_serie, ano, dados.observacoes, tipo]
+      'INSERT INTO maquinas (cliente_id, modelo, numero_serie, ano_fabricacao, observacoes, tipo, id_frota, horas_uso, ativo) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true) RETURNING id',
+      [clienteId, dados.modelo, dados.numero_serie, ano, dados.observacoes, tipo, dados.id_frota || '', horasUso]
     );
     return { success: true, id: result.rows[0].id };
   } catch (error) {
@@ -399,11 +401,18 @@ ipcMain.handle('atualizar-maquina', async (event, id, dados) => {
     const clienteId = parseInt(dados.cliente_id);
     const ano = parseInt(dados.ano_fabricacao || dados.ano) || null;
     const tipo = dados.tipo || 'Geral';
+    const horasUso = dados.horas_uso !== undefined ? parseFloat(dados.horas_uso) || 0 : undefined;
 
-    await pool.query(
-      'UPDATE maquinas SET cliente_id = $1, modelo = $2, numero_serie = $3, ano_fabricacao = $4, observacoes = $5, tipo = $6, updated_at = CURRENT_TIMESTAMP WHERE id = $7',
-      [clienteId, dados.modelo, dados.numero_serie, ano, dados.observacoes, tipo, id]
-    );
+    let updateQuery = 'UPDATE maquinas SET cliente_id = $1, modelo = $2, numero_serie = $3, ano_fabricacao = $4, observacoes = $5, tipo = $6, id_frota = $7';
+    const params = [clienteId, dados.modelo, dados.numero_serie, ano, dados.observacoes, tipo, dados.id_frota !== undefined ? dados.id_frota : ''];
+    if (horasUso !== undefined) {
+      params.push(horasUso);
+      updateQuery += `, horas_uso = $${params.length}`;
+    }
+    params.push(id);
+    updateQuery += `, updated_at = CURRENT_TIMESTAMP WHERE id = $${params.length}`;
+
+    await pool.query(updateQuery, params);
     return { success: true };
   } catch (error) {
     console.error('Erro ao atualizar máquina:', error);
@@ -439,8 +448,8 @@ ipcMain.handle('criar-os', async (event, dados) => {
 
     const result = await pool.query(
       `INSERT INTO ordens_servico 
-      (numero_os, cliente_id, maquina_id, mecanico_id, status, prioridade, descricao_problema, diagnostico, km_ida, km_volta, valor_por_km, valor_mao_obra, valor_pecas, valor_total, observacoes, listagem_pecas_id)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING id`,
+      (numero_os, cliente_id, maquina_id, mecanico_id, status, prioridade, descricao_problema, diagnostico, km_ida, km_volta, valor_por_km, valor_mao_obra, valor_pecas, valor_total, observacoes, listagem_pecas_id, horimetro)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) RETURNING id`,
       [
         numero_os,
         parseInt(dados.cliente_id),
@@ -457,7 +466,8 @@ ipcMain.handle('criar-os', async (event, dados) => {
         parseFloat(dados.valor_pecas) || 0,
         valor_total,
         dados.observacoes,
-        dados.listagem_pecas_id || null
+        dados.listagem_pecas_id || null,
+        dados.horimetro || null
       ]
     );
     return { success: true, id: result.rows[0].id, numero_os };
@@ -552,9 +562,9 @@ ipcMain.handle('atualizar-os', async (event, { id, dados }) => {
            descricao_problema = $5, diagnostico = $6, km_ida = $7, km_volta = $8, 
            valor_por_km = $9, valor_mao_obra = $10, valor_pecas = $11, 
            valor_total = $12, observacoes = $13, data_fechamento = $14,
-           listagem_pecas_id = $15,
+           listagem_pecas_id = $15, horimetro = $16,
            updated_at = CURRENT_TIMESTAMP 
-       WHERE id = $16`,
+       WHERE id = $17`,
       [
         parseInt(dados.cliente_id),
         parseInt(dados.maquina_id),
@@ -571,6 +581,7 @@ ipcMain.handle('atualizar-os', async (event, { id, dados }) => {
         dados.observacoes,
         dataFechamento,
         dados.listagem_pecas_id || null,
+        dados.horimetro !== undefined ? dados.horimetro : null,
         id
       ]
     );

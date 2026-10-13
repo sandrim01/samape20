@@ -136,10 +136,9 @@ function renderLogin() {
 function renderMainApp() {
   return `
     <div class="app-container">
-      <div class="sidebar-overlay" id="menu-overlay"></div>
+      ${renderMobileSidebar()}
       <div class="main-content">
         ${renderTopbar()}
-        ${renderSidebar()}
         <div class="content-area" id="content-area">
           ${renderPage()}
         </div>
@@ -148,54 +147,25 @@ function renderMainApp() {
   `;
 }
 
-function renderSidebar() {
-  const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: '📊', permission: 'dashboard' },
-    { section: 'Operacional' },
-    { id: 'ordens-servico', label: 'Ordens de Serviço', icon: '🔧', permission: 'operacional' },
-    { id: 'listagens-pecas', label: 'Listagem de Peças', icon: '📝', permission: 'listagens-pecas' },
-    { id: 'maquinas', label: 'Máquinas', icon: '🚜', permission: 'operacional' },
-    { section: 'Vendas e Estoque' },
-    { id: 'vendas', label: 'Vendas de Peças', icon: '🛒', permission: 'vendas' },
-    { id: 'pecas', label: 'Estoque de Peças', icon: '📦', permission: 'pecas' },
-    { section: 'Cadastros' },
-    { id: 'clientes', label: 'Clientes', icon: '👥', permission: 'clientes' },
-    { section: 'Sistema' },
-    { id: 'usuarios', label: 'Usuários', icon: '👤', permission: '*' }
-  ];
+window.toggleMobileSidebar = function (open) {
+  const sidebar = document.getElementById('mobile-sidebar');
+  const overlay = document.getElementById('mobile-sidebar-overlay');
+  if (!sidebar || !overlay) return;
 
-  let navHTML = '';
-  let currentSection = '';
+  const shouldOpen = open !== undefined ? open : !sidebar.classList.contains('open');
+  if (shouldOpen) {
+    sidebar.classList.add('open');
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  } else {
+    sidebar.classList.remove('open');
+    overlay.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+};
 
-  navItems.forEach(item => {
-    if (item.section) {
-      if (currentSection) navHTML += '</div></div>';
-      const isExpanded = AppState.expandedSections.includes(item.section);
-      navHTML += `
-        <div class="cascade-section">
-          <div class="cascade-section-header" onclick="toggleSection('${item.section}')">
-            <span>${item.section}</span>
-            <span class="chevron">${isExpanded ? '▼' : '▶'}</span>
-          </div>
-          <div class="cascade-section-content ${isExpanded ? 'expanded' : ''}">
-      `;
-      currentSection = item.section;
-    } else if (hasPermission(item.permission)) {
-      const active = AppState.currentPage === item.id ? 'active' : '';
-      navHTML += `
-        <div class="nav-item ${active}" data-page="${item.id}">
-          <span class="nav-icon">${item.icon}</span>
-          <span>${item.label}</span>
-        </div>
-      `;
-    }
-  });
-
-  if (currentSection) navHTML += '</div></div>';
-
+function renderMobileSidebar() {
   const userName = AppState.currentUser ? (AppState.currentUser.nome || 'Usuário') : 'Usuário';
-  const initials = userName.split(' ').filter(n => n).map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'U';
-
   const roleLabels = {
     ADMIN: 'Administrador',
     DIRETOR: 'Diretor',
@@ -203,59 +173,241 @@ function renderSidebar() {
     VENDAS: 'Vendas',
     MECANICO: 'Mecânico'
   };
+  const userRole = AppState.currentUser ? (roleLabels[AppState.currentUser.perfil] || AppState.currentUser.perfil || 'Usuário') : 'Usuário';
+  const initials = userName.split(' ').filter(n => n).map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'U';
 
   return `
-    <div class="cascade-menu ${AppState.menuOpen ? 'open' : ''}" id="cascade-menu">
-      <div class="menu-content">
-        ${navHTML}
-
-        <div class="menu-footer">
-          <div class="user-info-brief">
-            <div class="user-avatar-sm">${initials}</div>
-            <div class="user-details-sm">
-              <div class="user-name-sm">${userName}</div>
-            </div>
+    <div id="mobile-sidebar-overlay" class="mobile-sidebar-overlay" onclick="toggleMobileSidebar(false)"></div>
+    <aside id="mobile-sidebar" class="mobile-sidebar">
+      <div class="mobile-sidebar-header">
+        <div style="display: flex; align-items: center; gap: 0.6rem;">
+          <img src="resources/logonova2.png" alt="SAMAPE" style="height: 32px; width: auto;" />
+          <div style="display: flex; flex-direction: column; line-height: 1.1;">
+            <span style="font-weight: 800; font-size: 0.95rem; color: white;">SAMAPE</span>
+            <span style="font-size: 0.7rem; color: var(--primary-light); font-weight: 600;">Operacional</span>
           </div>
-          <button class="btn btn-danger btn-sm" id="logout-btn" style="width: 100%; margin-top: 0.5rem;">
-            Sair
-          </button>
+        </div>
+        <button id="close-mobile-sidebar" class="mobile-sidebar-close" onclick="toggleMobileSidebar(false)" title="Fechar Menu">✕</button>
+      </div>
+
+      <div class="mobile-sidebar-user">
+        <div class="user-avatar-sm" style="width: 40px; height: 40px; font-size: 0.95rem; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-weight: 700; flex-shrink: 0;">
+          ${initials}
+        </div>
+        <div class="mobile-user-info">
+          <strong style="color: var(--text-primary); font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${userName}</strong>
+          <span style="color: var(--text-muted); font-size: 0.75rem;">${userRole}</span>
         </div>
       </div>
-    </div>
+
+      <nav class="mobile-sidebar-nav">
+        <div class="mobile-nav-title">MÓDULO OPERACIONAL</div>
+
+        <button class="mobile-nav-item nav-item ${AppState.currentPage === 'dashboard' ? 'active' : ''}" data-page="dashboard" onclick="toggleMobileSidebar(false)">
+          <span class="mobile-nav-icon">🏠</span>
+          <div class="mobile-nav-text">
+            <span class="mobile-nav-label">Início Operacional</span>
+            <span class="mobile-nav-desc">Acesso rápido e ações principais</span>
+          </div>
+        </button>
+
+        <button class="mobile-nav-item nav-item ${AppState.currentPage === 'ordens-servico' ? 'active' : ''}" data-page="ordens-servico" onclick="toggleMobileSidebar(false)">
+          <span class="mobile-nav-icon">🔧</span>
+          <div class="mobile-nav-text">
+            <span class="mobile-nav-label">Ordens de Serviço</span>
+            <span class="mobile-nav-desc">Consultar e gerenciar OS</span>
+          </div>
+        </button>
+
+        ${hasPermission('listagens-pecas') ? `
+          <button class="mobile-nav-item nav-item ${AppState.currentPage === 'listagens-pecas' ? 'active' : ''}" data-page="listagens-pecas" onclick="toggleMobileSidebar(false)">
+            <span class="mobile-nav-icon">📝</span>
+            <div class="mobile-nav-text">
+              <span class="mobile-nav-label">Listagem de Peças</span>
+              <span class="mobile-nav-desc">Requisições e relatórios</span>
+            </div>
+          </button>
+        ` : ''}
+
+        <button class="mobile-nav-item nav-item ${AppState.currentPage === 'maquinas' ? 'active' : ''}" data-page="maquinas" onclick="toggleMobileSidebar(false)">
+          <span class="mobile-nav-icon">🚜</span>
+          <div class="mobile-nav-text">
+            <span class="mobile-nav-label">Máquinas & Frota</span>
+            <span class="mobile-nav-desc">Cadastro e horímetros</span>
+          </div>
+        </button>
+      </nav>
+
+      <div class="mobile-sidebar-footer">
+        <button class="mobile-btn-logout" id="logout-btn-mobile">
+          <span>🚪</span>
+          <span>Sair do Sistema</span>
+        </button>
+      </div>
+    </aside>
   `;
 }
 
+function renderSidebar() {
+  return '';
+}
+
 function toggleSection(section) {
-  const index = AppState.expandedSections.indexOf(section);
-  if (index > -1) {
-    AppState.expandedSections.splice(index, 1);
-  } else {
-    AppState.expandedSections.push(section);
-  }
-  render();
+  // Mantido para compatibilidade
 }
 
 function renderTopbar() {
-  const pageTitles = {
-    'dashboard': 'Dashboard',
-    'ordens-servico': 'Ordens de Serviço',
-    'maquinas': 'Máquinas',
-    'clientes': 'Clientes',
-    'usuarios': 'Usuários'
+  const userName = AppState.currentUser ? (AppState.currentUser.nome || 'Usuário') : 'Usuário';
+  const roleLabels = {
+    ADMIN: 'Administrador',
+    DIRETOR: 'Diretor',
+    FINANCEIRO: 'Financeiro',
+    VENDAS: 'Vendas',
+    MECANICO: 'Mecânico'
   };
+  const userRole = AppState.currentUser ? (roleLabels[AppState.currentUser.perfil] || AppState.currentUser.perfil || 'Usuário') : 'Usuário';
+  const initials = userName.split(' ').filter(n => n).map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'U';
+
+  const isOpActive = ['ordens-servico', 'listagens-pecas', 'maquinas'].includes(AppState.currentPage);
+  const isVendasActive = ['vendas', 'pecas'].includes(AppState.currentPage);
+  const isCadastrosActive = ['clientes'].includes(AppState.currentPage);
+  const isSistemaActive = ['usuarios'].includes(AppState.currentPage);
 
   return `
     <div class="topbar">
       <div class="topbar-left">
-        <div id="logo-trigger" class="logo-container-small" style="display: flex; align-items: center; gap: 0.5rem;">
-          <img src="resources/logonova2.png" alt="S" style="height: 35px; width: auto; cursor: pointer;" />
-          <span class="mobile-only" style="font-size: 1.2rem; margin-left: 0.25rem;">☰</span>
+        <!-- Botão hambúrguer exclusivo de mobile/tablet -->
+        <button id="mobile-menu-trigger" class="mobile-menu-btn" onclick="toggleMobileSidebar(true)" title="Menu Operacional">
+          <span>☰</span>
+        </button>
+
+        <div class="logo-container-small" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;" onclick="AppState.currentPage = 'dashboard'; render();" title="Ir para o Dashboard">
+          <img src="resources/logonova2.png" alt="SAMAPE" style="height: 38px; width: auto;" />
         </div>
-        <h1 class="page-title">${pageTitles[AppState.currentPage] || 'SAMAPEOP'}</h1>
+
+        <nav class="top-nav-bar" id="top-nav-bar">
+          <!-- Dashboard -->
+          ${hasPermission('dashboard') ? `
+            <button class="top-nav-item nav-item ${AppState.currentPage === 'dashboard' ? 'active' : ''}" data-page="dashboard">
+              <span>📊</span>
+              <span>Dashboard</span>
+            </button>
+          ` : ''}
+
+          <!-- Operacional -->
+          ${(hasPermission('operacional') || hasPermission('listagens-pecas')) ? `
+            <div class="top-nav-dropdown ${isOpActive ? 'active' : ''}">
+              <button class="top-nav-btn" type="button">
+                <span>🔧</span>
+                <span>Operacional</span>
+                <span class="top-nav-arrow">▼</span>
+              </button>
+              <div class="top-nav-menu">
+                ${hasPermission('operacional') ? `
+                  <div class="top-nav-subitem nav-item ${AppState.currentPage === 'ordens-servico' ? 'active' : ''}" data-page="ordens-servico">
+                    <span>🔧</span>
+                    <span>Ordens de Serviço</span>
+                  </div>
+                ` : ''}
+                ${hasPermission('listagens-pecas') ? `
+                  <div class="top-nav-subitem nav-item ${AppState.currentPage === 'listagens-pecas' ? 'active' : ''}" data-page="listagens-pecas">
+                    <span>📝</span>
+                    <span>Listagem de Peças</span>
+                  </div>
+                ` : ''}
+                ${hasPermission('operacional') ? `
+                  <div class="top-nav-subitem nav-item ${AppState.currentPage === 'maquinas' ? 'active' : ''}" data-page="maquinas">
+                    <span>🚜</span>
+                    <span>Máquinas</span>
+                  </div>
+                ` : ''}
+              </div>
+            </div>
+          ` : ''}
+
+          <!-- Vendas e Estoque -->
+          ${(hasPermission('vendas') || hasPermission('pecas')) ? `
+            <div class="top-nav-dropdown ${isVendasActive ? 'active' : ''}">
+              <button class="top-nav-btn" type="button">
+                <span>🛒</span>
+                <span>Vendas e Estoque</span>
+                <span class="top-nav-arrow">▼</span>
+              </button>
+              <div class="top-nav-menu">
+                ${hasPermission('vendas') ? `
+                  <div class="top-nav-subitem nav-item ${AppState.currentPage === 'vendas' ? 'active' : ''}" data-page="vendas">
+                    <span>🛒</span>
+                    <span>Vendas de Peças</span>
+                  </div>
+                ` : ''}
+                ${hasPermission('pecas') ? `
+                  <div class="top-nav-subitem nav-item ${AppState.currentPage === 'pecas' ? 'active' : ''}" data-page="pecas">
+                    <span>📦</span>
+                    <span>Estoque de Peças</span>
+                  </div>
+                ` : ''}
+              </div>
+            </div>
+          ` : ''}
+
+          <!-- Cadastros -->
+          ${hasPermission('clientes') ? `
+            <div class="top-nav-dropdown ${isCadastrosActive ? 'active' : ''}">
+              <button class="top-nav-btn" type="button">
+                <span>👥</span>
+                <span>Cadastros</span>
+                <span class="top-nav-arrow">▼</span>
+              </button>
+              <div class="top-nav-menu">
+                <div class="top-nav-subitem nav-item ${AppState.currentPage === 'clientes' ? 'active' : ''}" data-page="clientes">
+                  <span>👥</span>
+                  <span>Clientes</span>
+                </div>
+              </div>
+            </div>
+          ` : ''}
+
+          <!-- Sistema -->
+          ${hasPermission('*') ? `
+            <div class="top-nav-dropdown ${isSistemaActive ? 'active' : ''}">
+              <button class="top-nav-btn" type="button">
+                <span>⚙️</span>
+                <span>Sistema</span>
+                <span class="top-nav-arrow">▼</span>
+              </button>
+              <div class="top-nav-menu">
+                <div class="top-nav-subitem nav-item ${AppState.currentPage === 'usuarios' ? 'active' : ''}" data-page="usuarios">
+                  <span>👤</span>
+                  <span>Usuários</span>
+                </div>
+              </div>
+            </div>
+          ` : ''}
+        </nav>
       </div>
+
       <div class="topbar-right">
-        <span class="topbar-date-text" style="white-space: nowrap;">${new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })}</span>
-        <span class="desktop-only" style="font-size: 0.7rem; color: var(--text-muted); padding: 0.25rem 0.5rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 4px; margin-left: 0.75rem;">
+        <!-- Botão Rápido Nova OS no topo para Mobile/Tablet -->
+        <button class="btn btn-sm btn-primary mobile-topbar-nova-os" onclick="showNovaOSModal()" title="Criar Nova OS" style="display: none;">
+          <span>+ Nova OS</span>
+        </button>
+
+        <div class="topbar-user-badge" onclick="if (window.innerWidth <= 1024) toggleMobileSidebar(true);" style="cursor: pointer;">
+          <div class="user-avatar-sm" style="width: 32px; height: 32px; font-size: 0.8rem; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-weight: 700;">
+            ${initials}
+          </div>
+          <div class="topbar-user-info">
+            <span class="topbar-user-name">${userName}</span>
+            <span class="topbar-user-role">${userRole}</span>
+          </div>
+        </div>
+
+        <button class="btn btn-sm btn-outline-danger" id="logout-btn" title="Sair do sistema" style="display: flex; align-items: center; gap: 0.35rem; padding: 0.45rem 0.8rem; border-radius: var(--radius); font-weight: 600; cursor: pointer;">
+          <span>Sair</span>
+          <span>🚪</span>
+        </button>
+
+        <span class="desktop-only" style="font-size: 0.7rem; color: var(--text-muted); padding: 0.25rem 0.5rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 4px;">
           v${AppState.version}
         </span>
       </div>
@@ -264,6 +416,11 @@ function renderTopbar() {
 }
 
 function renderPage() {
+  const isMobile = window.innerWidth <= 1024;
+  if (isMobile && !['dashboard', 'ordens-servico', 'listagens-pecas', 'maquinas'].includes(AppState.currentPage)) {
+    AppState.currentPage = 'dashboard';
+  }
+
   switch (AppState.currentPage) {
     case 'dashboard': return renderDashboard();
     case 'ordens-servico': return renderOrdensServico();
@@ -359,131 +516,574 @@ async function confirmarExcluirListagem(id, numero) {
     }
   }
 }
+// ==================== DASHBOARD & RANKINGS ====================
+window._horimetroFilter = window._horimetroFilter || 'TODAS';
+
+window.abrirOSPreventivaParaMaquina = (maquinaId, clienteId, proximaRevisao, horimetroAtual) => {
+  showNovaOSModal({
+    cliente_id: clienteId,
+    maquina_id: maquinaId,
+    horimetro: horimetroAtual ? `${horimetroAtual} h` : '',
+    descricao_problema: `Revisão Preventiva de ${proximaRevisao}h`,
+    diagnostico: `Manutenção preventiva programada de ${proximaRevisao} horas (troca de filtros, óleos lubrificantes e checagem de sistemas).`
+  });
+};
+
+window.showAtualizarHorimetroRapidoModal = (maquinaId, modelo, horimetroAtual) => {
+  showModal(`Atualizar Horímetro: ${modelo}`, `
+    <div class="form-group">
+      <label class="form-label">Horímetro Atual (Horas de Trabalho)</label>
+      <input type="number" step="0.1" class="form-input" id="quick-horimetro-input" value="${horimetroAtual || ''}" placeholder="Ex: 1520" autofocus />
+      <small style="color: var(--text-muted); display: block; margin-top: 0.35rem;">
+        Insira a leitura atual do horímetro da máquina para recalcular as revisões preventivas da frota.
+      </small>
+    </div>
+  `, async () => {
+    const val = parseFloat(document.getElementById('quick-horimetro-input')?.value);
+    if (isNaN(val) || val < 0) {
+      alert('Por favor, informe um valor de horímetro válido.');
+      return;
+    }
+    const res = await window.api.atualizarHorimetroMaquina(maquinaId, val);
+    if (res.success) {
+      await loadMaquinas();
+      closeModal();
+      render();
+    } else {
+      alert('Erro ao atualizar horímetro: ' + (res.message || 'Erro desconhecido'));
+    }
+  });
+};
+
+function renderRankingMecanicosCard() {
+  const ordens = AppState.data.ordens || [];
+  const usuarios = AppState.data.usuarios || [];
+
+  const mecanicosMap = {};
+
+  // Incluir mecânicos do sistema
+  usuarios.forEach(u => {
+    if (u.cargo === 'MECANICO' || u.cargo === 'ADMIN') {
+      mecanicosMap[u.id] = {
+        id: u.id,
+        nome: u.nome,
+        total: 0,
+        fechadas: 0,
+        em_andamento: 0
+      };
+    }
+  });
+
+  ordens.forEach(os => {
+    if (os.status === 'CANCELADA') return;
+    const mecId = os.mecanico_id;
+    if (mecId) {
+      if (!mecanicosMap[mecId]) {
+        mecanicosMap[mecId] = {
+          id: mecId,
+          nome: os.mecanico_nome || 'Mecânico #' + mecId,
+          total: 0,
+          fechadas: 0,
+          em_andamento: 0
+        };
+      }
+      mecanicosMap[mecId].total++;
+      if (os.status === 'FECHADA') mecanicosMap[mecId].fechadas++;
+      else mecanicosMap[mecId].em_andamento++;
+    }
+  });
+
+  const list = Object.values(mecanicosMap).sort((a, b) => b.total - a.total);
+  const maxTotal = list.length > 0 && list[0].total > 0 ? list[0].total : 1;
+  const podium = ['🥇', '🥈', '🥉'];
+  const avatarColors = ['#f59e0b', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899', '#6366f1'];
+
+  return `
+    <div class="card" style="height: 100%; display: flex; flex-direction: column;">
+      <div class="card-header">
+        <h2 class="card-title" style="display: flex; align-items: center; gap: 0.5rem;">
+          <span>👨‍🔧</span> Ranking de Manutenção por Mecânico
+        </h2>
+        <span class="badge badge-primary" style="font-size: 0.75rem;">${list.filter(m => m.total > 0).length} Com OS</span>
+      </div>
+
+      <div class="ranking-list" style="flex: 1; overflow-y: auto; max-height: 380px;">
+        ${list.length === 0 || list.every(m => m.total === 0) ? `
+          <div class="empty-state" style="padding: 2.5rem 1rem;">
+            <div class="empty-state-icon">👨‍🔧</div>
+            <div class="empty-state-title">Nenhum serviço registrado</div>
+            <div class="empty-state-description">Atribua mecânicos às Ordens de Serviço para gerar o ranking.</div>
+          </div>
+        ` : list.map((mec, index) => {
+          const initials = mec.nome.split(' ').filter(n => n).map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'M';
+          const pct = Math.round((mec.total / maxTotal) * 100);
+          const icon = podium[index] || `<span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 700;">#${index + 1}</span>`;
+          const avatarColor = avatarColors[index % avatarColors.length];
+
+          return `
+            <div class="ranking-item">
+              <div class="podium-icon">${icon}</div>
+              <div class="ranking-avatar" style="background: ${avatarColor};">
+                ${initials}
+              </div>
+              <div class="ranking-details">
+                <div class="ranking-name" title="${mec.nome}">${mec.nome}</div>
+                <div class="ranking-sub">
+                  <span style="color: var(--success); font-weight: 600;">✓ ${mec.fechadas} finalizadas</span>
+                  <span>•</span>
+                  <span style="color: var(--warning); font-weight: 600;">⚡ ${mec.em_andamento} em aberto</span>
+                </div>
+                <div class="ranking-bar-bg">
+                  <div class="ranking-bar-fill" style="width: ${pct}%; background: ${avatarColor};"></div>
+                </div>
+              </div>
+              <div class="ranking-count-badge">
+                <div style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary);">${mec.total}</div>
+                <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 500;">OS Total</div>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function renderRankingEmpresasCard() {
+  const ordens = AppState.data.ordens || [];
+  const clientes = AppState.data.clientes || [];
+
+  const empresasMap = {};
+  clientes.forEach(c => {
+    empresasMap[c.id] = {
+      id: c.id,
+      nome: c.nome,
+      total_os: 0,
+      abertas: 0,
+      fechadas: 0,
+      valor_total: 0
+    };
+  });
+
+  ordens.forEach(os => {
+    if (os.status === 'CANCELADA') return;
+    const cId = os.cliente_id;
+    if (!cId) return;
+
+    if (!empresasMap[cId]) {
+      empresasMap[cId] = {
+        id: cId,
+        nome: os.cliente_nome || 'Cliente #' + cId,
+        total_os: 0,
+        abertas: 0,
+        fechadas: 0,
+        valor_total: 0
+      };
+    }
+
+    empresasMap[cId].total_os++;
+    if (os.status === 'FECHADA') empresasMap[cId].fechadas++;
+    else empresasMap[cId].abertas++;
+    empresasMap[cId].valor_total += parseFloat(os.valor_total || 0);
+  });
+
+  const list = Object.values(empresasMap)
+    .filter(e => e.total_os > 0)
+    .sort((a, b) => b.total_os - a.total_os);
+
+  const top5 = list.slice(0, 5);
+  const maxTotal = top5.length > 0 ? top5[0].total_os : 1;
+  const podium = ['🥇', '🥈', '🥉'];
+  const avatarColors = ['#2563eb', '#059669', '#d97706', '#7c3aed', '#db2777'];
+
+  return `
+    <div class="card" style="height: 100%; display: flex; flex-direction: column;">
+      <div class="card-header">
+        <h2 class="card-title" style="display: flex; align-items: center; gap: 0.5rem;">
+          <span>🏢</span> Ranking de Empresas com Maior Fluxo de Manutenção (Top 5)
+        </h2>
+        <span class="badge badge-secondary" style="font-size: 0.75rem;">Top 5 Empresas</span>
+      </div>
+
+      <div class="ranking-list" style="flex: 1; overflow-y: auto; max-height: 400px;">
+        ${top5.length === 0 ? `
+          <div class="empty-state" style="padding: 2.5rem 1rem;">
+            <div class="empty-state-icon">🏢</div>
+            <div class="empty-state-title">Nenhum fluxo registrado</div>
+            <div class="empty-state-description">Abra ordens de serviço vinculadas a clientes para gerar o ranking.</div>
+          </div>
+        ` : top5.map((emp, index) => {
+          const initials = emp.nome.split(' ').filter(n => n).map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'E';
+          const pct = Math.round((emp.total_os / maxTotal) * 100);
+          const icon = podium[index] || `<span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 700;">#${index + 1}</span>`;
+          const avatarColor = avatarColors[index % avatarColors.length];
+
+          return `
+            <div class="ranking-item" style="cursor: pointer;" onclick="AppState.filters.ordens.search = '${emp.nome.replace(/'/g, "\\'")}'; AppState.currentPage = 'ordens-servico'; render();" title="Clique para filtrar as OS desta empresa">
+              <div class="podium-icon">${icon}</div>
+              <div class="ranking-avatar" style="background: ${avatarColor};">
+                ${initials}
+              </div>
+              <div class="ranking-details">
+                <div class="ranking-name" title="${emp.nome}">${emp.nome}</div>
+                <div class="ranking-sub">
+                  <span style="color: var(--success); font-weight: 600;">${emp.fechadas} finalizadas</span>
+                  <span>•</span>
+                  <span style="color: var(--warning); font-weight: 600;">${emp.abertas} ativas</span>
+                  ${emp.valor_total > 0 ? `<span>•</span><span style="font-weight: 600; color: var(--text-primary);">R$ ${formatMoney(emp.valor_total)}</span>` : ''}
+                </div>
+                <div class="ranking-bar-bg">
+                  <div class="ranking-bar-fill" style="width: ${pct}%; background: ${avatarColor};"></div>
+                </div>
+              </div>
+              <div class="ranking-count-badge">
+                <div style="font-size: 1.15rem; font-weight: 700; color: var(--primary-light);">${emp.total_os}</div>
+                <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 500;">Manutenções</div>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function renderControleHorimetrosCard() {
+  const maquinas = AppState.data.maquinas || [];
+  const intervaloPadrao = 250; // Revisão preventiva a cada 250h
+
+  // Calcular métricas de horímetro e revisão preventiva por máquina
+  const maquinasCalculadas = maquinas.map(m => {
+    const horimetroAtual = parseFloat(m.horas_uso || 0);
+    const proximaRevisao = horimetroAtual <= 0 ? 250 : Math.ceil((horimetroAtual + 0.1) / intervaloPadrao) * intervaloPadrao;
+    const horasRestantes = proximaRevisao - horimetroAtual;
+    const progressoIntervalo = Math.min(100, Math.max(0, Math.round(((intervaloPadrao - horasRestantes) / intervaloPadrao) * 100)));
+
+    let status = 'EM_DIA';
+    let statusLabel = 'Em dia';
+    let statusBadge = 'badge-success';
+    let barColor = 'var(--success)';
+
+    if (horasRestantes <= 0) {
+      status = 'VENCIDA';
+      statusLabel = 'Revisão Vencida!';
+      statusBadge = 'badge-danger';
+      barColor = 'var(--danger)';
+    } else if (horasRestantes <= 40) {
+      status = 'PROXIMA';
+      statusLabel = 'Próxima da Revisão';
+      statusBadge = 'badge-warning';
+      barColor = 'var(--warning)';
+    }
+
+    return {
+      ...m,
+      horimetroAtual,
+      proximaRevisao,
+      horasRestantes,
+      progressoIntervalo,
+      status,
+      statusLabel,
+      statusBadge,
+      barColor
+    };
+  });
+
+  // Ordenar priorizando as que mais necessitam de revisão preventiva
+  maquinasCalculadas.sort((a, b) => a.horasRestantes - b.horasRestantes);
+
+  const totalVencidas = maquinasCalculadas.filter(m => m.status === 'VENCIDA').length;
+  const totalProximas = maquinasCalculadas.filter(m => m.status === 'PROXIMA').length;
+  const totalEmDia = maquinasCalculadas.filter(m => m.status === 'EM_DIA').length;
+
+  const currentFilter = window._horimetroFilter;
+  const filtradas = maquinasCalculadas.filter(m => {
+    if (currentFilter === 'ATENCAO') return m.status === 'VENCIDA' || m.status === 'PROXIMA';
+    if (currentFilter === 'EM_DIA') return m.status === 'EM_DIA';
+    return true; // TODAS
+  });
+
+  return `
+    <div class="card" style="margin-top: 1.5rem;">
+      <div class="card-header" style="flex-wrap: wrap; gap: 0.75rem;">
+        <div>
+          <h2 class="card-title" style="display: flex; align-items: center; gap: 0.5rem;">
+            <span>⏱️</span> Controle de Horímetros & Previsão de Manutenções Futuras
+          </h2>
+          <small style="color: var(--text-muted); font-size: 0.8rem;">
+            Gestão de horímetro por máquina com ciclos preventivos a cada 250 horas
+          </small>
+        </div>
+        <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+          <span class="badge ${totalVencidas > 0 ? 'badge-danger' : 'badge-secondary'}" style="font-weight: 600;">
+            🔴 ${totalVencidas} Vencidas
+          </span>
+          <span class="badge ${totalProximas > 0 ? 'badge-warning' : 'badge-secondary'}" style="font-weight: 600;">
+            🟡 ${totalProximas} Próximas (&le;40h)
+          </span>
+          <span class="badge badge-success" style="font-weight: 600;">
+            🟢 ${totalEmDia} Em Dia
+          </span>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div class="horimetro-filter-bar" style="margin-bottom: 0;">
+          <button class="horimetro-filter-btn ${currentFilter === 'TODAS' ? 'active' : ''}" onclick="window._horimetroFilter = 'TODAS'; render();">
+            Todas as Máquinas (${maquinasCalculadas.length})
+          </button>
+          <button class="horimetro-filter-btn ${currentFilter === 'ATENCAO' ? 'active' : ''}" onclick="window._horimetroFilter = 'ATENCAO'; render();">
+            ⚠️ Requerem Atenção (${totalVencidas + totalProximas})
+          </button>
+          <button class="horimetro-filter-btn ${currentFilter === 'EM_DIA' ? 'active' : ''}" onclick="window._horimetroFilter = 'EM_DIA'; render();">
+            ✅ Em Dia (${totalEmDia})
+          </button>
+        </div>
+
+        <button class="btn btn-secondary btn-sm" onclick="AppState.currentPage = 'maquinas'; render();" style="font-size: 0.8rem;">
+          Ir para Máquinas →
+        </button>
+      </div>
+
+      <div class="table-container horimetro-table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Frota / Máquina</th>
+              <th>Cliente</th>
+              <th>Horímetro Atual</th>
+              <th>Meta Próx. Revisão</th>
+              <th>Previsão / Faltam</th>
+              <th>Status Preventivo</th>
+              <th style="text-align: right;">Ações Rápidas</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filtradas.length === 0 ? `
+              <tr>
+                <td colspan="7" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+                  Nenhuma máquina encontrada neste filtro de manutenção.
+                </td>
+              </tr>
+            ` : filtradas.map(m => `
+              <tr>
+                <td>
+                  <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    ${m.id_frota ? `<span style="font-weight: 700; color: var(--primary-light); background: rgba(37,99,235,0.15); padding: 0.15rem 0.45rem; border-radius: 4px; font-size: 0.75rem;">${m.id_frota}</span>` : ''}
+                    <div>
+                      <div style="font-weight: 600; color: var(--text-primary);">${m.modelo}</div>
+                      <span class="badge badge-info" style="font-size: 0.65rem; padding: 0.1rem 0.35rem;">${m.tipo || 'Geral'}</span>
+                    </div>
+                  </div>
+                </td>
+                <td title="${m.cliente_nome || '-'}">
+                  <strong>${m.cliente_nome ? (m.cliente_nome.length > 22 ? m.cliente_nome.substring(0, 22) + '...' : m.cliente_nome) : '-'}</strong>
+                </td>
+                <td>
+                  <div style="display: inline-flex; align-items: center; gap: 0.4rem;">
+                    <span style="font-family: monospace; font-size: 0.92rem; font-weight: 700; color: var(--text-primary);">
+                      ⏱️ ${m.horimetroAtual.toLocaleString('pt-BR')} h
+                    </span>
+                    <button class="btn btn-secondary btn-sm" onclick="showAtualizarHorimetroRapidoModal(${m.id}, '${m.modelo.replace(/'/g, "\\'")}', ${m.horimetroAtual})" title="Atualizar leitura do horímetro" style="padding: 0.15rem 0.4rem; font-size: 0.75rem;">
+                      ✏️
+                    </button>
+                  </div>
+                </td>
+                <td>
+                  <span style="font-weight: 600; color: var(--text-secondary);">${m.proximaRevisao.toLocaleString('pt-BR')} h</span>
+                </td>
+                <td>
+                  <div class="horimetro-progress-container">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; font-weight: 600;">
+                      <span style="color: ${m.barColor};">
+                        ${m.horasRestantes <= 0 ? `Venceu há ${Math.abs(m.horasRestantes)}h` : `Faltam ${m.horasRestantes}h`}
+                      </span>
+                      <span style="color: var(--text-muted);">${m.progressoIntervalo}%</span>
+                    </div>
+                    <div class="horimetro-progress-bar">
+                      <div class="horimetro-progress-fill" style="width: ${m.progressoIntervalo}%; background: ${m.barColor};"></div>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <span class="badge ${m.statusBadge}" style="font-size: 0.72rem; padding: 0.25rem 0.6rem; font-weight: 600;">
+                    ${m.statusLabel}
+                  </span>
+                </td>
+                <td style="text-align: right; white-space: nowrap;">
+                  <button class="btn btn-primary btn-sm" onclick="abrirOSPreventivaParaMaquina(${m.id}, ${m.cliente_id || 'null'}, ${m.proximaRevisao}, ${m.horimetroAtual})" style="font-size: 0.75rem; padding: 0.3rem 0.6rem;">
+                    + Abrir OS Preventiva
+                  </button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function renderMobileDashboard() {
+  const stats = AppState.data.stats || {};
+  const firstName = AppState.currentUser?.nome ? AppState.currentUser.nome.split(' ')[0] : 'Usuário';
+
+  return `
+    <div class="mobile-hero-card">
+      <div class="mobile-hero-badge">🔧 SAMAPE OPERACIONAL</div>
+      <h2 class="mobile-hero-title">Olá, ${firstName}!</h2>
+      <p class="mobile-hero-subtitle">Selecione uma opção rápida para iniciar:</p>
+    </div>
+
+    <div class="mobile-giant-actions">
+      <!-- Botão Bem Grande 1: Nova OS -->
+      <button class="btn-giant-mobile btn-giant-primary" onclick="showNovaOSModal()">
+        <div class="btn-giant-icon-box">
+          <span class="btn-giant-icon">➕</span>
+        </div>
+        <div class="btn-giant-content">
+          <span class="btn-giant-title">NOVA ORDEM DE SERVIÇO</span>
+          <span class="btn-giant-subtitle">Abrir chamado, dados da máquina e ditado por voz 🎙️</span>
+        </div>
+        <div class="btn-giant-arrow">➔</div>
+      </button>
+
+      <!-- Botão Bem Grande 2: Nova Listagem de Peças -->
+      <button class="btn-giant-mobile btn-giant-listagem" onclick="mostrarModalListagemPecas()">
+        <div class="btn-giant-icon-box">
+          <span class="btn-giant-icon">📝</span>
+        </div>
+        <div class="btn-giant-content">
+          <span class="btn-giant-title">NOVA LISTAGEM DE PEÇAS</span>
+          <span class="btn-giant-subtitle">Requisitar peças, cotação e orçamento</span>
+        </div>
+        <div class="btn-giant-arrow">➔</div>
+      </button>
+
+      <!-- Botão Bem Grande 3: Listar OS's -->
+      <button class="btn-giant-mobile btn-giant-secondary" onclick="AppState.currentPage = 'ordens-servico'; render();">
+        <div class="btn-giant-icon-box">
+          <span class="btn-giant-icon">📋</span>
+        </div>
+        <div class="btn-giant-content">
+          <span class="btn-giant-title">LISTAR ORDENS DE SERVIÇO</span>
+          <span class="btn-giant-subtitle">Consultar todas as OS, filtrar status e ver detalhes</span>
+        </div>
+        <div class="btn-giant-arrow">➔</div>
+      </button>
+    </div>
+
+    <!-- Indicadores Operacionais Rápidos -->
+    <div class="mobile-op-summary">
+      <div class="mobile-op-chip" onclick="AppState.currentPage = 'ordens-servico'; AppState.filters.ordens.status = 'ABERTA'; render();">
+        <span class="mobile-op-chip-num warning">${stats.os_abertas || 0}</span>
+        <span class="mobile-op-chip-label">OS Abertas</span>
+      </div>
+      <div class="mobile-op-chip" onclick="AppState.currentPage = 'ordens-servico'; AppState.filters.ordens.status = 'EM_ANDAMENTO'; render();">
+        <span class="mobile-op-chip-num info">${stats.os_em_andamento || 0}</span>
+        <span class="mobile-op-chip-label">Em Andamento</span>
+      </div>
+      <div class="mobile-op-chip" onclick="AppState.currentPage = 'maquinas'; render();">
+        <span class="mobile-op-chip-num success">${AppState.data.maquinas?.length || 0}</span>
+        <span class="mobile-op-chip-label">Máquinas</span>
+      </div>
+    </div>
+
+    <!-- Acessos Rápidos Secundários -->
+    <div class="mobile-secondary-grid">
+      ${hasPermission('listagens-pecas') ? `
+        <button class="btn-mobile-shortcut" onclick="AppState.currentPage = 'listagens-pecas'; render();">
+          <span style="font-size: 1.4rem;">📦</span>
+          <span>Ver Listagens de Peças</span>
+        </button>
+      ` : ''}
+      <button class="btn-mobile-shortcut" onclick="AppState.currentPage = 'maquinas'; render();">
+        <span style="font-size: 1.4rem;">🚜</span>
+        <span>Máquinas & Frota</span>
+      </button>
+    </div>
+  `;
+}
+
 function renderDashboard() {
   const stats = AppState.data.stats;
 
   return `
-    <div class="dashboard-welcome">
-      <div class="welcome-text">
-        <h2 style="margin: 0; color: var(--primary);">Olá, ${AppState.currentUser.nome.split(' ')[0]}!</h2>
-        <p style="margin: 0; color: var(--text-muted);">Bem-vindo ao painel de controle do SAMAPEOP.</p>
-      </div>
-      <div class="quick-actions-bar">
-        <button class="btn btn-primary btn-sm" onclick="showNovaOSModal()">+ Nova OS</button>
-        <button class="btn btn-secondary btn-sm" onclick="showNovaVendaModal()">+ Venda</button>
-      </div>
+    <!-- Visão Mobile / Tablet: Botões Grandes Operacionais -->
+    <div class="mobile-dashboard-view">
+      ${renderMobileDashboard()}
     </div>
 
-    <div class="stats-grid">
-      <div class="stat-card premium clickable" onclick="AppState.currentPage = 'ordens-servico'; render();">
-        <div class="stat-header">
-          <span class="stat-label">Ordens Abertas</span>
-          <div class="stat-icon-bg primary">📋</div>
+    <!-- Visão Desktop Completa -->
+    <div class="desktop-dashboard-view">
+      <div class="dashboard-welcome">
+        <div class="welcome-text">
+          <h2 style="margin: 0; color: var(--primary);">Olá, ${AppState.currentUser.nome.split(' ')[0]}!</h2>
+          <p style="margin: 0; color: var(--text-muted);">Bem-vindo ao painel de controle do SAMAPEOP.</p>
         </div>
-        <div class="stat-value-large">${stats.os_abertas || 0}</div>
-        <div class="stat-footer">${stats.os_em_andamento || 0} em andamento</div>
+        <div class="quick-actions-bar">
+          <button class="btn btn-primary btn-sm" onclick="showNovaOSModal()">+ Nova OS</button>
+          <button class="btn btn-secondary btn-sm" onclick="showNovaVendaModal()">+ Venda</button>
+        </div>
       </div>
 
-      <div class="stat-card premium clickable" onclick="AppState.currentPage = 'pecas'; render();">
-        <div class="stat-header">
-          <span class="stat-label">Estoque Crítico</span>
-          <div class="stat-icon-bg warning">📦</div>
-        </div>
-        <div class="stat-value-large">${stats.pecas_estoque_baixo || 0}</div>
-        <div class="stat-footer">Peças abaixo do mínimo</div>
-      </div>
-
-      ${hasPermission('vendas') ? `
-        <div class="stat-card premium clickable" onclick="AppState.currentPage = 'vendas'; render();">
+      <div class="stats-grid">
+        <div class="stat-card premium clickable" onclick="AppState.currentPage = 'ordens-servico'; render();">
           <div class="stat-header">
-            <span class="stat-label">Vendas do Mês</span>
-            <div class="stat-icon-bg info">🛒</div>
+            <span class="stat-label">Ordens Abertas</span>
+            <div class="stat-icon-bg primary">📋</div>
           </div>
-          <div class="stat-value-large">R$ ${formatMoney(stats.vendas_mes?.total || 0)}</div>
-          <div class="stat-footer">${stats.vendas_mes?.count || 0} pedidos</div>
+          <div class="stat-value-large">${stats.os_abertas || 0}</div>
+          <div class="stat-footer">${stats.os_em_andamento || 0} em andamento</div>
         </div>
-      ` : ''}
 
-      <div class="stat-card premium clickable" onclick="AppState.currentPage = 'ordens-servico'; render();">
-        <div class="stat-header">
-          <span class="stat-label">Tempo Médio</span>
-          <div class="stat-icon-bg" style="background: ${getHealthColor(stats.tempo_medio_os)}22; color: ${getHealthColor(stats.tempo_medio_os)};">⚡</div>
+        <div class="stat-card premium clickable" onclick="AppState.currentPage = 'pecas'; render();">
+          <div class="stat-header">
+            <span class="stat-label">Estoque Crítico</span>
+            <div class="stat-icon-bg warning">📦</div>
+          </div>
+          <div class="stat-value-large">${stats.pecas_estoque_baixo || 0}</div>
+          <div class="stat-footer">Peças abaixo do mínimo</div>
         </div>
-        <div class="stat-value-large" style="color: ${getHealthColor(stats.tempo_medio_os)};">${formatAverageTime(stats.tempo_medio_os)}</div>
-        <div class="stat-footer">Tempo de conclusão</div>
+
+        ${hasPermission('vendas') ? `
+          <div class="stat-card premium clickable" onclick="AppState.currentPage = 'vendas'; render();">
+            <div class="stat-header">
+              <span class="stat-label">Vendas do Mês</span>
+              <div class="stat-icon-bg info">🛒</div>
+            </div>
+            <div class="stat-value-large">R$ ${formatMoney(stats.vendas_mes?.total || 0)}</div>
+            <div class="stat-footer">${stats.vendas_mes?.count || 0} pedidos</div>
+          </div>
+        ` : ''}
+
+        <div class="stat-card premium clickable" onclick="AppState.currentPage = 'ordens-servico'; render();">
+          <div class="stat-header">
+            <span class="stat-label">Tempo Médio</span>
+            <div class="stat-icon-bg" style="background: ${getHealthColor(stats.tempo_medio_os)}22; color: ${getHealthColor(stats.tempo_medio_os)};">⚡</div>
+          </div>
+          <div class="stat-value-large" style="color: ${getHealthColor(stats.tempo_medio_os)};">${formatAverageTime(stats.tempo_medio_os)}</div>
+          <div class="stat-footer">Tempo de conclusão</div>
+        </div>
+      </div>
+
+      <!-- Grid: Ordens Recentes e Rankings -->
+      <div class="dashboard-grid-two" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 1.5rem;">
+        <div class="card" style="height: 100%; display: flex; flex-direction: column;">
+          <div class="card-header">
+            <h2 class="card-title">Ordens Recentes</h2>
+            <span class="card-link" onclick="AppState.currentPage = 'ordens-servico'; render();" style="cursor: pointer; color: var(--primary-light); font-size: 0.9rem;">Ver todas →</span>
+          </div>
+          <div style="flex: 1; overflow-y: auto; max-height: 380px;">
+            ${renderOrdensTable(AppState.data.ordens.slice(0, 5), true)}
+          </div>
+        </div>
+
+        ${renderRankingMecanicosCard()}
+
+        ${renderRankingEmpresasCard()}
       </div>
     </div>
-
-    <div class="dashboard-grid-two" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem;">
-      <div class="card">
-        <div class="card-header">
-          <h2 class="card-title">Ordens Recentes</h2>
-          <span class="card-link" onclick="AppState.currentPage = 'ordens-servico'; render();" style="cursor: pointer; color: var(--primary-light); font-size: 0.9rem;">Ver todas →</span>
-        </div>
-        ${renderOrdensTable(AppState.data.ordens.slice(0, 5), true)}
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <h2 class="card-title">Resumo de Atividades</h2>
-        </div>
-        <div class="activity-list">
-          <div class="activity-item" style="display: flex; gap: 1rem; padding: 1rem 0; border-bottom: 1px solid var(--border);">
-            <div class="activity-icon info" style="font-size: 1.5rem;">📝</div>
-            <div class="activity-body">
-              <div class="activity-title" style="font-weight: 600;">Sistema Operacional</div>
-              <div class="activity-time" style="font-size: 0.85rem; color: var(--text-muted);">Conectado ao PostgreSQL Railway</div>
-            </div>
-          </div>
-          <div class="activity-item" style="display: flex; gap: 1rem; padding: 1rem 0; border-bottom: 1px solid var(--border);">
-            <div class="activity-icon success" style="font-size: 1.5rem;">🏢</div>
-            <div class="activity-body">
-              <div class="activity-title" style="font-weight: 600;">${AppState.data.clientes.length} Clientes Ativos</div>
-              <div class="activity-time" style="font-size: 0.85rem; color: var(--text-muted);">Base de dados sincronizada</div>
-            </div>
-          </div>
-          <div class="activity-item" style="display: flex; gap: 1rem; padding: 1rem 0;">
-            <div class="activity-icon primary" style="font-size: 1.5rem;">🚜</div>
-            <div class="activity-body">
-              <div class="activity-title" style="font-weight: 600;">${AppState.data.maquinas.length} Máquinas Registradas</div>
-              <div class="activity-time" style="font-size: 0.85rem; color: var(--text-muted);">Frota completa sob gestão</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    ${AppState.currentUser.cargo === 'ADMIN' ? `
-      <div class="card" style="margin-top: 1.5rem;">
-        <div class="card-header" style="justify-content: space-between; align-items: center;">
-          <h2 class="card-title">Atividades do Sistema (Admin)</h2>
-          <button class="btn btn-secondary btn-sm" onclick="loadLogs().then(render)" style="padding: 0.25rem 0.75rem;">🔄 Atualizar Logs</button>
-        </div>
-        <div class="table-container" style="max-height: 400px; overflow-y: auto;">
-          <table style="font-size: 0.8rem; width: 100%; border-collapse: collapse;">
-            <thead style="position: sticky; top: 0; z-index: 10; background: var(--bg-tertiary);">
-              <tr>
-                <th style="padding: 0.5rem; text-align: left;">Data/Hora</th>
-                <th style="padding: 0.5rem; text-align: left;">Usuário</th>
-                <th style="padding: 0.5rem; text-align: left;">Ação</th>
-                <th style="padding: 0.5rem; text-align: left;" class="desktop-only">IP</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${AppState.data.logs.length === 0 ? '<tr><td colspan="4" style="text-align: center; padding: 2rem; color: var(--text-muted);">Nenhuma atividade recente registrada</td></tr>' :
-        AppState.data.logs.map((log, index) => `
-                <tr style="border-bottom: 1px solid var(--border); ${index % 2 === 0 ? 'background: rgba(255,255,255,0.02);' : ''}">
-                  <td style="white-space: nowrap; padding: 0.5rem;">${new Date(log.created_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
-                  <td style="padding: 0.5rem;"><strong>${log.usuario_nome.split(' ')[0]}</strong></td>
-                  <td style="padding: 0.5rem;"><span class="badge ${log.acao.includes('FALHA') ? 'badge-danger' : 'badge-info'}" style="font-size: 0.6rem; padding: 0.1rem 0.4rem;">${log.acao}</span></td>
-                  <td style="color: var(--text-muted); font-family: monospace; font-size: 0.7rem; padding: 0.5rem;" class="desktop-only">${log.ip}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    ` : ''}
   `;
 }
 
@@ -597,6 +1197,8 @@ function renderMaquinas() {
   const filteredMaquinas = AppState.data.maquinas.filter(maq => {
     return !search ||
       (maq.modelo && maq.modelo.toLowerCase().includes(search.toLowerCase())) ||
+      (maq.id_frota && maq.id_frota.toLowerCase().includes(search.toLowerCase())) ||
+      (maq.tipo && maq.tipo.toLowerCase().includes(search.toLowerCase())) ||
       (maq.cliente_nome && maq.cliente_nome.toLowerCase().includes(search.toLowerCase())) ||
       (maq.numero_serie && maq.numero_serie.toLowerCase().includes(search.toLowerCase()));
   });
@@ -615,7 +1217,7 @@ function renderMaquinas() {
           type="text" 
           class="form-input" 
           id="filtro-busca-maquinas" 
-          placeholder="Buscar por modelo, cliente ou série..." 
+          placeholder="Buscar por frota, modelo, cliente ou série..." 
           value="${search}"
         />
       </div>
@@ -643,7 +1245,9 @@ function renderMaquinasTable(maquinas) {
           <tr>
             <th>Cliente</th>
             <th class="desktop-only">Tipo</th>
+            <th>ID Frota</th>
             <th>Modelo</th>
+            <th>Horímetro</th>
             <th class="desktop-only">Série</th>
             <th class="desktop-only">Ano</th>
             <th class="desktop-only">OBS</th>
@@ -655,7 +1259,9 @@ function renderMaquinasTable(maquinas) {
             <tr>
               <td title="${maq.cliente_nome}">${maq.cliente_nome ? (maq.cliente_nome.split(' ')[0] + '...') : '-'}</td>
               <td class="desktop-only"><span class="badge badge-info" style="font-size: 0.7rem;">${maq.tipo || 'Geral'}</span></td>
+              <td>${maq.id_frota ? `<span style="font-weight: 600; color: var(--primary);">${maq.id_frota}</span>` : '<span style="color: var(--text-muted);">-</span>'}</td>
               <td><strong>${maq.modelo}</strong></td>
+              <td><span class="badge badge-secondary" style="font-weight: 600; font-size: 0.8rem;">⏱️ ${parseFloat(maq.horas_uso || 0).toLocaleString('pt-BR')} h</span></td>
               <td class="desktop-only">${maq.numero_serie || '-'}</td>
               <td class="desktop-only">${maq.ano_fabricacao || maq.ano || '-'}</td>
               <td class="desktop-only">${maq.observacoes || '-'}</td>
@@ -1025,50 +1631,74 @@ function getHealthColor(hours) {
 }
 
 // ==================== EVENT LISTENERS ====================
-// Funções de menu globais
-window.toggleSection = (section) => {
-  const index = AppState.expandedSections.indexOf(section);
-  if (index > -1) {
-    AppState.expandedSections.splice(index, 1);
-  } else {
-    AppState.expandedSections.push(section);
-  }
-  render();
-};
+// Listener global para fechar dropdowns abertos ao clicar fora
+if (!window._topNavClickOutsideBound) {
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.top-nav-dropdown')) {
+      document.querySelectorAll('.top-nav-dropdown.open').forEach(d => {
+        d.classList.remove('open');
+      });
+    }
+  });
+  window._topNavClickOutsideBound = true;
+}
+
+// Listener global para fechar mobile sidebar ao pressionar Escape
+if (!window._mobileSidebarEscBound) {
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && typeof toggleMobileSidebar === 'function') {
+      toggleMobileSidebar(false);
+    }
+  });
+  window._mobileSidebarEscBound = true;
+}
 
 function attachEventListeners() {
   // Navegação
   document.querySelectorAll('.nav-item').forEach(item => {
-    item.addEventListener('click', () => {
+    item.addEventListener('click', (e) => {
+      e.stopPropagation();
       AppState.currentPage = item.dataset.page;
-      AppState.menuOpen = false; // Fecha ao navegar
+      document.querySelectorAll('.top-nav-dropdown.open').forEach(d => {
+        d.classList.remove('open');
+      });
+      if (typeof toggleMobileSidebar === 'function') {
+        toggleMobileSidebar(false);
+      }
       render();
     });
   });
 
-  // Toggle Menu Cascata (Logo)
-  const logoTrigger = document.getElementById('logo-trigger');
-  if (logoTrigger) {
-    logoTrigger.addEventListener('click', () => {
-      AppState.menuOpen = !AppState.menuOpen;
-      render();
-    });
-  }
+  // Toggle dropdowns ao clicar no botão do topo
+  document.querySelectorAll('.top-nav-dropdown').forEach(dropdown => {
+    const btn = dropdown.querySelector('.top-nav-btn');
+    if (btn) {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const wasOpen = dropdown.classList.contains('open');
+        document.querySelectorAll('.top-nav-dropdown.open').forEach(d => {
+          if (d !== dropdown) d.classList.remove('open');
+        });
+        dropdown.classList.toggle('open', !wasOpen);
+      });
+    }
+  });
 
-  // Overlay para fechar menu
-  const overlay = document.getElementById('menu-overlay');
-  if (overlay) {
-    if (AppState.menuOpen) overlay.classList.add('visible');
-    overlay.addEventListener('click', () => {
-      AppState.menuOpen = false;
-      render();
-    });
-  }
-
-  // Logout
+  // Logout Desktop
   const logoutBtn = document.getElementById('logout-btn');
   if (logoutBtn) {
     logoutBtn.addEventListener('click', async () => {
+      await window.api.logout();
+      AppState.currentUser = null;
+      render();
+    });
+  }
+
+  // Logout Mobile
+  const logoutBtnMobile = document.getElementById('logout-btn-mobile');
+  if (logoutBtnMobile) {
+    logoutBtnMobile.addEventListener('click', async () => {
+      if (typeof toggleMobileSidebar === 'function') toggleMobileSidebar(false);
       await window.api.logout();
       AppState.currentUser = null;
       render();
@@ -1321,12 +1951,19 @@ async function showNovaMaquinaModal(maquinaId = null) {
         <input type="text" class="form-input" id="modal-maquina-modelo" value="${maquinaData?.modelo || ''}" required />
       </div>
       <div class="form-group">
+        <label class="form-label">ID Frota</label>
+        <input type="text" class="form-input" id="modal-maquina-id-frota" placeholder="Ex: FR-01" value="${maquinaData?.id_frota || ''}" />
+      </div>
+      <div class="form-group">
         <label class="form-label">Tipo *</label>
         <select class="form-input" id="modal-maquina-tipo" required>
           <option value="Geral" ${maquinaData?.tipo === 'Geral' ? 'selected' : ''}>Geral</option>
           <option value="Trator" ${maquinaData?.tipo === 'Trator' ? 'selected' : ''}>Trator</option>
           <option value="Colheitadeira" ${maquinaData?.tipo === 'Colheitadeira' ? 'selected' : ''}>Colheitadeira</option>
           <option value="Escavadeira" ${maquinaData?.tipo === 'Escavadeira' ? 'selected' : ''}>Escavadeira</option>
+          <option value="Carregadeira" ${maquinaData?.tipo === 'Carregadeira' ? 'selected' : ''}>Carregadeira</option>
+          <option value="Compressor" ${maquinaData?.tipo === 'Compressor' ? 'selected' : ''}>Compressor</option>
+          <option value="Gerador" ${maquinaData?.tipo === 'Gerador' ? 'selected' : ''}>Gerador</option>
           <option value="Caminhão" ${maquinaData?.tipo === 'Caminhão' ? 'selected' : ''}>Caminhão</option>
           <option value="Outro" ${maquinaData?.tipo === 'Outro' ? 'selected' : ''}>Outro</option>
         </select>
@@ -1338,6 +1975,10 @@ async function showNovaMaquinaModal(maquinaId = null) {
       <div class="form-group">
         <label class="form-label">Ano de Fabricação</label>
         <input type="number" class="form-input" id="modal-maquina-ano" value="${maquinaData?.ano_fabricacao || maquinaData?.ano || ''}" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Horímetro Atual (Horas)</label>
+        <input type="number" step="0.1" class="form-input" id="modal-maquina-horas" placeholder="Ex: 1500" value="${maquinaData?.horas_uso || ''}" />
       </div>
     </div>
     <div class="form-group">
@@ -1353,9 +1994,11 @@ async function showNovaMaquinaModal(maquinaId = null) {
     const dados = {
       cliente_id: document.getElementById('modal-maquina-cliente').value,
       modelo: document.getElementById('modal-maquina-modelo').value,
+      id_frota: document.getElementById('modal-maquina-id-frota')?.value || '',
       tipo: document.getElementById('modal-maquina-tipo').value,
       numero_serie: document.getElementById('modal-maquina-serie').value,
       ano: document.getElementById('modal-maquina-ano').value,
+      horas_uso: parseFloat(document.getElementById('modal-maquina-horas')?.value) || 0,
       observacoes: document.getElementById('modal-maquina-obs').value
     };
 
@@ -1433,9 +2076,10 @@ async function showHistoricoMaquina(maquinaId) {
   `, null); // null pois não há botão de salvar, apenas mostrar
 }
 
-function showNovaOSModal() {
+function showNovaOSModal(prefill = null) {
+  if (prefill instanceof Event) prefill = null;
   AppState.modalAberto = true;
-  mostrarModalOS();
+  mostrarModalOS(prefill);
 }
 
 async function showNovaPecaModal(pecaId = null) {
@@ -2078,7 +2722,10 @@ async function checkUpdates() {
     const isElectron = window.api && typeof window.api.baixarArquivo === 'function';
     if (!isElectron) {
       // Mobile / Web: fetch direto à API
-      const response = await fetch('https://samape20-estudioio.up.railway.app/api/check-updates');
+      const apiEndpoint = (typeof API_CONFIG !== 'undefined' && API_CONFIG.BASE_URL)
+        ? `${API_CONFIG.BASE_URL}/check-updates`
+        : 'https://samape20-estudioio.up.railway.app/api/check-updates';
+      const response = await fetch(apiEndpoint);
       result = await response.json();
     } else {
       // Desktop: usa o canal IPC do Electron
