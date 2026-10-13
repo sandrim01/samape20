@@ -21,6 +21,12 @@ const pool = new Pool({
     }
 });
 
+// Garantir que as colunas horimetro e id_frota existem no banco
+pool.query(`
+    ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS horimetro VARCHAR(50);
+    ALTER TABLE maquinas ADD COLUMN IF NOT EXISTS id_frota VARCHAR(50) DEFAULT '';
+`).catch(err => console.error('Erro na migracao de colunas:', err));
+
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
@@ -330,6 +336,7 @@ app.get('/api/ordens', authenticateToken, async (req, res) => {
             `SELECT os.*, 
               c.nome as cliente_nome,
               m.modelo as maquina_modelo,
+              m.id_frota as maquina_id_frota,
               u.nome as mecanico_nome
        FROM ordens_servico os
        LEFT JOIN clientes c ON os.cliente_id = c.id
@@ -355,6 +362,8 @@ app.get('/api/ordens/:id', authenticateToken, async (req, res) => {
               c.email as cliente_email, c.endereco as cliente_endereco,
               m.modelo as maquina_modelo, m.numero_serie as maquina_serie,
               m.ano_fabricacao as maquina_ano, m.tipo as maquina_tipo,
+              m.id_frota as maquina_id_frota,
+              m.horas_uso as maquina_horas_uso,
               u.nome as mecanico_nome
        FROM ordens_servico os
        LEFT JOIN clientes c ON os.cliente_id = c.id
@@ -368,7 +377,13 @@ app.get('/api/ordens/:id', authenticateToken, async (req, res) => {
             return res.json({ success: false, message: 'OS não encontrada' });
         }
 
-        res.json({ success: true, os: result.rows[0] });
+        const osData = result.rows[0];
+        osData.solucao = osData.servicos_realizados;
+        if (!osData.horimetro && osData.maquina_horas_uso && parseFloat(osData.maquina_horas_uso) > 0) {
+            osData.horimetro = `${osData.maquina_horas_uso} h`;
+        }
+
+        res.json({ success: true, os: osData });
     } catch (error) {
         console.error('Erro ao obter OS:', error);
         res.status(500).json({ success: false, message: 'Erro no servidor' });
@@ -471,12 +486,23 @@ app.put('/api/ordens/:id', authenticateToken, async (req, res) => {
 
         const result = await pool.query(
             `UPDATE ordens_servico 
-       SET status = $1, prioridade = $2, descricao_problema = $3, 
-           diagnostico = $4, servicos_realizados = $5, valor_mao_obra = $6, 
-           valor_pecas = $7, valor_total = $8, observacoes = $9, 
-           data_fechamento = $10, cliente_id = $11, maquina_id = $12,
-           mecanico_id = $13, km_ida = $14, km_volta = $15, valor_por_km = $16,
-           horimetro = $17,
+       SET status = COALESCE($1, status),
+           prioridade = COALESCE($2, prioridade),
+           descricao_problema = COALESCE($3, descricao_problema), 
+           diagnostico = COALESCE($4, diagnostico),
+           servicos_realizados = CASE WHEN $5 IS NOT NULL AND $5 <> '' THEN $5 ELSE servicos_realizados END,
+           valor_mao_obra = COALESCE($6, valor_mao_obra), 
+           valor_pecas = COALESCE($7, valor_pecas),
+           valor_total = COALESCE($8, valor_total),
+           observacoes = COALESCE($9, observacoes), 
+           data_fechamento = COALESCE($10, data_fechamento),
+           cliente_id = COALESCE($11, cliente_id),
+           maquina_id = COALESCE($12, maquina_id),
+           mecanico_id = COALESCE($13, mecanico_id),
+           km_ida = COALESCE($14, km_ida),
+           km_volta = COALESCE($15, km_volta),
+           valor_por_km = COALESCE($16, valor_por_km),
+           horimetro = CASE WHEN $17 IS NOT NULL AND $17 <> '' THEN $17 ELSE horimetro END,
            updated_at = CURRENT_TIMESTAMP
        WHERE id = $18
        RETURNING *`,

@@ -102,7 +102,7 @@ async function mostrarModalOS(osId = null, prefill = null) {
                 </div>
                 <div class="form-group" style="margin-top: 1rem;">
                   <label class="form-label">Horimetro(tempo de trabalho)</label>
-                  <input type="text" class="form-input" id="os-horimetro" placeholder="Ex: 1250 h" value="${osData && osData.horimetro ? osData.horimetro : ''}">
+                  <input type="text" class="form-input" id="os-horimetro" placeholder="Ex: 1250 h" value="${osData ? (osData.horimetro || osData.maquina_horas_uso || '') : ''}">
                 </div>
               </div>
 
@@ -156,7 +156,7 @@ async function mostrarModalOS(osId = null, prefill = null) {
                   </button>
                 </div>
                 <textarea class="form-input" id="os-solucao" rows="5" 
-                  placeholder="Descreva detalhadamente o serviço realizado (ou use o microfone)...">${osData && osData.solucao ? osData.solucao : ''}</textarea>
+                  placeholder="Descreva detalhadamente o serviço realizado (ou use o microfone)...">${osData ? (osData.servicos_realizados || osData.solucao || '') : ''}</textarea>
               </div>
             </div>
           </div>
@@ -441,6 +441,7 @@ async function salvarOS(osId) {
     descricao_problema: document.getElementById('os-problema').value,
     diagnostico: document.getElementById('os-diagnostico').value,
     solucao: document.getElementById('os-solucao').value,
+    servicos_realizados: document.getElementById('os-solucao').value,
     km_ida: odoSaida,
     km_volta: odoChegada,
     valor_por_km: valorPorKm,
@@ -492,6 +493,9 @@ async function gerarPDFOS(osId) {
     const km_total = (os.km_volta > os.km_ida) ? (os.km_volta - os.km_ida) : 0;
     const valor_deslocamento = km_total * (os.valor_por_km || 0);
 
+    const horimetroDisplay = os.horimetro || (os.maquina_horas_uso && parseFloat(os.maquina_horas_uso) > 0 ? `${os.maquina_horas_uso} h` : '') || (os.horas_uso && parseFloat(os.horas_uso) > 0 ? `${os.horas_uso} h` : '');
+    const solucaoServicos = os.servicos_realizados || os.solucao || '';
+
     const printContent = `
       <div id="print-os-content" style="
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -524,7 +528,7 @@ async function gerarPDFOS(osId) {
           </div>
           <div style="border: 1px solid #e2e8f0; border-top: none; padding: 10px; border-radius: 0 0 4px 4px; background: #f8fafc;">
             <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;">
-              <div><strong style="font-size: 0.75em; color: #475569;">NOME / RAZÃO SOCIAL</strong><br><span style="font-size: 0.9em;">${os.cliente_nome}</span></div>
+              <div><strong style="font-size: 0.75em; color: #475569;">NOME / RAZÃO SOCIAL</strong><br><span style="font-size: 0.9em;">${os.cliente_nome || '-'}</span></div>
               <div><strong style="font-size: 0.75em; color: #475569;">CNPJ</strong><br><span style="font-size: 0.9em;">${os.cliente_cnpj || '-'}</span></div>
               <div><strong style="font-size: 0.75em; color: #475569;">TELEFONE</strong><br><span style="font-size: 0.9em;">${os.cliente_telefone || '-'}</span></div>
               <div><strong style="font-size: 0.75em; color: #475569;">ENDEREÇO</strong><br><span style="font-size: 0.9em;">${os.cliente_endereco || '-'}</span></div>
@@ -537,14 +541,14 @@ async function gerarPDFOS(osId) {
           <div>
             <div style="background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%); color: white; padding: 6px 12px; border-radius: 4px 4px 0 0; font-size: 0.95em; font-weight: 700;">🚜 Máquina</div>
             <div style="border: 1px solid #e2e8f0; border-top: none; padding: 10px; border-radius: 0 0 4px 4px; background: #f8fafc;">
-              <strong style="font-size: 0.75em; color: #475569;">MODELO</strong><br><span style="font-size: 0.9em;">${os.maquina_modelo}${os.maquina_id_frota ? ` (ID Frota: ${os.maquina_id_frota})` : ''}</span>
-              ${os.horimetro ? `<br><strong style="font-size: 0.75em; color: #475569; margin-top: 6px; display: inline-block;">HORÍMETRO (TEMPO DE TRABALHO)</strong><br><span style="font-size: 0.9em;">${os.horimetro}</span>` : ''}
+              <strong style="font-size: 0.75em; color: #475569;">MODELO</strong><br><span style="font-size: 0.9em;">${os.maquina_modelo || '-'}${os.maquina_id_frota ? ` (ID Frota: ${os.maquina_id_frota})` : ''}</span>
+              <br><strong style="font-size: 0.75em; color: #475569; margin-top: 6px; display: inline-block;">HORÍMETRO (TEMPO DE TRABALHO)</strong><br><span style="font-size: 0.9em; font-weight: 600; color: #1e293b;">${horimetroDisplay || 'Não informado'}</span>
             </div>
           </div>
           <div>
             <div style="background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%); color: white; padding: 6px 12px; border-radius: 4px 4px 0 0; font-size: 0.95em; font-weight: 700;">👨‍🔧 Responsável</div>
             <div style="border: 1px solid #e2e8f0; border-top: none; padding: 10px; border-radius: 0 0 4px 4px; background: #f8fafc;">
-              <strong style="font-size: 0.75em; color: #475569;">TÉCNICO</strong><br><span style="font-size: 0.9em;">${os.mecanico_nome}</span>
+              <strong style="font-size: 0.75em; color: #475569;">TÉCNICO</strong><br><span style="font-size: 0.9em;">${os.mecanico_nome || '-'}</span>
             </div>
           </div>
         </div>
@@ -557,18 +561,17 @@ async function gerarPDFOS(osId) {
           <div style="border: 1px solid #e2e8f0; border-top: none; padding: 10px; border-radius: 0 0 4px 4px; background: #f8fafc;">
             <div style="margin-bottom: 10px;">
               <strong style="font-size: 0.75em; color: #475569;">PROBLEMA REPORTADO</strong><br>
-              <div style="font-size: 0.9em; padding: 8px; background: white; border: 1px solid #cbd5e1; border-radius: 4px; margin-top: 4px;">${os.descricao_problema.replace(/\\n/g, '<br>')}</div>
+              <div style="font-size: 0.9em; padding: 8px; background: white; border: 1px solid #cbd5e1; border-radius: 4px; margin-top: 4px;">${os.descricao_problema ? String(os.descricao_problema).replace(/\n/g, '<br>') : '-'}</div>
             </div>
             ${os.diagnostico ? `
             <div style="margin-bottom: 10px;">
               <strong style="font-size: 0.75em; color: #475569;">DIAGNÓSTICO TÉCNICO</strong><br>
-              <div style="font-size: 0.9em; padding: 8px; background: white; border: 1px solid #cbd5e1; border-radius: 4px; margin-top: 4px;">${os.diagnostico.replace(/\\n/g, '<br>')}</div>
+              <div style="font-size: 0.9em; padding: 8px; background: white; border: 1px solid #cbd5e1; border-radius: 4px; margin-top: 4px;">${String(os.diagnostico).replace(/\n/g, '<br>')}</div>
             </div>` : ''}
-            ${os.solucao ? `
             <div>
-              <strong style="font-size: 0.75em; color: #475569;">SOLUÇÃO APLICADA</strong><br>
-              <div style="font-size: 0.9em; padding: 8px; background: white; border: 1px solid #cbd5e1; border-radius: 4px; margin-top: 4px;">${os.solucao.replace(/\\n/g, '<br>')}</div>
-            </div>` : ''}
+              <strong style="font-size: 0.75em; color: #475569;">SOLUÇÃO E SERVIÇOS REALIZADOS</strong><br>
+              <div style="font-size: 0.9em; padding: 8px; background: white; border: 1px solid #cbd5e1; border-radius: 4px; margin-top: 4px;">${solucaoServicos ? String(solucaoServicos).replace(/\n/g, '<br>') : '-'}</div>
+            </div>
           </div>
         </div>
 

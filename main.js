@@ -446,10 +446,12 @@ ipcMain.handle('criar-os', async (event, dados) => {
     const valor_total = !isNaN(valor_recebido) ? valor_recebido :
       ((parseFloat(dados.valor_mao_obra) || 0) + (parseFloat(dados.valor_pecas) || 0) + (km_percorrido * valor_por_km));
 
+    const servicos_realizados = dados.servicos_realizados || dados.solucao || '';
+    const horimetro = dados.horimetro || null;
     const result = await pool.query(
       `INSERT INTO ordens_servico 
-      (numero_os, cliente_id, maquina_id, mecanico_id, status, prioridade, descricao_problema, diagnostico, km_ida, km_volta, valor_por_km, valor_mao_obra, valor_pecas, valor_total, observacoes, listagem_pecas_id, horimetro)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) RETURNING id`,
+      (numero_os, cliente_id, maquina_id, mecanico_id, status, prioridade, descricao_problema, diagnostico, servicos_realizados, km_ida, km_volta, valor_por_km, valor_mao_obra, valor_pecas, valor_total, observacoes, listagem_pecas_id, horimetro)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) RETURNING id`,
       [
         numero_os,
         parseInt(dados.cliente_id),
@@ -459,6 +461,7 @@ ipcMain.handle('criar-os', async (event, dados) => {
         dados.prioridade || 'MEDIA',
         dados.descricao_problema,
         dados.diagnostico,
+        servicos_realizados,
         parseFloat(dados.km_ida) || 0,
         parseFloat(dados.km_volta) || 0,
         parseFloat(dados.valor_por_km) || 0,
@@ -467,9 +470,22 @@ ipcMain.handle('criar-os', async (event, dados) => {
         valor_total,
         dados.observacoes,
         dados.listagem_pecas_id || null,
-        dados.horimetro || null
+        horimetro
       ]
     );
+    if (horimetro && dados.maquina_id) {
+      const hNum = parseFloat(String(horimetro).replace(',', '.'));
+      if (!isNaN(hNum) && hNum > 0) {
+        try {
+          await pool.query(
+            `UPDATE maquinas SET horas_uso = GREATEST(COALESCE(horas_uso, 0), $1), updated_at = CURRENT_TIMESTAMP WHERE id = $2`,
+            [hNum, parseInt(dados.maquina_id)]
+          );
+        } catch (eH) {
+          console.error('Erro ao atualizar horas_uso da máquina:', eH);
+        }
+      }
+    }
     return { success: true, id: result.rows[0].id, numero_os };
   } catch (error) {
     return { success: false, message: error.message };
@@ -479,7 +495,7 @@ ipcMain.handle('criar-os', async (event, dados) => {
 ipcMain.handle('listar-os', async (event, filtros = {}) => {
   try {
     let query = `
-      SELECT os.*, c.nome as cliente_nome, m.modelo as maquina_modelo, u.nome as mecanico_nome
+      SELECT os.*, c.nome as cliente_nome, m.modelo as maquina_modelo, m.id_frota as maquina_id_frota, u.nome as mecanico_nome
       FROM ordens_servico os
       JOIN clientes c ON os.cliente_id = c.id
       JOIN maquinas m ON os.maquina_id = m.id
@@ -516,6 +532,7 @@ ipcMain.handle('obter-os', async (event, id) => {
       SELECT os.*, 
              c.nome as cliente_nome, c.cnpj as cliente_cnpj, c.telefone as cliente_telefone, c.endereco as cliente_endereco,
              m.modelo as maquina_modelo, m.numero_serie as maquina_serie, m.ano_fabricacao as maquina_ano,
+             m.id_frota as maquina_id_frota, m.horas_uso as maquina_horas_uso,
              u.nome as mecanico_nome, u.email as mecanico_email
       FROM ordens_servico os
       JOIN clientes c ON os.cliente_id = c.id
@@ -524,7 +541,15 @@ ipcMain.handle('obter-os', async (event, id) => {
       WHERE os.id = $1
     `;
     const result = await pool.query(query, [id]);
-    return { success: true, os: result.rows[0] };
+    if (result.rows.length === 0) {
+      return { success: false, message: 'OS não encontrada' };
+    }
+    const osObj = result.rows[0];
+    osObj.solucao = osObj.servicos_realizados;
+    if (!osObj.horimetro && osObj.maquina_horas_uso && parseFloat(osObj.maquina_horas_uso) > 0) {
+      osObj.horimetro = `${osObj.maquina_horas_uso} h`;
+    }
+    return { success: true, os: osObj };
   } catch (error) {
     return { success: false, message: error.message };
   }
@@ -556,22 +581,38 @@ ipcMain.handle('atualizar-os', async (event, { id, dados }) => {
       dataFechamento = new Date();
     }
 
+    const servicos_realizados = dados.servicos_realizados || dados.solucao || '';
+    const horimetro = dados.horimetro !== undefined ? dados.horimetro : null;
+
     await pool.query(
       `UPDATE ordens_servico 
-       SET cliente_id = $1, maquina_id = $2, mecanico_id = $3, status = $4, 
-           descricao_problema = $5, diagnostico = $6, km_ida = $7, km_volta = $8, 
-           valor_por_km = $9, valor_mao_obra = $10, valor_pecas = $11, 
-           valor_total = $12, observacoes = $13, data_fechamento = $14,
-           listagem_pecas_id = $15, horimetro = $16,
+       SET cliente_id = COALESCE($1, cliente_id),
+           maquina_id = COALESCE($2, maquina_id),
+           mecanico_id = COALESCE($3, mecanico_id),
+           status = COALESCE($4, status), 
+           descricao_problema = COALESCE($5, descricao_problema),
+           diagnostico = COALESCE($6, diagnostico),
+           servicos_realizados = CASE WHEN $7 IS NOT NULL AND $7 <> '' THEN $7 ELSE servicos_realizados END,
+           km_ida = COALESCE($8, km_ida),
+           km_volta = COALESCE($9, km_volta), 
+           valor_por_km = COALESCE($10, valor_por_km),
+           valor_mao_obra = COALESCE($11, valor_mao_obra),
+           valor_pecas = COALESCE($12, valor_pecas), 
+           valor_total = COALESCE($13, valor_total),
+           observacoes = COALESCE($14, observacoes),
+           data_fechamento = COALESCE($15, data_fechamento),
+           listagem_pecas_id = COALESCE($16, listagem_pecas_id),
+           horimetro = CASE WHEN $17 IS NOT NULL AND $17 <> '' THEN $17 ELSE horimetro END,
            updated_at = CURRENT_TIMESTAMP 
-       WHERE id = $17`,
+       WHERE id = $18`,
       [
-        parseInt(dados.cliente_id),
-        parseInt(dados.maquina_id),
-        parseInt(dados.mecanico_id),
+        dados.cliente_id ? parseInt(dados.cliente_id) : null,
+        dados.maquina_id ? parseInt(dados.maquina_id) : null,
+        dados.mecanico_id ? parseInt(dados.mecanico_id) : null,
         dados.status,
         dados.descricao_problema,
         dados.diagnostico,
+        servicos_realizados,
         parseFloat(dados.km_ida) || 0,
         parseFloat(dados.km_volta) || 0,
         parseFloat(dados.valor_por_km) || 0,
@@ -581,7 +622,7 @@ ipcMain.handle('atualizar-os', async (event, { id, dados }) => {
         dados.observacoes,
         dataFechamento,
         dados.listagem_pecas_id || null,
-        dados.horimetro !== undefined ? dados.horimetro : null,
+        horimetro,
         id
       ]
     );
