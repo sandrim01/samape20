@@ -436,6 +436,47 @@ const WebAPI = {
 
     async listarLogs() {
         return await apiFetch('/logs');
+    },
+
+    // Manutenção Preventiva Preditiva
+    async listarPreventivas() {
+        return await apiFetch('/preventivas');
+    },
+
+    async salvarApontamentoHorimetro(dados) {
+        return await apiFetch('/preventivas/apontamento', {
+            method: 'POST',
+            body: JSON.stringify(dados)
+        });
+    },
+
+    async configurarMaquinaPreventiva(id, dados) {
+        return await apiFetch(`/preventivas/maquinas/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(dados)
+        });
+    },
+
+    async obterPreviewEmailMecanicos() {
+        return await apiFetch('/preventivas/preview-email-mecanicos');
+    },
+
+    async dispararEmailMecanicos(dados) {
+        return await apiFetch('/preventivas/disparar-email-mecanicos', {
+            method: 'POST',
+            body: JSON.stringify(dados || {})
+        });
+    },
+
+    async obterPreviewAlertaCliente(maquinaId) {
+        return await apiFetch(`/preventivas/preview-alerta-cliente/${maquinaId}`);
+    },
+
+    async dispararAlertaCliente(maquinaId, dados) {
+        return await apiFetch(`/preventivas/disparar-alerta-cliente/${maquinaId}`, {
+            method: 'POST',
+            body: JSON.stringify(dados || {})
+        });
     }
 };
 

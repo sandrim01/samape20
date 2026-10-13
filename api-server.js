@@ -5,6 +5,21 @@ const { Pool } = require('pg');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const helmet = require('helmet');
+const nodemailer = require('nodemailer');
+const {
+    calcularStatusPreditivo,
+    gerarTemplateEmailMecanicos,
+    gerarTemplateAlertaCliente,
+    gerarTextoWhatsAppCliente
+} = require('./preventivas-engine');
+
+const emailTransporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER || 'samapeindio.manutencao@gmail.com',
+        pass: process.env.EMAIL_PASS || 'kfbumeoqoxjafgit'
+    }
+});
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
@@ -90,6 +105,41 @@ const initDb = async () => {
         // Garantir que a coluna id_frota existe na tabela maquinas
         await pool.query(`
             ALTER TABLE maquinas ADD COLUMN IF NOT EXISTS id_frota VARCHAR(50)
+        `);
+
+        // Tabelas e colunas para Manutenção Preventiva Preditiva
+        await pool.query(`
+            ALTER TABLE maquinas ADD COLUMN IF NOT EXISTS horas_dia_estimadas NUMERIC(5,2) DEFAULT 7.00;
+            ALTER TABLE maquinas ADD COLUMN IF NOT EXISTS dias_semana_trabalho INTEGER DEFAULT 5;
+            ALTER TABLE maquinas ADD COLUMN IF NOT EXISTS ultimo_horimetro_real NUMERIC(10,2);
+            ALTER TABLE maquinas ADD COLUMN IF NOT EXISTS data_ultimo_horimetro TIMESTAMP;
+            ALTER TABLE maquinas ADD COLUMN IF NOT EXISTS proxima_revisao_horas NUMERIC(10,2);
+            ALTER TABLE maquinas ADD COLUMN IF NOT EXISTS ultima_revisao_horas NUMERIC(10,2);
+            ALTER TABLE maquinas ADD COLUMN IF NOT EXISTS data_ultima_revisao TIMESTAMP;
+
+            CREATE TABLE IF NOT EXISTS apontamentos_horimetro (
+                id SERIAL PRIMARY KEY,
+                maquina_id INTEGER REFERENCES maquinas(id) ON DELETE CASCADE,
+                horimetro NUMERIC(10,2) NOT NULL,
+                data_apontamento TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                origem VARCHAR(50) DEFAULT 'MANUAL',
+                os_id INTEGER REFERENCES ordens_servico(id) ON DELETE SET NULL,
+                observacoes TEXT,
+                criado_por VARCHAR(100)
+            );
+
+            CREATE TABLE IF NOT EXISTS historico_alertas_preventivos (
+                id SERIAL PRIMARY KEY,
+                maquina_id INTEGER REFERENCES maquinas(id),
+                cliente_id INTEGER REFERENCES clientes(id),
+                tipo VARCHAR(50),
+                destinatario VARCHAR(255),
+                horimetro_estimado_na_data NUMERIC(10,2),
+                revisao_alvo VARCHAR(100),
+                conteudo TEXT,
+                enviado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                status VARCHAR(20) DEFAULT 'SUCESSO'
+            );
         `);
 
         // Sincronizar horímetros de máquinas a partir das ordens de serviço existentes
@@ -1638,6 +1688,282 @@ app.get('/api/stats', authenticateToken, authorize(['ADMIN', 'DIRETOR', 'FINANCE
     } catch (error) {
         console.error('Erro ao obter estatísticas:', error);
         res.status(500).json({ success: false, message: 'Erro no servidor' });
+    }
+});
+
+// ==================== ROTAS DE MANUTENÇÃO PREVENTIVA PREDITIVA ====================
+
+// Listar todas as máquinas com cálculo preditivo
+app.get('/api/preventivas', authenticateToken, async (req, res) => {
+    try {
+        const maqResult = await pool.query(`
+            SELECT m.*, c.nome as cliente_nome, c.telefone as cliente_telefone, c.email as cliente_email
+            FROM maquinas m
+            LEFT JOIN clientes c ON m.cliente_id = c.id
+            ORDER BY m.modelo ASC
+        `);
+
+        const osResult = await pool.query(`
+            SELECT id, maquina_id, numero_os, status, descricao_problema, diagnostico, servicos_realizados, horimetro, data_abertura, data_fechamento
+            FROM ordens_servico
+            ORDER BY data_abertura DESC
+        `);
+
+        const ordensPorMaquina = {};
+        for (const os of osResult.rows) {
+            if (!ordensPorMaquina[os.maquina_id]) ordensPorMaquina[os.maquina_id] = [];
+            ordensPorMaquina[os.maquina_id].push(os);
+        }
+
+        const maquinasComPreditivo = maqResult.rows.map(m => {
+            const preditivo = calcularStatusPreditivo(m, ordensPorMaquina[m.id] || []);
+            const whatsappTexto = gerarTextoWhatsAppCliente({ nome: m.cliente_nome }, m, preditivo);
+            return {
+                ...m,
+                preditivo,
+                whatsappTexto
+            };
+        });
+
+        // Ordenar por criticidade: VENCIDA (1), ATENCAO (2), EM_DIA (3)
+        const ordemPrioridade = { VENCIDA: 1, ATENCAO: 2, EM_DIA: 3 };
+        maquinasComPreditivo.sort((a, b) => {
+            const prioA = ordemPrioridade[a.preditivo.status] || 4;
+            const prioB = ordemPrioridade[b.preditivo.status] || 4;
+            if (prioA !== prioB) return prioA - prioB;
+            return a.preditivo.horasRestantes - b.preditivo.horasRestantes;
+        });
+
+        const stats = {
+            total: maquinasComPreditivo.length,
+            em_dia: maquinasComPreditivo.filter(m => m.preditivo.status === 'EM_DIA').length,
+            atencao: maquinasComPreditivo.filter(m => m.preditivo.status === 'ATENCAO').length,
+            vencida: maquinasComPreditivo.filter(m => m.preditivo.status === 'VENCIDA').length
+        };
+
+        res.json({ success: true, maquinas: maquinasComPreditivo, stats });
+    } catch (error) {
+        console.error('Erro ao listar preventivas:', error);
+        res.status(500).json({ success: false, message: 'Erro no servidor: ' + error.message });
+    }
+});
+
+// Apontamento rápido de horímetro
+app.post('/api/preventivas/apontamento', authenticateToken, async (req, res) => {
+    try {
+        const { maquina_id, horimetro, observacoes } = req.body;
+        const hNum = parseFloat(String(horimetro).replace(',', '.'));
+        if (isNaN(hNum) || hNum < 0) {
+            return res.status(400).json({ success: false, message: 'Horímetro inválido' });
+        }
+
+        const criadoPor = req.user ? req.user.nome : 'Usuário';
+
+        await pool.query(`
+            INSERT INTO apontamentos_horimetro (maquina_id, horimetro, observacoes, criado_por)
+            VALUES ($1, $2, $3, $4)
+        `, [maquina_id, hNum, observacoes || null, criadoPor]);
+
+        await pool.query(`
+            UPDATE maquinas 
+            SET ultimo_horimetro_real = $1,
+                data_ultimo_horimetro = CURRENT_TIMESTAMP,
+                horas_uso = GREATEST(COALESCE(horas_uso, 0), $1),
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = $2
+        `, [hNum, maquina_id]);
+
+        await logActivity(req, 'HORIMETRO_APONTADO', `Horímetro da máquina ${maquina_id} apontado para ${hNum}h`);
+        res.json({ success: true, message: 'Horímetro atualizado com sucesso!' });
+    } catch (error) {
+        console.error('Erro ao apontar horímetro:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Configurar parâmetros da máquina (horas/dia, próxima revisão)
+app.put('/api/preventivas/maquinas/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { horas_dia_estimadas, dias_semana_trabalho, proxima_revisao_horas, ultima_revisao_horas, data_ultima_revisao } = req.body;
+
+        const result = await pool.query(`
+            UPDATE maquinas
+            SET horas_dia_estimadas = COALESCE($1, horas_dia_estimadas),
+                dias_semana_trabalho = COALESCE($2, dias_semana_trabalho),
+                proxima_revisao_horas = COALESCE($3, proxima_revisao_horas),
+                ultima_revisao_horas = COALESCE($4, ultima_revisao_horas),
+                data_ultima_revisao = COALESCE($5, data_ultima_revisao),
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = $6
+            RETURNING *
+        `, [
+            horas_dia_estimadas !== undefined && horas_dia_estimadas !== '' ? parseFloat(horas_dia_estimadas) : null,
+            dias_semana_trabalho !== undefined && dias_semana_trabalho !== '' ? parseInt(dias_semana_trabalho) : null,
+            proxima_revisao_horas !== undefined && proxima_revisao_horas !== '' ? parseFloat(proxima_revisao_horas) : null,
+            ultima_revisao_horas !== undefined && ultima_revisao_horas !== '' ? parseFloat(ultima_revisao_horas) : null,
+            data_ultima_revisao || null,
+            id
+        ]);
+
+        res.json({ success: true, maquina: result.rows[0] });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Obter preview do e-mail aos mecânicos
+app.get('/api/preventivas/preview-email-mecanicos', authenticateToken, async (req, res) => {
+    try {
+        const maqResult = await pool.query(`
+            SELECT m.*, c.nome as cliente_nome 
+            FROM maquinas m 
+            LEFT JOIN clientes c ON m.cliente_id = c.id
+        `);
+        const maquinas = maqResult.rows.map(m => ({ ...m, preditivo: calcularStatusPreditivo(m) }));
+        const atencao = maquinas.filter(m => m.preditivo.status === 'ATENCAO' || m.preditivo.status === 'VENCIDA');
+
+        const { assunto, html } = gerarTemplateEmailMecanicos('Equipe Técnica SAMAPE', atencao);
+        res.json({ success: true, assunto, html });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Disparar e-mail educativo aos mecânicos
+app.post('/api/preventivas/disparar-email-mecanicos', authenticateToken, async (req, res) => {
+    try {
+        const { assunto: customAssunto, html: customHtml, destinatarios_ids } = req.body;
+
+        let query = "SELECT id, nome, email FROM usuarios WHERE cargo IN ('MECANICO', 'TECNICO', 'ADMIN') AND ativo = true AND email IS NOT NULL AND email <> ''";
+        const params = [];
+        if (destinatarios_ids && destinatarios_ids.length > 0) {
+            query += " AND id = ANY($1)";
+            params.push(destinatarios_ids);
+        }
+
+        const usersResult = await pool.query(query, params);
+        if (usersResult.rows.length === 0) {
+            return res.json({ success: false, message: 'Nenhum mecânico com e-mail cadastrado encontrado.' });
+        }
+
+        let templateAssunto = customAssunto;
+        let templateHtml = customHtml;
+        if (!templateHtml) {
+            const maqResult = await pool.query(`SELECT m.*, c.nome as cliente_nome FROM maquinas m LEFT JOIN clientes c ON m.cliente_id = c.id`);
+            const maquinas = maqResult.rows.map(m => ({ ...m, preditivo: calcularStatusPreditivo(m) }));
+            const atencao = maquinas.filter(m => m.preditivo.status === 'ATENCAO' || m.preditivo.status === 'VENCIDA');
+            const tmpl = gerarTemplateEmailMecanicos('Equipe Técnica SAMAPE', atencao);
+            templateAssunto = tmpl.assunto;
+            templateHtml = tmpl.html;
+        }
+
+        const destinatariosEmails = usersResult.rows.map(u => u.email);
+        
+        await emailTransporter.sendMail({
+            from: '"SAMAPE — Engenharia & Manutenção" <samapeindio.manutencao@gmail.com>',
+            to: destinatariosEmails.join(','),
+            subject: templateAssunto || '🛠️ Informativo Técnico SAMAPE: Manutenção Preventiva Preditiva',
+            html: templateHtml
+        });
+
+        await pool.query(`
+            INSERT INTO historico_alertas_preventivos (tipo, destinatario, revisao_alvo, conteudo)
+            VALUES ('EMAIL_MECANICOS', $1, 'INFORMATIVO_GERAL', $2)
+        `, [destinatariosEmails.join(', '), templateHtml]);
+
+        await logActivity(req, 'PREVENTIVA_EMAIL_MECANICOS', `Informativo enviado para ${destinatariosEmails.length} técnicos`);
+        res.json({ success: true, message: `Informativo enviado com sucesso para ${destinatariosEmails.length} mecânicos!`, emails: destinatariosEmails });
+    } catch (error) {
+        console.error('Erro ao disparar e-mail aos mecânicos:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Obter preview do alerta ao cliente
+app.get('/api/preventivas/preview-alerta-cliente/:maquina_id', authenticateToken, async (req, res) => {
+    try {
+        const { maquina_id } = req.params;
+        const maqResult = await pool.query(`
+            SELECT m.*, c.nome as cliente_nome, c.email as cliente_email, c.telefone as cliente_telefone
+            FROM maquinas m
+            LEFT JOIN clientes c ON m.cliente_id = c.id
+            WHERE m.id = $1
+        `, [maquina_id]);
+
+        if (maqResult.rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Máquina não encontrada' });
+        }
+
+        const maquina = maqResult.rows[0];
+        const ordensResult = await pool.query(`SELECT * FROM ordens_servico WHERE maquina_id = $1 ORDER BY data_abertura DESC`, [maquina_id]);
+        const preditivo = calcularStatusPreditivo(maquina, ordensResult.rows);
+
+        const { assunto, html } = gerarTemplateAlertaCliente({ nome: maquina.cliente_nome }, maquina, preditivo);
+        const whatsappTexto = gerarTextoWhatsAppCliente({ nome: maquina.cliente_nome }, maquina, preditivo);
+
+        res.json({
+            success: true,
+            assunto,
+            html,
+            whatsappTexto,
+            destinatarioEmail: maquina.cliente_email || '',
+            destinatarioTelefone: maquina.cliente_telefone || '',
+            preditivo
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Disparar alerta ao cliente
+app.post('/api/preventivas/disparar-alerta-cliente/:maquina_id', authenticateToken, async (req, res) => {
+    try {
+        const { maquina_id } = req.params;
+        const { email_destinatario, assunto: customAssunto, html: customHtml } = req.body;
+
+        const maqResult = await pool.query(`
+            SELECT m.*, c.nome as cliente_nome, c.email as cliente_email
+            FROM maquinas m
+            LEFT JOIN clientes c ON m.cliente_id = c.id
+            WHERE m.id = $1
+        `, [maquina_id]);
+
+        if (maqResult.rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Máquina não encontrada' });
+        }
+
+        const maquina = maqResult.rows[0];
+        const destino = email_destinatario || maquina.cliente_email;
+        if (!destino) {
+            return res.status(400).json({ success: false, message: 'O cliente não possui e-mail cadastrado. Informe um e-mail de destino.' });
+        }
+
+        const ordensResult = await pool.query(`SELECT * FROM ordens_servico WHERE maquina_id = $1 ORDER BY data_abertura DESC`, [maquina_id]);
+        const preditivo = calcularStatusPreditivo(maquina, ordensResult.rows);
+
+        const template = gerarTemplateAlertaCliente({ nome: maquina.cliente_nome }, maquina, preditivo);
+        const finalAssunto = customAssunto || template.assunto;
+        const finalHtml = customHtml || template.html;
+
+        await emailTransporter.sendMail({
+            from: '"SAMAPE — Engenharia & Manutenção" <samapeindio.manutencao@gmail.com>',
+            to: destino,
+            bcc: 'samapeindio.manutencao@gmail.com',
+            subject: finalAssunto,
+            html: finalHtml
+        });
+
+        await pool.query(`
+            INSERT INTO historico_alertas_preventivos (maquina_id, cliente_id, tipo, destinatario, horimetro_estimado_na_data, revisao_alvo, conteudo)
+            VALUES ($1, $2, 'EMAIL_CLIENTE', $3, $4, $5, $6)
+        `, [maquina.id, maquina.cliente_id, destino, preditivo.horimetroEstimado, `Revisão ${preditivo.proximaRevisaoHoras}h`, finalHtml]);
+
+        await logActivity(req, 'PREVENTIVA_EMAIL_CLIENTE', `Alerta preventivo enviado para ${destino} referente à máquina ${maquina.modelo}`);
+        res.json({ success: true, message: `Alerta preventivo enviado com sucesso para ${destino}!` });
+    } catch (error) {
+        console.error('Erro ao disparar alerta ao cliente:', error);
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 

@@ -5,6 +5,21 @@ const fs = require('fs');
 const bcrypt = require('bcryptjs');
 const { Pool } = require('pg');
 const fetch = require('node-fetch');
+const nodemailer = require('nodemailer');
+const {
+  calcularStatusPreditivo,
+  gerarTemplateEmailMecanicos,
+  gerarTemplateAlertaCliente,
+  gerarTextoWhatsAppCliente
+} = require('./preventivas-engine');
+
+const emailTransporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER || 'samapeindio.manutencao@gmail.com',
+    pass: process.env.EMAIL_PASS || 'kfbumeoqoxjafgit'
+  }
+});
 
 // Tenta carregar .env de múltiplos locais possíveis
 const dotenv = require('dotenv');
@@ -1012,6 +1027,265 @@ ipcMain.handle('buscar-internet-pecas', async (event, query) => {
     return { success: true, results: data.results || [] };
   } catch (error) {
     console.error('Erro na pesquisa internet:', error);
+    return { success: false, message: error.message };
+  }
+});
+
+// ==================== MANUTENÇÃO PREVENTIVA PREDITIVA (IPC) ====================
+
+ipcMain.handle('listar-preventivas', async () => {
+  try {
+    const maqResult = await pool.query(`
+      SELECT m.*, c.nome as cliente_nome, c.telefone as cliente_telefone, c.email as cliente_email
+      FROM maquinas m
+      LEFT JOIN clientes c ON m.cliente_id = c.id
+      ORDER BY m.modelo ASC
+    `);
+
+    const osResult = await pool.query(`
+      SELECT id, maquina_id, numero_os, status, descricao_problema, diagnostico, servicos_realizados, horimetro, data_abertura, data_fechamento
+      FROM ordens_servico
+      ORDER BY data_abertura DESC
+    `);
+
+    const ordensPorMaquina = {};
+    for (const os of osResult.rows) {
+      if (!ordensPorMaquina[os.maquina_id]) ordensPorMaquina[os.maquina_id] = [];
+      ordensPorMaquina[os.maquina_id].push(os);
+    }
+
+    const maquinasComPreditivo = maqResult.rows.map(m => {
+      const preditivo = calcularStatusPreditivo(m, ordensPorMaquina[m.id] || []);
+      const whatsappTexto = gerarTextoWhatsAppCliente({ nome: m.cliente_nome }, m, preditivo);
+      return {
+        ...m,
+        preditivo,
+        whatsappTexto
+      };
+    });
+
+    const ordemPrioridade = { VENCIDA: 1, ATENCAO: 2, EM_DIA: 3 };
+    maquinasComPreditivo.sort((a, b) => {
+      const prioA = ordemPrioridade[a.preditivo.status] || 4;
+      const prioB = ordemPrioridade[b.preditivo.status] || 4;
+      if (prioA !== prioB) return prioA - prioB;
+      return a.preditivo.horasRestantes - b.preditivo.horasRestantes;
+    });
+
+    const stats = {
+      total: maquinasComPreditivo.length,
+      em_dia: maquinasComPreditivo.filter(m => m.preditivo.status === 'EM_DIA').length,
+      atencao: maquinasComPreditivo.filter(m => m.preditivo.status === 'ATENCAO').length,
+      vencida: maquinasComPreditivo.filter(m => m.preditivo.status === 'VENCIDA').length
+    };
+
+    return { success: true, maquinas: maquinasComPreditivo, stats };
+  } catch (error) {
+    console.error('Erro ao listar preventivas:', error);
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('salvar-apontamento-horimetro', async (event, dados) => {
+  try {
+    const { maquina_id, horimetro, observacoes } = dados;
+    const hNum = parseFloat(String(horimetro).replace(',', '.'));
+    if (isNaN(hNum) || hNum < 0) {
+      return { success: false, message: 'Horímetro inválido' };
+    }
+
+    await pool.query(`
+      INSERT INTO apontamentos_horimetro (maquina_id, horimetro, observacoes, criado_por)
+      VALUES ($1, $2, $3, $4)
+    `, [maquina_id, hNum, observacoes || null, 'Sistema']);
+
+    await pool.query(`
+      UPDATE maquinas 
+      SET ultimo_horimetro_real = $1,
+          data_ultimo_horimetro = CURRENT_TIMESTAMP,
+          horas_uso = GREATEST(COALESCE(horas_uso, 0), $1),
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+    `, [hNum, maquina_id]);
+
+    return { success: true, message: 'Horímetro atualizado com sucesso!' };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('configurar-maquina-preventiva', async (event, { id, dados }) => {
+  try {
+    const { horas_dia_estimadas, dias_semana_trabalho, proxima_revisao_horas, ultima_revisao_horas, data_ultima_revisao } = dados;
+
+    const result = await pool.query(`
+      UPDATE maquinas
+      SET horas_dia_estimadas = COALESCE($1, horas_dia_estimadas),
+          dias_semana_trabalho = COALESCE($2, dias_semana_trabalho),
+          proxima_revisao_horas = COALESCE($3, proxima_revisao_horas),
+          ultima_revisao_horas = COALESCE($4, ultima_revisao_horas),
+          data_ultima_revisao = COALESCE($5, data_ultima_revisao),
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $6
+      RETURNING *
+    `, [
+      horas_dia_estimadas !== undefined && horas_dia_estimadas !== '' ? parseFloat(horas_dia_estimadas) : null,
+      dias_semana_trabalho !== undefined && dias_semana_trabalho !== '' ? parseInt(dias_semana_trabalho) : null,
+      proxima_revisao_horas !== undefined && proxima_revisao_horas !== '' ? parseFloat(proxima_revisao_horas) : null,
+      ultima_revisao_horas !== undefined && ultima_revisao_horas !== '' ? parseFloat(ultima_revisao_horas) : null,
+      data_ultima_revisao || null,
+      id
+    ]);
+
+    return { success: true, maquina: result.rows[0] };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('obter-preview-email-mecanicos', async () => {
+  try {
+    const maqResult = await pool.query(`
+      SELECT m.*, c.nome as cliente_nome 
+      FROM maquinas m 
+      LEFT JOIN clientes c ON m.cliente_id = c.id
+    `);
+    const maquinas = maqResult.rows.map(m => ({ ...m, preditivo: calcularStatusPreditivo(m) }));
+    const atencao = maquinas.filter(m => m.preditivo.status === 'ATENCAO' || m.preditivo.status === 'VENCIDA');
+
+    const { assunto, html } = gerarTemplateEmailMecanicos('Equipe Técnica SAMAPE', atencao);
+    return { success: true, assunto, html };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('disparar-email-mecanicos', async (event, dados = {}) => {
+  try {
+    const { assunto: customAssunto, html: customHtml, destinatarios_ids } = dados;
+
+    let query = "SELECT id, nome, email FROM usuarios WHERE cargo IN ('MECANICO', 'TECNICO', 'ADMIN') AND ativo = true AND email IS NOT NULL AND email <> ''";
+    const params = [];
+    if (destinatarios_ids && destinatarios_ids.length > 0) {
+      query += " AND id = ANY($1)";
+      params.push(destinatarios_ids);
+    }
+
+    const usersResult = await pool.query(query, params);
+    if (usersResult.rows.length === 0) {
+      return { success: false, message: 'Nenhum mecânico com e-mail cadastrado encontrado.' };
+    }
+
+    let templateAssunto = customAssunto;
+    let templateHtml = customHtml;
+    if (!templateHtml) {
+      const maqResult = await pool.query(`SELECT m.*, c.nome as cliente_nome FROM maquinas m LEFT JOIN clientes c ON m.cliente_id = c.id`);
+      const maquinas = maqResult.rows.map(m => ({ ...m, preditivo: calcularStatusPreditivo(m) }));
+      const atencao = maquinas.filter(m => m.preditivo.status === 'ATENCAO' || m.preditivo.status === 'VENCIDA');
+      const tmpl = gerarTemplateEmailMecanicos('Equipe Técnica SAMAPE', atencao);
+      templateAssunto = tmpl.assunto;
+      templateHtml = tmpl.html;
+    }
+
+    const destinatariosEmails = usersResult.rows.map(u => u.email);
+    
+    await emailTransporter.sendMail({
+      from: '"SAMAPE — Engenharia & Manutenção" <samapeindio.manutencao@gmail.com>',
+      to: destinatariosEmails.join(','),
+      subject: templateAssunto || '🛠️ Informativo Técnico SAMAPE: Manutenção Preventiva Preditiva',
+      html: templateHtml
+    });
+
+    await pool.query(`
+      INSERT INTO historico_alertas_preventivos (tipo, destinatario, revisao_alvo, conteudo)
+      VALUES ('EMAIL_MECANICOS', $1, 'INFORMATIVO_GERAL', $2)
+    `, [destinatariosEmails.join(', '), templateHtml]);
+
+    return { success: true, message: `Informativo enviado com sucesso para ${destinatariosEmails.length} mecânicos!`, emails: destinatariosEmails };
+  } catch (error) {
+    console.error('Erro ao disparar e-mail aos mecânicos:', error);
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('obter-preview-alerta-cliente', async (event, maquinaId) => {
+  try {
+    const maqResult = await pool.query(`
+      SELECT m.*, c.nome as cliente_nome, c.email as cliente_email, c.telefone as cliente_telefone
+      FROM maquinas m
+      LEFT JOIN clientes c ON m.cliente_id = c.id
+      WHERE m.id = $1
+    `, [maquinaId]);
+
+    if (maqResult.rows.length === 0) {
+      return { success: false, message: 'Máquina não encontrada' };
+    }
+
+    const maquina = maqResult.rows[0];
+    const ordensResult = await pool.query(`SELECT * FROM ordens_servico WHERE maquina_id = $1 ORDER BY data_abertura DESC`, [maquinaId]);
+    const preditivo = calcularStatusPreditivo(maquina, ordensResult.rows);
+
+    const { assunto, html } = gerarTemplateAlertaCliente({ nome: maquina.cliente_nome }, maquina, preditivo);
+    const whatsappTexto = gerarTextoWhatsAppCliente({ nome: maquina.cliente_nome }, maquina, preditivo);
+
+    return {
+      success: true,
+      assunto,
+      html,
+      whatsappTexto,
+      destinatarioEmail: maquina.cliente_email || '',
+      destinatarioTelefone: maquina.cliente_telefone || '',
+      preditivo
+    };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('disparar-alerta-cliente', async (event, { maquinaId, dados = {} }) => {
+  try {
+    const { email_destinatario, assunto: customAssunto, html: customHtml } = dados;
+
+    const maqResult = await pool.query(`
+      SELECT m.*, c.nome as cliente_nome, c.email as cliente_email
+      FROM maquinas m
+      LEFT JOIN clientes c ON m.cliente_id = c.id
+      WHERE m.id = $1
+    `, [maquinaId]);
+
+    if (maqResult.rows.length === 0) {
+      return { success: false, message: 'Máquina não encontrada' };
+    }
+
+    const maquina = maqResult.rows[0];
+    const destino = email_destinatario || maquina.cliente_email;
+    if (!destino) {
+      return { success: false, message: 'O cliente não possui e-mail cadastrado. Informe um e-mail de destino.' };
+    }
+
+    const ordensResult = await pool.query(`SELECT * FROM ordens_servico WHERE maquina_id = $1 ORDER BY data_abertura DESC`, [maquinaId]);
+    const preditivo = calcularStatusPreditivo(maquina, ordensResult.rows);
+
+    const template = gerarTemplateAlertaCliente({ nome: maquina.cliente_nome }, maquina, preditivo);
+    const finalAssunto = customAssunto || template.assunto;
+    const finalHtml = customHtml || template.html;
+
+    await emailTransporter.sendMail({
+      from: '"SAMAPE — Engenharia & Manutenção" <samapeindio.manutencao@gmail.com>',
+      to: destino,
+      bcc: 'samapeindio.manutencao@gmail.com',
+      subject: finalAssunto,
+      html: finalHtml
+    });
+
+    await pool.query(`
+      INSERT INTO historico_alertas_preventivos (maquina_id, cliente_id, tipo, destinatario, horimetro_estimado_na_data, revisao_alvo, conteudo)
+      VALUES ($1, $2, 'EMAIL_CLIENTE', $3, $4, $5, $6)
+    `, [maquina.id, maquina.cliente_id, destino, preditivo.horimetroEstimado, `Revisão ${preditivo.proximaRevisaoHoras}h`, finalHtml]);
+
+    return { success: true, message: `Alerta preventivo enviado com sucesso para ${destino}!` };
+  } catch (error) {
+    console.error('Erro ao disparar alerta ao cliente:', error);
     return { success: false, message: error.message };
   }
 });

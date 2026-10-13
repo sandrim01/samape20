@@ -1,0 +1,798 @@
+// ==========================================================================
+// MÓDULO DE MANUTENÇÃO PREVENTIVA PREDITIVA — SAMAPE 20
+// Monitoramento estatístico de horímetros, semáforos e disparos de comunicados
+// ==========================================================================
+
+// Estado local do módulo
+const PreventivasState = {
+  carregando: false,
+  maquinas: [],
+  stats: { total: 0, em_dia: 0, atencao: 0, vencida: 0 },
+  filtros: {
+    busca: '',
+    status: ''
+  }
+};
+
+// Inicialização e carregamento de dados
+async function carregarPreventivas(forcar = false) {
+  if (PreventivasState.carregando && !forcar) return;
+  PreventivasState.carregando = true;
+
+  try {
+    const res = await window.api.listarPreventivas();
+    if (res && res.success) {
+      PreventivasState.maquinas = res.maquinas || [];
+      PreventivasState.stats = res.stats || { total: 0, em_dia: 0, atencao: 0, vencida: 0 };
+    } else {
+      console.warn('Falha ao carregar preventivas:', res?.message);
+    }
+  } catch (error) {
+    console.error('Erro ao buscar dados de preventivas:', error);
+  } finally {
+    PreventivasState.carregando = false;
+  }
+}
+
+// Renderização principal da página
+function renderPreventivas() {
+  if (!PreventivasState.maquinas || PreventivasState.maquinas.length === 0) {
+    if (!PreventivasState.carregando) {
+      carregarPreventivas().then(() => render());
+    }
+  }
+
+  const { total, em_dia, atencao, vencida } = PreventivasState.stats;
+  const busca = (PreventivasState.filtros.busca || '').toLowerCase().trim();
+  const filtroStatus = PreventivasState.filtros.status || '';
+
+  const maquinasFiltradas = PreventivasState.maquinas.filter(m => {
+    const matchBusca = !busca ||
+      (m.modelo && m.modelo.toLowerCase().includes(busca)) ||
+      (m.id_frota && m.id_frota.toLowerCase().includes(busca)) ||
+      (m.cliente_nome && m.cliente_nome.toLowerCase().includes(busca)) ||
+      (m.numero_serie && m.numero_serie.toLowerCase().includes(busca));
+
+    const matchStatus = !filtroStatus || (m.preditivo && m.preditivo.status === filtroStatus);
+    return matchBusca && matchStatus;
+  });
+
+  return `
+    <div class="preventivas-container" style="display: flex; flex-direction: column; gap: 1.5rem;">
+      
+      <!-- Cabeçalho com Título e Ações Rápidas -->
+      <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        <div>
+          <h1 class="page-title" style="display: flex; align-items: center; gap: 0.6rem; margin: 0; font-size: 1.6rem; color: var(--text-primary);">
+            <span>📅</span>
+            <span>Manutenção Preventiva Preditiva</span>
+          </h1>
+          <p class="page-subtitle" style="margin: 0.35rem 0 0 0; color: var(--text-secondary); font-size: 0.9rem;">
+            Monitoramento de horímetros e projeção inteligente de paradas para pedreiras
+          </p>
+        </div>
+
+        <div style="display: flex; gap: 0.6rem; flex-wrap: wrap;">
+          <button class="btn btn-outline" onclick="abrirModalEmailMecanicos()" style="display: flex; align-items: center; gap: 0.4rem;" title="Disparar boletim informativo aos mecânicos">
+            <span>📧</span>
+            <span>Informativo aos Mecânicos</span>
+          </button>
+          <button class="btn btn-primary" onclick="abrirModalApontamento()" style="display: flex; align-items: center; gap: 0.4rem;" title="Registrar leitura rápida de horímetro">
+            <span>⏱️</span>
+            <span>Apontar Horímetro</span>
+          </button>
+          <button class="btn btn-icon" onclick="recarregarPreventivas()" title="Atualizar dados" style="background: var(--bg-card); border: 1px solid var(--border);">
+            <span>🔄</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Cards de Métricas / Semáforo Geral -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+        
+        <div class="card" style="padding: 1.25rem; display: flex; align-items: center; gap: 1rem; cursor: pointer; border-left: 4px solid var(--primary);" onclick="filtrarStatusPreventiva('')">
+          <div style="font-size: 2rem;">🚜</div>
+          <div>
+            <div style="font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 700;">Frota Monitorada</div>
+            <div style="font-size: 1.6rem; font-weight: 800; color: var(--text-primary);">${total || 0}</div>
+          </div>
+        </div>
+
+        <div class="card" style="padding: 1.25rem; display: flex; align-items: center; gap: 1rem; cursor: pointer; border-left: 4px solid #10b981; ${filtroStatus === 'EM_DIA' ? 'box-shadow: 0 0 0 2px #10b981;' : ''}" onclick="filtrarStatusPreventiva('EM_DIA')">
+          <div style="font-size: 2rem;">🟢</div>
+          <div>
+            <div style="font-size: 0.8rem; color: #10b981; text-transform: uppercase; font-weight: 700;">Em Dia (&gt; 40h)</div>
+            <div style="font-size: 1.6rem; font-weight: 800; color: #10b981;">${em_dia || 0}</div>
+          </div>
+        </div>
+
+        <div class="card" style="padding: 1.25rem; display: flex; align-items: center; gap: 1rem; cursor: pointer; border-left: 4px solid #f59e0b; ${filtroStatus === 'ATENCAO' ? 'box-shadow: 0 0 0 2px #f59e0b;' : ''}" onclick="filtrarStatusPreventiva('ATENCAO')">
+          <div style="font-size: 2rem;">🟡</div>
+          <div>
+            <div style="font-size: 0.8rem; color: #f59e0b; text-transform: uppercase; font-weight: 700;">Atenção (&le; 40h)</div>
+            <div style="font-size: 1.6rem; font-weight: 800; color: #f59e0b;">${atencao || 0}</div>
+          </div>
+        </div>
+
+        <div class="card" style="padding: 1.25rem; display: flex; align-items: center; gap: 1rem; cursor: pointer; border-left: 4px solid #ef4444; ${filtroStatus === 'VENCIDA' ? 'box-shadow: 0 0 0 2px #ef4444;' : ''}" onclick="filtrarStatusPreventiva('VENCIDA')">
+          <div style="font-size: 2rem;">🔴</div>
+          <div>
+            <div style="font-size: 0.8rem; color: #ef4444; text-transform: uppercase; font-weight: 700;">Vencidas (&le; 0h)</div>
+            <div style="font-size: 1.6rem; font-weight: 800; color: #ef4444;">${vencida || 0}</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Barra de Filtros e Busca -->
+      <div class="card" style="padding: 1rem; display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; justify-content: space-between;">
+        <div style="display: flex; gap: 0.75rem; flex: 1; min-width: 280px; align-items: center;">
+          <input 
+            type="text" 
+            class="form-input" 
+            placeholder="🔍 Buscar por modelo, ID Frota, série ou cliente..." 
+            value="${PreventivasState.filtros.busca || ''}" 
+            oninput="filtrarBuscaPreventiva(this.value)"
+            style="margin: 0;"
+          />
+        </div>
+
+        <div style="display: flex; gap: 0.75rem; align-items: center;">
+          <select class="form-input" onchange="filtrarStatusPreventiva(this.value)" style="margin: 0; min-width: 170px;">
+            <option value="" ${!filtroStatus ? 'selected' : ''}>Todos os Status</option>
+            <option value="VENCIDA" ${filtroStatus === 'VENCIDA' ? 'selected' : ''}>🔴 Apenas Vencidas</option>
+            <option value="ATENCAO" ${filtroStatus === 'ATENCAO' ? 'selected' : ''}>🟡 Apenas em Atenção</option>
+            <option value="EM_DIA" ${filtroStatus === 'EM_DIA' ? 'selected' : ''}>🟢 Apenas em Dia</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Grid de Equipamentos -->
+      ${maquinasFiltradas.length === 0 ? `
+        <div class="card" style="text-align: center; padding: 3rem 1rem;">
+          <div style="font-size: 3rem; margin-bottom: 0.5rem;">🚜</div>
+          <h3 style="margin: 0; color: var(--text-primary);">Nenhum equipamento encontrado</h3>
+          <p style="color: var(--text-secondary); margin-top: 0.5rem;">Nenhuma máquina corresponde aos filtros selecionados.</p>
+        </div>
+      ` : `
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 1.25rem;">
+          ${maquinasFiltradas.map(m => renderCardMaquinaPreventiva(m)).join('')}
+        </div>
+      `}
+
+    </div>
+  `;
+}
+
+// Renderiza o card individual de cada máquina
+function renderCardMaquinaPreventiva(m) {
+  const p = m.preditivo || {};
+  const statusColors = {
+    EM_DIA: { bg: 'rgba(16, 185, 129, 0.12)', border: '#10b981', text: '#10b981', label: '🟢 Em dia' },
+    ATENCAO: { bg: 'rgba(245, 158, 11, 0.12)', border: '#f59e0b', text: '#f59e0b', label: '🟡 Atenção' },
+    VENCIDA: { bg: 'rgba(239, 68, 68, 0.12)', border: '#ef4444', text: '#ef4444', label: '🔴 Vencida' }
+  };
+
+  const st = statusColors[p.status] || statusColors.EM_DIA;
+  const dataPrevistaFormatada = p.dataPrevista ? new Date(p.dataPrevista).toLocaleDateString('pt-BR') : 'A definir';
+  const dataAncoraFormatada = p.dataAncora ? new Date(p.dataAncora).toLocaleDateString('pt-BR') : '-';
+
+  // Mensagem de dias restantes
+  let textoDias = '';
+  if (p.horasRestantes <= 0) {
+    textoDias = `<span style="color: #ef4444; font-weight: 700;">Venceu há ${Math.abs(p.horasRestantes)} h!</span>`;
+  } else {
+    textoDias = `<span style="color: var(--text-primary); font-weight: 600;">~ ${p.diasRestantes} dias úteis</span> (${dataPrevistaFormatada})`;
+  }
+
+  return `
+    <div class="card machine-card" style="padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between; border-top: 4px solid ${st.border}; position: relative;">
+      
+      <div>
+        <!-- Topo: Frota + Modelo + Badge Semáforo -->
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.6rem;">
+          <div>
+            ${m.id_frota ? `
+              <span style="font-size: 0.75rem; background: var(--bg-secondary); border: 1px solid var(--border); padding: 2px 6px; border-radius: 4px; font-weight: 700; color: var(--primary);">
+                ${m.id_frota}
+              </span>
+            ` : ''}
+            <h3 style="margin: ${m.id_frota ? '4px 0 0 0' : '0'}; font-size: 1.1rem; color: var(--text-primary); font-weight: 700;">
+              ${m.modelo || 'Máquina'}
+            </h3>
+          </div>
+          <span style="font-size: 0.8rem; font-weight: 700; padding: 4px 10px; border-radius: 12px; background: ${st.bg}; color: ${st.text}; border: 1px solid ${st.border}; white-space: nowrap;">
+            ${st.label}
+          </span>
+        </div>
+
+        <!-- Cliente / Pedreira -->
+        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.35rem;">
+          <span>🏢</span>
+          <span style="font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+            ${m.cliente_nome || 'Cliente não vinculado'}
+          </span>
+        </div>
+
+        <!-- Bloco do Horímetro Estimado em Destaque -->
+        <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 0.9rem; margin-bottom: 1rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Horímetro Estimado Hoje</span>
+            <span style="font-size: 0.75rem; color: var(--text-secondary);">Regime: <strong>${p.horasDia}h/dia</strong></span>
+          </div>
+
+          <div style="display: flex; align-items: baseline; gap: 0.4rem;">
+            <span style="font-size: 1.8rem; font-weight: 800; color: var(--primary);">~ ${p.horimetroEstimado}</span>
+            <span style="font-size: 1rem; font-weight: 600; color: var(--text-secondary);">horas</span>
+          </div>
+
+          <!-- Barra de Progresso do Ciclo -->
+          <div style="margin-top: 0.75rem;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 3px;">
+              <span>Ciclo atual</span>
+              <span><strong>${p.progressoPercentual}%</strong> até Revisão ${p.proximaRevisaoHoras}h</span>
+            </div>
+            <div style="width: 100%; height: 7px; background: var(--border); border-radius: 4px; overflow: hidden;">
+              <div style="width: ${p.progressoPercentual}%; height: 100%; background: ${st.border}; border-radius: 4px; transition: width 0.3s ease;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Detalhes do Cálculo Preditivo -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; font-size: 0.8rem; margin-bottom: 1.25rem;">
+          <div>
+            <span style="color: var(--text-muted); display: block; font-size: 0.7rem;">ÚLTIMO REGISTRO</span>
+            <span style="font-weight: 600; color: var(--text-primary);">${p.horimetroAncora} h (${dataAncoraFormatada})</span>
+          </div>
+          <div>
+            <span style="color: var(--text-muted); display: block; font-size: 0.7rem;">PRÓXIMA PARADA</span>
+            <span style="font-weight: 700; color: ${st.text};">Revisão ${p.proximaRevisaoHoras} h</span>
+          </div>
+          <div style="grid-column: span 2; border-top: 1px dashed var(--border); padding-top: 0.4rem;">
+            <span style="color: var(--text-muted); font-size: 0.75rem;">Previsão da intervenção: </span>
+            ${textoDias}
+          </div>
+        </div>
+      </div>
+
+      <!-- Barra de Ações Rápidas -->
+      <div style="display: flex; gap: 0.4rem; border-top: 1px solid var(--border); padding-top: 0.9rem; flex-wrap: wrap;">
+        
+        <!-- Botão Gerar OS Preventiva -->
+        <button class="btn btn-sm btn-primary" style="flex: 1; min-width: 100px; display: flex; align-items: center; justify-content: center; gap: 0.35rem;" 
+                onclick="gerarOSPreventiva(${m.id})" title="Criar Ordem de Serviço Preventiva">
+          <span>🛠️</span>
+          <span>Gerar OS</span>
+        </button>
+
+        <!-- Botão Alerta Cliente (E-mail) -->
+        <button class="btn btn-sm btn-outline" style="display: flex; align-items: center; justify-content: center; gap: 0.35rem; padding: 0.4rem 0.6rem;" 
+                onclick="abrirModalAlertaCliente(${m.id})" title="Enviar Alerta Preditivo por E-mail ao Cliente">
+          <span>✉️</span>
+          <span>E-mail</span>
+        </button>
+
+        <!-- Botão WhatsApp -->
+        <button class="btn btn-sm btn-outline" style="display: flex; align-items: center; justify-content: center; gap: 0.35rem; padding: 0.4rem 0.6rem; color: #10b981; border-color: rgba(16, 185, 129, 0.4);" 
+                onclick="enviarWhatsAppCliente(${m.id})" title="Enviar Alerta no WhatsApp do Cliente">
+          <span>📲</span>
+          <span>Whats</span>
+        </button>
+
+        <!-- Botão Apontamento Rápido -->
+        <button class="btn btn-sm btn-outline" style="display: flex; align-items: center; justify-content: center; gap: 0.2rem; padding: 0.4rem 0.5rem;" 
+                onclick="abrirModalApontamento(${m.id})" title="Atualizar horímetro">
+          <span>⏱️</span>
+        </button>
+
+        <!-- Botão Configurar Parâmetros -->
+        <button class="btn btn-sm btn-outline" style="display: flex; align-items: center; justify-content: center; gap: 0.2rem; padding: 0.4rem 0.5rem;" 
+                onclick="abrirModalConfigurarMaquina(${m.id})" title="Configurar horas/dia e escala de trabalho">
+          <span>⚙️</span>
+        </button>
+
+      </div>
+
+    </div>
+  `;
+}
+
+// Filtros
+function filtrarBuscaPreventiva(valor) {
+  PreventivasState.filtros.busca = valor;
+  const container = document.getElementById('content-area');
+  if (container) container.innerHTML = renderPreventivas();
+}
+
+function filtrarStatusPreventiva(status) {
+  PreventivasState.filtros.status = status;
+  const container = document.getElementById('content-area');
+  if (container) container.innerHTML = renderPreventivas();
+}
+
+function recarregarPreventivas() {
+  carregarPreventivas(true).then(() => render());
+}
+
+// ==================== MODAL 1: APONTAMENTO RÁPIDO DE HORÍMETRO ====================
+
+function abrirModalApontamento(maquinaId = null) {
+  const maquinas = PreventivasState.maquinas || [];
+  const maquinaSelecionada = maquinaId ? maquinas.find(m => m.id === maquinaId) : null;
+
+  const html = `
+    <div class="modal-overlay" id="modal-apontamento" style="position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000; padding: 1rem;">
+      <div class="modal-container" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; width: 100%; max-width: 480px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);">
+        
+        <div class="modal-header" style="padding: 1.25rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: var(--bg-secondary);">
+          <h3 style="margin: 0; font-size: 1.15rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+            <span>⏱️</span>
+            <span>Apontamento Rápido de Horímetro</span>
+          </h3>
+          <button onclick="fecharModalApontamento()" style="background: none; border: none; font-size: 1.4rem; color: var(--text-muted); cursor: pointer;">&times;</button>
+        </div>
+
+        <form id="form-apontamento-horimetro" onsubmit="salvarApontamentoHorimetroSubmit(event)" style="padding: 1.25rem;">
+          
+          <div class="form-group">
+            <label class="form-label">Equipamento / Máquina *</label>
+            <select class="form-input" id="apontamento-maquina-id" required ${maquinaId ? 'disabled' : ''}>
+              <option value="">Selecione a máquina...</option>
+              ${maquinas.map(m => `
+                <option value="${m.id}" ${maquinaId === m.id ? 'selected' : ''}>
+                  ${m.modelo} ${m.id_frota ? `(${m.id_frota})` : ''} — ${m.cliente_nome || 'Sem cliente'}
+                </option>
+              `).join('')}
+            </select>
+            ${maquinaId ? `<input type="hidden" id="apontamento-maquina-hidden" value="${maquinaId}" />` : ''}
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Horímetro Visto no Painel (horas) *</label>
+            <input 
+              type="text" 
+              class="form-input" 
+              id="apontamento-horimetro" 
+              placeholder="Ex: 1250 ou 1250,5" 
+              value="${maquinaSelecionada ? (maquinaSelecionada.preditivo?.horimetroEstimado || maquinaSelecionada.horas_uso || '') : ''}"
+              required 
+              style="font-size: 1.2rem; font-weight: 700; color: var(--primary);"
+            />
+            <small style="color: var(--text-muted); font-size: 0.75rem;">Esse dado atualiza a âncora de verdade e recalibra as previsões.</small>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Observações (Opcional)</label>
+            <textarea 
+              class="form-input" 
+              id="apontamento-observacoes" 
+              rows="2" 
+              placeholder="Ex: Leitura feita na lavra durante abastecimento..."></textarea>
+          </div>
+
+          <div style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.5rem;">
+            <button type="button" class="btn btn-outline" onclick="fecharModalApontamento()">Cancelar</button>
+            <button type="submit" class="btn btn-primary" id="btn-salvar-apontamento">
+              <span>Salvar Leitura</span>
+            </button>
+          </div>
+
+        </form>
+
+      </div>
+    </div>
+  `;
+
+  const div = document.createElement('div');
+  div.id = 'container-modal-apontamento';
+  div.innerHTML = html;
+  document.body.appendChild(div);
+
+  setTimeout(() => {
+    const inputH = document.getElementById('apontamento-horimetro');
+    if (inputH) inputH.focus();
+  }, 100);
+}
+
+function fecharModalApontamento() {
+  const el = document.getElementById('container-modal-apontamento');
+  if (el) el.remove();
+}
+
+async function salvarApontamentoHorimetroSubmit(e) {
+  e.preventDefault();
+  const selectM = document.getElementById('apontamento-maquina-id');
+  const hiddenM = document.getElementById('apontamento-maquina-hidden');
+  const maquina_id = hiddenM ? hiddenM.value : (selectM ? selectM.value : null);
+  const horimetro = document.getElementById('apontamento-horimetro').value;
+  const observacoes = document.getElementById('apontamento-observacoes').value;
+
+  if (!maquina_id || !horimetro) {
+    return alert('Por favor, informe a máquina e o horímetro.');
+  }
+
+  const btn = document.getElementById('btn-salvar-apontamento');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = 'Salvando...';
+  }
+
+  try {
+    const res = await window.api.salvarApontamentoHorimetro({
+      maquina_id: parseInt(maquina_id),
+      horimetro,
+      observacoes
+    });
+
+    if (res && res.success) {
+      fecharModalApontamento();
+      await carregarPreventivas(true);
+      render();
+    } else {
+      alert('Erro ao salvar apontamento: ' + (res?.message || 'Erro desconhecido'));
+    }
+  } catch (err) {
+    alert('Erro de conexão: ' + err.message);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = 'Salvar Leitura';
+    }
+  }
+}
+
+// ==================== MODAL 2: CONFIGURAR PARÂMETROS DA MÁQUINA ====================
+
+function abrirModalConfigurarMaquina(maquinaId) {
+  const m = PreventivasState.maquinas.find(x => x.id === maquinaId);
+  if (!m) return alert('Máquina não encontrada');
+
+  const p = m.preditivo || {};
+
+  const html = `
+    <div class="modal-overlay" id="modal-config-maq" style="position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000; padding: 1rem;">
+      <div class="modal-container" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; width: 100%; max-width: 500px; overflow: hidden;">
+        
+        <div class="modal-header" style="padding: 1.25rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: var(--bg-secondary);">
+          <h3 style="margin: 0; font-size: 1.15rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+            <span>⚙️</span>
+            <span>Parâmetros Preditivos — ${m.modelo}</span>
+          </h3>
+          <button onclick="fecharModalConfigMaquina()" style="background: none; border: none; font-size: 1.4rem; color: var(--text-muted); cursor: pointer;">&times;</button>
+        </div>
+
+        <form id="form-config-maquina" onsubmit="salvarConfigMaquinaSubmit(event, ${m.id})" style="padding: 1.25rem;">
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Horas Estimadas / Dia *</label>
+              <input type="number" step="0.5" min="1" max="24" class="form-input" id="cfg-horas-dia" value="${m.horas_dia_estimadas || p.horasDia || 7.0}" required />
+              <small style="color: var(--text-muted); font-size: 0.7rem;">Média diária na pedreira (ex: 7h ou 8h)</small>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Escala Semanal *</label>
+              <select class="form-input" id="cfg-dias-semana">
+                <option value="5" ${(m.dias_semana_trabalho || p.diasSemana) == 5 ? 'selected' : ''}>Segunda a Sexta (5 dias)</option>
+                <option value="6" ${(m.dias_semana_trabalho || p.diasSemana) == 6 ? 'selected' : ''}>Segunda a Sábado (6 dias)</option>
+              </select>
+              <small style="color: var(--text-muted); font-size: 0.7rem;">Dias úteis de motor operando</small>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+            <div class="form-group">
+              <label class="form-label">Próxima Revisão Alvo (h)</label>
+              <input type="number" step="10" class="form-input" id="cfg-proxima-revisao" value="${m.proxima_revisao_horas || p.proximaRevisaoHoras || 250}" />
+              <small style="color: var(--text-muted); font-size: 0.7rem;">Ex: 250, 500, 1000...</small>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Última Revisão Feita (h)</label>
+              <input type="number" step="10" class="form-input" id="cfg-ultima-revisao" value="${m.ultima_revisao_horas || p.ultimaRevisaoHoras || ''}" placeholder="Ex: 1000" />
+              <small style="color: var(--text-muted); font-size: 0.7rem;">Horímetro da última troca</small>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.5rem;">
+            <button type="button" class="btn btn-outline" onclick="fecharModalConfigMaquina()">Cancelar</button>
+            <button type="submit" class="btn btn-primary" id="btn-salvar-cfg">Salvar Parâmetros</button>
+          </div>
+
+        </form>
+
+      </div>
+    </div>
+  `;
+
+  const div = document.createElement('div');
+  div.id = 'container-modal-config-maq';
+  div.innerHTML = html;
+  document.body.appendChild(div);
+}
+
+function fecharModalConfigMaquina() {
+  const el = document.getElementById('container-modal-config-maq');
+  if (el) el.remove();
+}
+
+async function salvarConfigMaquinaSubmit(e, maquinaId) {
+  e.preventDefault();
+  const horas_dia_estimadas = document.getElementById('cfg-horas-dia').value;
+  const dias_semana_trabalho = document.getElementById('cfg-dias-semana').value;
+  const proxima_revisao_horas = document.getElementById('cfg-proxima-revisao').value;
+  const ultima_revisao_horas = document.getElementById('cfg-ultima-revisao').value;
+
+  const btn = document.getElementById('btn-salvar-cfg');
+  if (btn) { btn.disabled = true; btn.innerHTML = 'Salvando...'; }
+
+  try {
+    const res = await window.api.configurarMaquinaPreventiva(maquinaId, {
+      horas_dia_estimadas,
+      dias_semana_trabalho,
+      proxima_revisao_horas,
+      ultima_revisao_horas
+    });
+
+    if (res && res.success) {
+      fecharModalConfigMaquina();
+      await carregarPreventivas(true);
+      render();
+    } else {
+      alert('Erro ao atualizar configurações: ' + (res?.message || 'Erro desconhecido'));
+    }
+  } catch (err) {
+    alert('Erro de conexão: ' + err.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = 'Salvar Parâmetros'; }
+  }
+}
+
+// ==================== MODAL 3: INFORMATIVO AOS MECÂNICOS ====================
+
+async function abrirModalEmailMecanicos() {
+  try {
+    const res = await window.api.obterPreviewEmailMecanicos();
+    if (!res || !res.success) {
+      return alert('Erro ao carregar preview do informativo');
+    }
+
+    const html = `
+      <div class="modal-overlay" id="modal-email-mec" style="position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000; padding: 1rem;">
+        <div class="modal-container" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; width: 100%; max-width: 680px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;">
+          
+          <div class="modal-header" style="padding: 1.25rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: var(--bg-secondary);">
+            <h3 style="margin: 0; font-size: 1.15rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+              <span>📧</span>
+              <span>Disparar Informativo aos Mecânicos</span>
+            </h3>
+            <button onclick="fecharModalEmailMecanicos()" style="background: none; border: none; font-size: 1.4rem; color: var(--text-muted); cursor: pointer;">&times;</button>
+          </div>
+
+          <div class="modal-body" style="padding: 1.25rem; overflow-y: auto; flex: 1;">
+            <p style="margin: 0 0 1rem 0; font-size: 0.85rem; color: var(--text-secondary);">
+              Este comunicado será enviado para os e-mails de todos os <strong>Mecânicos e Técnicos ativos</strong> cadastrados no sistema, conscientizando sobre a importância da medição exata do horímetro na pedreira.
+            </p>
+
+            <div class="form-group">
+              <label class="form-label">Assunto do E-mail</label>
+              <input type="text" class="form-input" id="email-mec-assunto" value="${res.assunto || ''}" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Pré-visualização do Conteúdo</label>
+              <div style="border: 1px solid var(--border); border-radius: 6px; padding: 1rem; background: #ffffff; color: #333; max-height: 280px; overflow-y: auto;">
+                ${res.html}
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer" style="padding: 1rem 1.25rem; border-top: 1px solid var(--border); background: var(--bg-secondary); display: flex; justify-content: flex-end; gap: 0.75rem;">
+            <button type="button" class="btn btn-outline" onclick="fecharModalEmailMecanicos()">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="btn-enviar-email-mec" onclick="confirmarDisparoEmailMecanicos()">
+              <span>🚀 Enviar aos Mecânicos Agora</span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+    `;
+
+    const div = document.createElement('div');
+    div.id = 'container-modal-email-mec';
+    div.innerHTML = html;
+    document.body.appendChild(div);
+
+  } catch (err) {
+    alert('Erro ao abrir preview: ' + err.message);
+  }
+}
+
+function fecharModalEmailMecanicos() {
+  const el = document.getElementById('container-modal-email-mec');
+  if (el) el.remove();
+}
+
+async function confirmarDisparoEmailMecanicos() {
+  const assunto = document.getElementById('email-mec-assunto').value;
+  const btn = document.getElementById('btn-enviar-email-mec');
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = 'Enviando e-mails...';
+  }
+
+  try {
+    const res = await window.api.dispararEmailMecanicos({ assunto });
+    if (res && res.success) {
+      alert(res.message || 'Informativo enviado com sucesso!');
+      fecharModalEmailMecanicos();
+    } else {
+      alert('Aviso: ' + (res?.message || 'Falha no disparo'));
+    }
+  } catch (err) {
+    alert('Erro de envio: ' + err.message);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '🚀 Enviar aos Mecânicos Agora';
+    }
+  }
+}
+
+// ==================== MODAL 4: ALERTA PREVENTIVO AO CLIENTE ====================
+
+async function abrirModalAlertaCliente(maquinaId) {
+  try {
+    const res = await window.api.obterPreviewAlertaCliente(maquinaId);
+    if (!res || !res.success) {
+      return alert('Erro ao carregar preview do alerta: ' + (res?.message || 'Erro desconhecido'));
+    }
+
+    const html = `
+      <div class="modal-overlay" id="modal-alerta-cli" style="position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000; padding: 1rem;">
+        <div class="modal-container" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; width: 100%; max-width: 680px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;">
+          
+          <div class="modal-header" style="padding: 1.25rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: var(--bg-secondary);">
+            <h3 style="margin: 0; font-size: 1.15rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+              <span>✉️</span>
+              <span>Alerta Preventivo ao Cliente</span>
+            </h3>
+            <button onclick="fecharModalAlertaCliente()" style="background: none; border: none; font-size: 1.4rem; color: var(--text-muted); cursor: pointer;">&times;</button>
+          </div>
+
+          <div class="modal-body" style="padding: 1.25rem; overflow-y: auto; flex: 1;">
+            
+            <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+              <div class="form-group" style="margin: 0;">
+                <label class="form-label">E-mail do Destinatário *</label>
+                <input type="email" class="form-input" id="alerta-cli-email" value="${res.destinatarioEmail || ''}" placeholder="cliente@pedreira.com" required />
+              </div>
+              <div class="form-group" style="margin: 0;">
+                <label class="form-label">Telefone / WhatsApp</label>
+                <input type="text" class="form-input" id="alerta-cli-telefone" value="${res.destinatarioTelefone || ''}" placeholder="(28) 99999-9999" />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Assunto</label>
+              <input type="text" class="form-input" id="alerta-cli-assunto" value="${res.assunto || ''}" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Pré-visualização do E-mail</label>
+              <div style="border: 1px solid var(--border); border-radius: 6px; padding: 1rem; background: #ffffff; color: #333; max-height: 260px; overflow-y: auto;">
+                ${res.html}
+              </div>
+            </div>
+
+          </div>
+
+          <div class="modal-footer" style="padding: 1rem 1.25rem; border-top: 1px solid var(--border); background: var(--bg-secondary); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+            <button type="button" class="btn btn-outline" style="color: #10b981; border-color: rgba(16, 185, 129, 0.4);" onclick="enviarWhatsAppCliente(${maquinaId})">
+              <span>📲 Enviar via WhatsApp</span>
+            </button>
+
+            <div style="display: flex; gap: 0.6rem;">
+              <button type="button" class="btn btn-outline" onclick="fecharModalAlertaCliente()">Cancelar</button>
+              <button type="button" class="btn btn-primary" id="btn-enviar-alerta-cli" onclick="confirmarDisparoAlertaCliente(${maquinaId})">
+                <span>🚀 Disparar E-mail</span>
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    `;
+
+    const div = document.createElement('div');
+    div.id = 'container-modal-alerta-cli';
+    div.innerHTML = html;
+    document.body.appendChild(div);
+
+  } catch (err) {
+    alert('Erro ao abrir preview: ' + err.message);
+  }
+}
+
+function fecharModalAlertaCliente() {
+  const el = document.getElementById('container-modal-alerta-cli');
+  if (el) el.remove();
+}
+
+async function confirmarDisparoAlertaCliente(maquinaId) {
+  const email_destinatario = document.getElementById('alerta-cli-email').value;
+  const assunto = document.getElementById('alerta-cli-assunto').value;
+  const btn = document.getElementById('btn-enviar-alerta-cli');
+
+  if (!email_destinatario) {
+    return alert('Por favor, informe o e-mail do destinatário.');
+  }
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = 'Enviando...';
+  }
+
+  try {
+    const res = await window.api.dispararAlertaCliente(maquinaId, {
+      email_destinatario,
+      assunto
+    });
+
+    if (res && res.success) {
+      alert(res.message || 'Alerta preventivo enviado com sucesso!');
+      fecharModalAlertaCliente();
+    } else {
+      alert('Aviso: ' + (res?.message || 'Falha no envio'));
+    }
+  } catch (err) {
+    alert('Erro no envio: ' + err.message);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '🚀 Disparar E-mail';
+    }
+  }
+}
+
+// Enviar mensagem direta via WhatsApp
+function enviarWhatsAppCliente(maquinaId) {
+  const m = PreventivasState.maquinas.find(x => x.id === maquinaId);
+  if (!m) return alert('Máquina não encontrada');
+
+  const texto = m.whatsappTexto || '';
+  let tel = (m.cliente_telefone || '').replace(/\D/g, '');
+  if (tel && !tel.startsWith('55')) {
+    tel = '55' + tel;
+  }
+
+  const url = tel 
+    ? `https://api.whatsapp.com/send?phone=${tel}&text=${encodeURIComponent(texto)}`
+    : `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`;
+
+  window.open(url, '_blank');
+}
+
+// Ação de 1 clique: Gerar OS Preventiva
+function gerarOSPreventiva(maquinaId) {
+  const m = PreventivasState.maquinas.find(x => x.id === maquinaId);
+  if (!m) return alert('Máquina não encontrada');
+
+  const p = m.preditivo || {};
+
+  const prefill = {
+    cliente_id: m.cliente_id,
+    maquina_id: m.id,
+    tipo: 'PREVENTIVA',
+    horimetro: `${p.horimetroEstimado} h`,
+    descricao_problema: `REVISÃO PREVENTIVA PROGRAMADA (${p.proximaRevisaoHoras} HORAS).\nSUBSTITUIÇÃO DE ELEMENTOS FILTRANTES E ÓLEOS LUBRIFICANTES CONFORME PLANO PREDITIVO DE PEDREIRA.`,
+    diagnostico: `INTERVENÇÃO PREVENTIVA BASEADA EM HORÍMETRO ESTIMADO (~${p.horimetroEstimado} h). REVISÃO DO CICLO DE ${p.proximaRevisaoHoras} HORAS.`
+  };
+
+  if (typeof mostrarModalOS === 'function') {
+    mostrarModalOS(null, prefill);
+  } else {
+    alert('Abrindo modal de OS...');
+  }
+}

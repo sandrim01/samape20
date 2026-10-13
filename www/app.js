@@ -30,10 +30,10 @@ const AppState = {
 // Definição de permissões por cargo
 const PERMISSIONS = {
   ADMIN: ['*'], // Acesso total
-  DIRETOR: ['dashboard', 'relatorios', 'financeiro', 'operacional', 'vendas', 'clientes'],
+  DIRETOR: ['dashboard', 'relatorios', 'financeiro', 'operacional', 'vendas', 'clientes', 'preventivas'],
   FINANCEIRO: ['dashboard', 'financeiro', 'clientes', 'relatorios-financeiros'],
   VENDAS: ['dashboard', 'vendas', 'pecas', 'clientes', 'estoque', 'listagens-pecas'],
-  MECANICO: ['dashboard', 'operacional', 'ordens-servico', 'maquinas', 'listagens-pecas']
+  MECANICO: ['dashboard', 'operacional', 'ordens-servico', 'maquinas', 'listagens-pecas', 'preventivas']
 };
 
 // Verificar se usuário tem permissão
@@ -236,6 +236,14 @@ function renderMobileSidebar() {
             <span class="mobile-nav-desc">Cadastro e horímetros</span>
           </div>
         </button>
+
+        <button class="mobile-nav-item nav-item ${AppState.currentPage === 'preventivas' ? 'active' : ''}" data-page="preventivas" onclick="toggleMobileSidebar(false)">
+          <span class="mobile-nav-icon">📅</span>
+          <div class="mobile-nav-text">
+            <span class="mobile-nav-label">Preventivas Preditivas</span>
+            <span class="mobile-nav-desc">Previsões, alertas e revisões</span>
+          </div>
+        </button>
       </nav>
 
       <div class="mobile-sidebar-footer">
@@ -268,7 +276,7 @@ function renderTopbar() {
   const userRole = AppState.currentUser ? (roleLabels[AppState.currentUser.perfil] || AppState.currentUser.perfil || 'Usuário') : 'Usuário';
   const initials = userName.split(' ').filter(n => n).map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'U';
 
-  const isOpActive = ['ordens-servico', 'listagens-pecas', 'maquinas'].includes(AppState.currentPage);
+  const isOpActive = ['ordens-servico', 'listagens-pecas', 'maquinas', 'preventivas'].includes(AppState.currentPage);
   const isVendasActive = ['vendas', 'pecas'].includes(AppState.currentPage);
   const isCadastrosActive = ['clientes'].includes(AppState.currentPage);
   const isSistemaActive = ['usuarios'].includes(AppState.currentPage);
@@ -319,6 +327,10 @@ function renderTopbar() {
                   <div class="top-nav-subitem nav-item ${AppState.currentPage === 'maquinas' ? 'active' : ''}" data-page="maquinas">
                     <span>🚜</span>
                     <span>Máquinas</span>
+                  </div>
+                  <div class="top-nav-subitem nav-item ${AppState.currentPage === 'preventivas' ? 'active' : ''}" data-page="preventivas">
+                    <span>📅</span>
+                    <span>Preventivas</span>
                   </div>
                 ` : ''}
               </div>
@@ -424,7 +436,7 @@ function renderTopbar() {
 
 function renderPage() {
   const isMobile = window.innerWidth <= 1024;
-  if (isMobile && !['dashboard', 'ordens-servico', 'listagens-pecas', 'maquinas'].includes(AppState.currentPage)) {
+  if (isMobile && !['dashboard', 'ordens-servico', 'listagens-pecas', 'maquinas', 'preventivas'].includes(AppState.currentPage)) {
     AppState.currentPage = 'dashboard';
   }
 
@@ -433,6 +445,7 @@ function renderPage() {
     case 'ordens-servico': return renderOrdensServico();
     case 'listagens-pecas': return renderListagensPecas();
     case 'maquinas': return renderMaquinas();
+    case 'preventivas': return renderPreventivas();
     case 'vendas': return renderVendas();
     case 'pecas': return renderPecas();
     case 'contas-receber': return renderContasReceber();

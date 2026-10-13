@@ -93,7 +93,16 @@ try {
         excluirListagemPecas: (id) => ipcRenderer.invoke('excluir-listagem-pecas', id),
         adicionarItemListagem: (lpId, dados) => ipcRenderer.invoke('adicionar-item-listagem', { lpId, dados }),
         removerItemListagem: (lpId, itemId) => ipcRenderer.invoke('remover-item-listagem', { lpId, itemId }),
-        buscarInternetPecas: (query) => ipcRenderer.invoke('buscar-internet-pecas', query)
+        buscarInternetPecas: (query) => ipcRenderer.invoke('buscar-internet-pecas', query),
+
+        // Manutenção Preventiva Preditiva
+        listarPreventivas: () => ipcRenderer.invoke('listar-preventivas'),
+        salvarApontamentoHorimetro: (dados) => ipcRenderer.invoke('salvar-apontamento-horimetro', dados),
+        configurarMaquinaPreventiva: (id, dados) => ipcRenderer.invoke('configurar-maquina-preventiva', { id, dados }),
+        obterPreviewEmailMecanicos: () => ipcRenderer.invoke('obter-preview-email-mecanicos'),
+        dispararEmailMecanicos: (dados) => ipcRenderer.invoke('disparar-email-mecanicos', dados),
+        obterPreviewAlertaCliente: (maquinaId) => ipcRenderer.invoke('obter-preview-alerta-cliente', maquinaId),
+        dispararAlertaCliente: (maquinaId, dados) => ipcRenderer.invoke('disparar-alerta-cliente', { maquinaId, dados })
     });
     console.log('✅ preload.js: window.api exportado com sucesso');
 } catch (error) {
