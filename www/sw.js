@@ -1,4 +1,4 @@
-const CACHE_NAME = 'samapeop-v1';
+const CACHE_NAME = 'samapeop-v2';
 const urlsToCache = [
     '/',
     '/index.html',
@@ -6,7 +6,9 @@ const urlsToCache = [
     '/app.js',
     '/os-modal.js',
     '/resources/logonova2.png',
-    '/resources/favicon.ico'
+    '/resources/favicon.ico',
+    '/resources/favicon.png',
+    '/resources/favicon-32x32.png'
 ];
 
 // Instalar Service Worker e cachear recursos
