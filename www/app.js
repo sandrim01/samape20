@@ -368,7 +368,7 @@ function renderTopbar() {
           ` : ''}
 
           <!-- Sistema -->
-          ${hasPermission('*') ? `
+          ${(hasPermission('*') || hasPermission('financeiro')) ? `
             <div class="top-nav-dropdown ${isSistemaActive ? 'active' : ''}">
               <button class="top-nav-btn" type="button">
                 <span>⚙️</span>
@@ -376,10 +376,17 @@ function renderTopbar() {
                 <span class="top-nav-arrow">▼</span>
               </button>
               <div class="top-nav-menu">
-                <div class="top-nav-subitem nav-item ${AppState.currentPage === 'usuarios' ? 'active' : ''}" data-page="usuarios">
-                  <span>👤</span>
-                  <span>Usuários</span>
-                </div>
+                ${hasPermission('*') ? `
+                  <div class="top-nav-subitem nav-item ${AppState.currentPage === 'usuarios' ? 'active' : ''}" data-page="usuarios">
+                    <span>👤</span>
+                    <span>Usuários</span>
+                  </div>
+                ` : ''}
+                <a href="https://finansamape-samape20.up.railway.app" target="_blank" rel="noopener noreferrer" class="top-nav-subitem" style="text-decoration: none; color: inherit;" onclick="document.querySelectorAll('.top-nav-dropdown.open').forEach(d => d.classList.remove('open'));" title="Abrir Sistema Financeiro">
+                  <span>💰</span>
+                  <span>Financeiro</span>
+                  <span style="font-size: 0.75rem; margin-left: auto; opacity: 0.7;">↗</span>
+                </a>
               </div>
             </div>
           ` : ''}
