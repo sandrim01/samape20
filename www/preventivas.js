@@ -147,7 +147,7 @@ function renderPreventivas() {
         </div>
       </div>
 
-      <!-- Grid de Equipamentos -->
+      <!-- Tabela de Equipamentos e Preventivas -->
       ${maquinasFiltradas.length === 0 ? `
         <div class="card" style="text-align: center; padding: 3rem 1rem;">
           <div style="font-size: 3rem; margin-bottom: 0.5rem;">🚜</div>
@@ -155,8 +155,23 @@ function renderPreventivas() {
           <p style="color: var(--text-secondary); margin-top: 0.5rem;">Nenhuma máquina corresponde aos filtros selecionados.</p>
         </div>
       ` : `
-        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 1.25rem;">
-          ${maquinasFiltradas.map(m => renderCardMaquinaPreventiva(m)).join('')}
+        <div class="table-container card" style="padding: 0; overflow-x: auto; border: 1px solid var(--border); border-radius: 8px;">
+          <table style="width: 100%; border-collapse: collapse; text-align: left;">
+            <thead>
+              <tr style="background: var(--bg-secondary); border-bottom: 1px solid var(--border);">
+                <th style="padding: 0.85rem 1rem; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); font-weight: 700;">Status</th>
+                <th style="padding: 0.85rem 1rem; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); font-weight: 700;">Equipamento / Frota</th>
+                <th style="padding: 0.85rem 1rem; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); font-weight: 700;">Cliente / Pedreira</th>
+                <th style="padding: 0.85rem 1rem; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); font-weight: 700;">Horímetro Estimado</th>
+                <th style="padding: 0.85rem 1rem; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); font-weight: 700;">Próxima Revisão</th>
+                <th style="padding: 0.85rem 1rem; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); font-weight: 700;">Previsão</th>
+                <th style="padding: 0.85rem 1rem; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); font-weight: 700; text-align: center;">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${maquinasFiltradas.map(m => renderLinhaTabelaPreventiva(m)).join('')}
+            </tbody>
+          </table>
         </div>
       `}
 
@@ -164,8 +179,115 @@ function renderPreventivas() {
   `;
 }
 
-// Renderiza o card individual de cada máquina
-function renderCardMaquinaPreventiva(m) {
+// Renderiza a linha de cada máquina na tabela
+function renderLinhaTabelaPreventiva(m) {
+  const p = m.preditivo || {};
+  const statusColors = {
+    EM_DIA: { bg: 'rgba(16, 185, 129, 0.12)', border: '#10b981', text: '#10b981', label: '🟢 Em dia' },
+    ATENCAO: { bg: 'rgba(245, 158, 11, 0.12)', border: '#f59e0b', text: '#f59e0b', label: '🟡 Atenção' },
+    VENCIDA: { bg: 'rgba(239, 68, 68, 0.12)', border: '#ef4444', text: '#ef4444', label: '🔴 Vencida' }
+  };
+
+  const st = statusColors[p.status] || statusColors.EM_DIA;
+  const dataPrevistaFormatada = p.dataPrevista ? new Date(p.dataPrevista).toLocaleDateString('pt-BR') : 'A definir';
+
+  // Mensagem da previsão
+  let textoPrevisao = '';
+  if (p.horasRestantes <= 0) {
+    textoPrevisao = `<span style="color: #ef4444; font-weight: 700;">Venceu há ${Math.abs(p.horasRestantes)} h!</span>`;
+  } else {
+    textoPrevisao = `<span style="font-weight: 600; color: var(--text-primary);">~ ${p.diasRestantes} dias úteis</span> <span style="font-size: 0.75rem; color: var(--text-muted);">(${dataPrevistaFormatada})</span>`;
+  }
+
+  return `
+    <tr 
+      onclick="abrirModalDetalhesMaquina(${m.id})" 
+      style="cursor: pointer; border-bottom: 1px solid var(--border); transition: background 0.15s ease;"
+      onmouseover="this.style.background='var(--bg-secondary)'" 
+      onmouseout="this.style.background='transparent'"
+      title="Clique para abrir detalhes e ações da preventiva"
+    >
+      <!-- Status Semáforo -->
+      <td style="padding: 0.85rem 1rem; white-space: nowrap;">
+        <span style="font-size: 0.75rem; font-weight: 700; padding: 4px 9px; border-radius: 12px; background: ${st.bg}; color: ${st.text}; border: 1px solid ${st.border};">
+          ${st.label}
+        </span>
+      </td>
+
+      <!-- Equipamento & Frota -->
+      <td style="padding: 0.85rem 1rem;">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          ${m.id_frota ? `
+            <span style="font-size: 0.75rem; font-weight: 700; color: var(--primary); background: var(--bg-secondary); border: 1px solid var(--border); padding: 2px 6px; border-radius: 4px;">
+              ${m.id_frota}
+            </span>
+          ` : ''}
+          <div>
+            <div style="font-weight: 700; color: var(--text-primary); font-size: 0.95rem;">
+              ${m.modelo || 'Máquina'}
+            </div>
+            ${m.numero_serie ? `<div style="font-size: 0.75rem; color: var(--text-muted);">S/N: ${m.numero_serie}</div>` : ''}
+          </div>
+        </div>
+      </td>
+
+      <!-- Cliente / Pedreira -->
+      <td style="padding: 0.85rem 1rem; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+        <span style="color: var(--text-primary); font-weight: 500;">
+          🏢 ${m.cliente_nome || 'Não vinculado'}
+        </span>
+      </td>
+
+      <!-- Horímetro Estimado & Progresso -->
+      <td style="padding: 0.85rem 1rem; min-width: 170px;">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 3px;">
+          <span style="font-family: monospace; font-size: 1.05rem; font-weight: 800; color: var(--primary);">
+            ~ ${p.horimetroEstimado} h
+          </span>
+          <span style="font-size: 0.75rem; color: var(--text-secondary);">
+            ${p.horasDia}h/dia
+          </span>
+        </div>
+        <div style="width: 100%; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden;" title="${p.progressoPercentual}% até Revisão ${p.proximaRevisaoHoras}h">
+          <div style="width: ${p.progressoPercentual}%; height: 100%; background: ${st.border}; border-radius: 3px;"></div>
+        </div>
+      </td>
+
+      <!-- Próxima Revisão -->
+      <td style="padding: 0.85rem 1rem; white-space: nowrap;">
+        <div style="font-weight: 700; color: ${st.text};">
+          Revisão ${p.proximaRevisaoHoras} h
+        </div>
+        <div style="font-size: 0.75rem; color: var(--text-muted);">
+          ${p.horasRestantes > 0 ? `Faltam ${p.horasRestantes} h` : `Excedido em ${Math.abs(p.horasRestantes)} h`}
+        </div>
+      </td>
+
+      <!-- Previsão -->
+      <td style="padding: 0.85rem 1rem; white-space: nowrap;">
+        ${textoPrevisao}
+      </td>
+
+      <!-- Ações -->
+      <td style="padding: 0.85rem 1rem; text-align: center; white-space: nowrap;">
+        <button 
+          class="btn btn-sm btn-outline" 
+          onclick="event.stopPropagation(); abrirModalDetalhesMaquina(${m.id})" 
+          style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600;"
+          title="Ver todos os detalhes e ações desta máquina"
+        >
+          <span>📋</span> <span>Detalhes</span>
+        </button>
+      </td>
+    </tr>
+  `;
+}
+
+// Modal de Detalhes da Preventiva da Máquina Selecionada
+function abrirModalDetalhesMaquina(maquinaId) {
+  const m = PreventivasState.maquinas.find(x => x.id === maquinaId);
+  if (!m) return alert('Máquina não encontrada');
+
   const p = m.preditivo || {};
   const statusColors = {
     EM_DIA: { bg: 'rgba(16, 185, 129, 0.12)', border: '#10b981', text: '#10b981', label: '🟢 Em dia' },
@@ -177,125 +299,263 @@ function renderCardMaquinaPreventiva(m) {
   const dataPrevistaFormatada = p.dataPrevista ? new Date(p.dataPrevista).toLocaleDateString('pt-BR') : 'A definir';
   const dataAncoraFormatada = p.dataAncora ? new Date(p.dataAncora).toLocaleDateString('pt-BR') : '-';
 
-  // Mensagem de dias restantes
-  let textoDias = '';
+  let textoPrazo = '';
   if (p.horasRestantes <= 0) {
-    textoDias = `<span style="color: #ef4444; font-weight: 700;">Venceu há ${Math.abs(p.horasRestantes)} h!</span>`;
+    textoPrazo = `<span style="color: #ef4444; font-weight: 800;">🚨 REVISÃO VENCIDA HÁ ${Math.abs(p.horasRestantes)} HORAS!</span>`;
   } else {
-    textoDias = `<span style="color: var(--text-primary); font-weight: 600;">~ ${p.diasRestantes} dias úteis</span> (${dataPrevistaFormatada})`;
+    textoPrazo = `<span style="color: var(--text-primary); font-weight: 700;">Previsão da Próxima Parada: ~ ${p.diasRestantes} dias úteis (${dataPrevistaFormatada})</span>`;
   }
 
-  return `
-    <div class="card machine-card" style="padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between; border-top: 4px solid ${st.border}; position: relative;">
-      
-      <div>
-        <!-- Topo: Frota + Modelo + Badge Semáforo -->
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.6rem;">
-          <div>
-            ${m.id_frota ? `
-              <span style="font-size: 0.75rem; background: var(--bg-secondary); border: 1px solid var(--border); padding: 2px 6px; border-radius: 4px; font-weight: 700; color: var(--primary);">
-                ${m.id_frota}
-              </span>
-            ` : ''}
-            <h3 style="margin: ${m.id_frota ? '4px 0 0 0' : '0'}; font-size: 1.1rem; color: var(--text-primary); font-weight: 700;">
-              ${m.modelo || 'Máquina'}
-            </h3>
-          </div>
-          <span style="font-size: 0.8rem; font-weight: 700; padding: 4px 10px; border-radius: 12px; background: ${st.bg}; color: ${st.text}; border: 1px solid ${st.border}; white-space: nowrap;">
-            ${st.label}
-          </span>
-        </div>
+  const escalaNome = p.diasTrabalho === 'SEG_SAB' ? 'Segunda a Sábado (6 dias/sem)' : 'Segunda a Sexta (5 dias/sem)';
 
-        <!-- Cliente / Pedreira -->
-        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.35rem;">
-          <span>🏢</span>
-          <span style="font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-            ${m.cliente_nome || 'Cliente não vinculado'}
-          </span>
-        </div>
-
-        <!-- Bloco do Horímetro Estimado em Destaque -->
-        <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 0.9rem; margin-bottom: 1rem;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-            <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Horímetro Estimado Hoje</span>
-            <span style="font-size: 0.75rem; color: var(--text-secondary);">Regime: <strong>${p.horasDia}h/dia</strong></span>
-          </div>
-
-          <div style="display: flex; align-items: baseline; gap: 0.4rem;">
-            <span style="font-size: 1.8rem; font-weight: 800; color: var(--primary);">~ ${p.horimetroEstimado}</span>
-            <span style="font-size: 1rem; font-weight: 600; color: var(--text-secondary);">horas</span>
-          </div>
-
-          <!-- Barra de Progresso do Ciclo -->
-          <div style="margin-top: 0.75rem;">
-            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 3px;">
-              <span>Ciclo atual</span>
-              <span><strong>${p.progressoPercentual}%</strong> até Revisão ${p.proximaRevisaoHoras}h</span>
-            </div>
-            <div style="width: 100%; height: 7px; background: var(--border); border-radius: 4px; overflow: hidden;">
-              <div style="width: ${p.progressoPercentual}%; height: 100%; background: ${st.border}; border-radius: 4px; transition: width 0.3s ease;"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Detalhes do Cálculo Preditivo -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; font-size: 0.8rem; margin-bottom: 1.25rem;">
-          <div>
-            <span style="color: var(--text-muted); display: block; font-size: 0.7rem;">ÚLTIMO REGISTRO</span>
-            <span style="font-weight: 600; color: var(--text-primary);">${p.horimetroAncora} h (${dataAncoraFormatada})</span>
-          </div>
-          <div>
-            <span style="color: var(--text-muted); display: block; font-size: 0.7rem;">PRÓXIMA PARADA</span>
-            <span style="font-weight: 700; color: ${st.text};">Revisão ${p.proximaRevisaoHoras} h</span>
-          </div>
-          <div style="grid-column: span 2; border-top: 1px dashed var(--border); padding-top: 0.4rem;">
-            <span style="color: var(--text-muted); font-size: 0.75rem;">Previsão da intervenção: </span>
-            ${textoDias}
-          </div>
-        </div>
-      </div>
-
-      <!-- Barra de Ações Rápidas -->
-      <div style="display: flex; gap: 0.4rem; border-top: 1px solid var(--border); padding-top: 0.9rem; flex-wrap: wrap;">
+  const html = `
+    <div class="modal-overlay" id="modal-detalhes-maq" style="position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 9999; padding: 1rem;">
+      <div class="modal-container" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; width: 100%; max-width: 780px; max-height: 92vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.3);">
         
-        <!-- Botão Gerar OS Preventiva -->
-        <button class="btn btn-sm btn-primary" style="flex: 1; min-width: 100px; display: flex; align-items: center; justify-content: center; gap: 0.35rem;" 
-                onclick="gerarOSPreventiva(${m.id})" title="Criar Ordem de Serviço Preventiva">
-          <span>🛠️</span>
-          <span>Gerar OS</span>
-        </button>
+        <!-- Header do Modal -->
+        <div class="modal-header" style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: var(--bg-secondary);">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <div style="font-size: 1.8rem;">🚜</div>
+            <div>
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                ${m.id_frota ? `
+                  <span style="font-size: 0.75rem; font-weight: 700; color: var(--primary); background: var(--bg-card); border: 1px solid var(--border); padding: 2px 6px; border-radius: 4px;">
+                    ${m.id_frota}
+                  </span>
+                ` : ''}
+                <h3 style="margin: 0; font-size: 1.25rem; color: var(--text-primary); font-weight: 700;">
+                  ${m.modelo || 'Máquina'}
+                </h3>
+              </div>
+              <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">
+                🏢 ${m.cliente_nome || 'Cliente não vinculado'} ${m.numero_serie ? ` • S/N: ${m.numero_serie}` : ''}
+              </div>
+            </div>
+          </div>
 
-        <!-- Botão Alerta Cliente (E-mail) -->
-        <button class="btn btn-sm btn-outline" style="display: flex; align-items: center; justify-content: center; gap: 0.35rem; padding: 0.4rem 0.6rem;" 
-                onclick="abrirModalAlertaCliente(${m.id})" title="Enviar Alerta Preditivo por E-mail ao Cliente">
-          <span>✉️</span>
-          <span>E-mail</span>
-        </button>
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <span style="font-size: 0.85rem; font-weight: 700; padding: 5px 12px; border-radius: 14px; background: ${st.bg}; color: ${st.text}; border: 1px solid ${st.border};">
+              ${st.label}
+            </span>
+            <button onclick="fecharModalDetalhesMaquina()" style="background: none; border: none; font-size: 1.5rem; color: var(--text-muted); cursor: pointer; padding: 0 4px;">&times;</button>
+          </div>
+        </div>
 
-        <!-- Botão WhatsApp -->
-        <button class="btn btn-sm btn-outline" style="display: flex; align-items: center; justify-content: center; gap: 0.35rem; padding: 0.4rem 0.6rem; color: #10b981; border-color: rgba(16, 185, 129, 0.4);" 
-                onclick="enviarWhatsAppCliente(${m.id})" title="Enviar Alerta no WhatsApp do Cliente">
-          <span>📲</span>
-          <span>Whats</span>
-        </button>
+        <!-- Corpo do Modal -->
+        <div class="modal-body" style="padding: 1.5rem; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 1.25rem;">
+          
+          <!-- Bloco 1: Destaque do Horímetro Estimado e Progresso do Ciclo -->
+          <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-left: 5px solid ${st.border}; border-radius: 8px; padding: 1.25rem;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 0.75rem;">
+              <div>
+                <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Horímetro Estimado Hoje</span>
+                <div style="display: flex; align-items: baseline; gap: 0.4rem; margin-top: 2px;">
+                  <span style="font-size: 2.2rem; font-weight: 800; color: var(--primary); font-family: monospace;">~ ${p.horimetroEstimado}</span>
+                  <span style="font-size: 1.1rem; font-weight: 600; color: var(--text-secondary);">horas</span>
+                </div>
+              </div>
 
-        <!-- Botão Apontamento Rápido -->
-        <button class="btn btn-sm btn-outline" style="display: flex; align-items: center; justify-content: center; gap: 0.2rem; padding: 0.4rem 0.5rem;" 
-                onclick="abrirModalApontamento(${m.id})" title="Atualizar horímetro">
-          <span>⏱️</span>
-        </button>
+              <div style="text-align: right;">
+                <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Próxima Meta</span>
+                <div style="font-size: 1.3rem; font-weight: 800; color: ${st.text};">
+                  Revisão ${p.proximaRevisaoHoras} h
+                </div>
+                <div style="font-size: 0.8rem; color: var(--text-secondary);">
+                  ${p.horasRestantes > 0 ? `Faltam ${p.horasRestantes} h` : `Venceu há ${Math.abs(p.horasRestantes)} h`}
+                </div>
+              </div>
+            </div>
 
-        <!-- Botão Configurar Parâmetros -->
-        <button class="btn btn-sm btn-outline" style="display: flex; align-items: center; justify-content: center; gap: 0.2rem; padding: 0.4rem 0.5rem;" 
-                onclick="abrirModalConfigurarMaquina(${m.id})" title="Configurar horas/dia e escala de trabalho">
-          <span>⚙️</span>
-        </button>
+            <!-- Barra de Progresso com Percentual -->
+            <div style="margin-top: 0.5rem;">
+              <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 4px;">
+                <span>Progresso do Ciclo (${p.intervaloRevisao}h)</span>
+                <span><strong>${p.progressoPercentual}%</strong> atingido</span>
+              </div>
+              <div style="width: 100%; height: 9px; background: var(--border); border-radius: 5px; overflow: hidden;">
+                <div style="width: ${p.progressoPercentual}%; height: 100%; background: ${st.border}; border-radius: 5px; transition: width 0.3s ease;"></div>
+              </div>
+            </div>
+
+            <!-- Prazo / Previsão -->
+            <div style="margin-top: 0.85rem; padding-top: 0.75rem; border-top: 1px dashed var(--border); font-size: 0.9rem;">
+              ${textoPrazo}
+            </div>
+          </div>
+
+          <!-- Bloco 2: Detalhes Técnicos & Histórico de Medição -->
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
+            
+            <!-- Coluna A: Parâmetros de Uso da Pedreira -->
+            <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+              <h4 style="margin: 0 0 0.75rem 0; font-size: 0.9rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.4rem;">
+                <span>⚙️</span> <span>Parâmetros de Operação</span>
+              </h4>
+              <div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.85rem;">
+                <div style="display: flex; justify-content: space-between;">
+                  <span style="color: var(--text-secondary);">Regime Diário:</span>
+                  <strong style="color: var(--text-primary);">${p.horasDia} horas / dia útil</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                  <span style="color: var(--text-secondary);">Escala Semanal:</span>
+                  <span style="color: var(--text-primary); font-weight: 500;">${escalaNome}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                  <span style="color: var(--text-secondary);">Intervalo Padrão:</span>
+                  <span style="color: var(--text-primary); font-weight: 500;">A cada ${p.intervaloRevisao} horas</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Coluna B: Histórico da Medição Âncora -->
+            <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+              <h4 style="margin: 0 0 0.75rem 0; font-size: 0.9rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.4rem;">
+                <span>⏱️</span> <span>Última Medição Real (Âncora)</span>
+              </h4>
+              <div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.85rem;">
+                <div style="display: flex; justify-content: space-between;">
+                  <span style="color: var(--text-secondary);">Horímetro Registrado:</span>
+                  <strong style="color: var(--text-primary); font-family: monospace;">${p.horimetroAncora} h</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                  <span style="color: var(--text-secondary);">Data da Medição:</span>
+                  <span style="color: var(--text-primary); font-weight: 500;">${dataAncoraFormatada}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                  <span style="color: var(--text-secondary);">Dias Úteis Corridos:</span>
+                  <span style="color: var(--text-primary); font-weight: 500;">${p.diasUteisCorridos} dias (+ ${p.horasAcumuladasEstimadas} h)</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Bloco 3: Dados de Contato do Cliente -->
+          <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem;">
+            <h4 style="margin: 0 0 0.75rem 0; font-size: 0.9rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.4rem;">
+              <span>🏢</span> <span>Cliente & Contato da Pedreira</span>
+            </h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; font-size: 0.85rem;">
+              <div>
+                <span style="color: var(--text-secondary); display: block; font-size: 0.75rem;">Razão Social / Nome</span>
+                <strong style="color: var(--text-primary);">${m.cliente_nome || 'Não informado'}</strong>
+              </div>
+              <div>
+                <span style="color: var(--text-secondary); display: block; font-size: 0.75rem;">Telefone / WhatsApp</span>
+                <span style="color: var(--text-primary); font-weight: 500;">${m.cliente_telefone || 'Não informado'}</span>
+              </div>
+              <div>
+                <span style="color: var(--text-secondary); display: block; font-size: 0.75rem;">E-mail</span>
+                <span style="color: var(--text-primary); font-weight: 500;">${m.cliente_email || 'Não informado'}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bloco 4: Ações Específicas da Máquina -->
+          <div>
+            <h4 style="margin: 0 0 0.75rem 0; font-size: 0.95rem; color: var(--text-primary); font-weight: 700; display: flex; align-items: center; gap: 0.4rem;">
+              <span>⚡</span> <span>Ações Específicas para este Equipamento</span>
+            </h4>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem;">
+              
+              <!-- 1. Gerar OS Preventiva -->
+              <button 
+                class="btn btn-primary" 
+                onclick="fecharModalDetalhesMaquina(); gerarOSPreventiva(${m.id})"
+                style="padding: 0.85rem; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left;"
+              >
+                <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 0.95rem;">
+                  <span>🛠️</span> <span>Gerar OS Preventiva</span>
+                </div>
+                <div style="font-size: 0.75rem; opacity: 0.9;">
+                  Abre formulário de OS com horímetro ~${p.horimetroEstimado}h preenchido
+                </div>
+              </button>
+
+              <!-- 2. Apontar Horímetro -->
+              <button 
+                class="btn btn-outline" 
+                onclick="fecharModalDetalhesMaquina(); abrirModalApontamento(${m.id})"
+                style="padding: 0.85rem; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left;"
+              >
+                <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 0.95rem; color: var(--primary);">
+                  <span>⏱️</span> <span>Apontar Horímetro</span>
+                </div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary);">
+                  Registrar medição real aferida pelo mecânico na pedreira
+                </div>
+              </button>
+
+              <!-- 3. Configurar Horas/Dia -->
+              <button 
+                class="btn btn-outline" 
+                onclick="fecharModalDetalhesMaquina(); abrirModalConfigurarMaquina(${m.id})"
+                style="padding: 0.85rem; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left;"
+              >
+                <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 0.95rem; color: var(--text-primary);">
+                  <span>⚙️</span> <span>Configurar Regime</span>
+                </div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary);">
+                  Alterar média de horas/dia e escala de trabalho
+                </div>
+              </button>
+
+              <!-- 4. E-mail Cliente -->
+              <button 
+                class="btn btn-outline" 
+                onclick="fecharModalDetalhesMaquina(); abrirModalAlertaCliente(${m.id})"
+                style="padding: 0.85rem; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left;"
+              >
+                <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 0.95rem; color: var(--text-primary);">
+                  <span>✉️</span> <span>Alerta via E-mail</span>
+                </div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary);">
+                  Conscientizar o cliente sobre a proximidade da revisão
+                </div>
+              </button>
+
+              <!-- 5. WhatsApp Cliente -->
+              <button 
+                class="btn btn-outline" 
+                onclick="enviarWhatsAppCliente(${m.id})"
+                style="padding: 0.85rem; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; border-color: #25D366; color: #25D366;"
+              >
+                <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 0.95rem;">
+                  <span>💬</span> <span>Alerta via WhatsApp</span>
+                </div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary);">
+                  Abrir WhatsApp com informativo formatado para o cliente
+                </div>
+              </button>
+
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Footer do Modal -->
+        <div class="modal-footer" style="padding: 1rem 1.5rem; border-top: 1px solid var(--border); background: var(--bg-secondary); display: flex; justify-content: flex-end;">
+          <button type="button" class="btn btn-outline" onclick="fecharModalDetalhesMaquina()">Fechar</button>
+        </div>
 
       </div>
-
     </div>
   `;
+
+  const div = document.createElement('div');
+  div.id = 'container-modal-detalhes-maquina';
+  div.innerHTML = html;
+  document.body.appendChild(div);
 }
+
+function fecharModalDetalhesMaquina() {
+  const el = document.getElementById('container-modal-detalhes-maquina');
+  if (el) el.remove();
+}
+
+window.abrirModalDetalhesMaquina = abrirModalDetalhesMaquina;
+window.fecharModalDetalhesMaquina = fecharModalDetalhesMaquina;
 
 // Filtros
 function filtrarBuscaPreventiva(valor) {
