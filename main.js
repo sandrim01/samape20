@@ -6,6 +6,7 @@ const bcrypt = require('bcryptjs');
 const { Pool } = require('pg');
 const fetch = require('node-fetch');
 const nodemailer = require('nodemailer');
+const QRCode = require('qrcode');
 const {
   calcularStatusPreditivo,
   gerarTemplateEmailMecanicos,
@@ -408,6 +409,42 @@ ipcMain.handle('obter-maquina', async (event, id) => {
   try {
     const result = await pool.query('SELECT * FROM maquinas WHERE id = $1', [id]);
     return { success: true, maquina: result.rows[0] };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('obter-qrcode-maquina', async (event, id) => {
+  try {
+    const result = await pool.query(
+      `SELECT m.*, c.nome as cliente_nome, c.cnpj as cliente_cnpj 
+       FROM maquinas m 
+       LEFT JOIN clientes c ON m.cliente_id = c.id 
+       WHERE m.id = $1`,
+      [id]
+    );
+    if (result.rows.length === 0) return { success: false, message: 'Máquina não encontrada' };
+    const maq = result.rows[0];
+    const payloadObj = {
+      app: 'samape',
+      tipo: 'maquina',
+      id: maq.id,
+      modelo: maq.modelo || '',
+      id_frota: maq.id_frota || '',
+      numero_serie: maq.numero_serie || '',
+      horas_uso: maq.horas_uso || 0,
+      cliente_id: maq.cliente_id,
+      cliente_nome: maq.cliente_nome || '',
+      v: 1
+    };
+    const payload = JSON.stringify(payloadObj);
+    const qrcodeDataUrl = await QRCode.toDataURL(payload, {
+      width: 450,
+      margin: 2,
+      errorCorrectionLevel: 'M',
+      color: { dark: '#0f172a', light: '#ffffff' }
+    });
+    return { success: true, maquina: maq, payload: payloadObj, qrcode: qrcodeDataUrl };
   } catch (error) {
     return { success: false, message: error.message };
   }

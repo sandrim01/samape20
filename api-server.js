@@ -6,6 +6,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const helmet = require('helmet');
 const nodemailer = require('nodemailer');
+const QRCode = require('qrcode');
 const {
     calcularStatusPreditivo,
     gerarTemplateEmailMecanicos,
@@ -525,6 +526,55 @@ app.get('/api/maquinas/:id', authenticateToken, async (req, res) => {
         if (result.rows.length === 0) return res.status(404).json({ success: false, message: 'Máquina não encontrada' });
         res.json({ success: true, maquina: result.rows[0] });
     } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Gerar QR-Code da máquina em PNG (DataURL) para etiquetas e identificação rápida
+app.get('/api/maquinas/:id/qrcode', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const result = await pool.query(
+            `SELECT m.*, c.nome as cliente_nome, c.cnpj as cliente_cnpj 
+             FROM maquinas m 
+             LEFT JOIN clientes c ON m.cliente_id = c.id 
+             WHERE m.id = $1`,
+            [id]
+        );
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Máquina não encontrada' });
+        }
+        const maq = result.rows[0];
+        const payloadObj = {
+            app: 'samape',
+            tipo: 'maquina',
+            id: maq.id,
+            modelo: maq.modelo || '',
+            id_frota: maq.id_frota || '',
+            numero_serie: maq.numero_serie || '',
+            horas_uso: maq.horas_uso || 0,
+            cliente_id: maq.cliente_id,
+            cliente_nome: maq.cliente_nome || '',
+            v: 1
+        };
+        const payload = JSON.stringify(payloadObj);
+        const qrcodeDataUrl = await QRCode.toDataURL(payload, {
+            width: 450,
+            margin: 2,
+            errorCorrectionLevel: 'M',
+            color: {
+                dark: '#0f172a',
+                light: '#ffffff'
+            }
+        });
+        res.json({
+            success: true,
+            maquina: maq,
+            payload: payloadObj,
+            qrcode: qrcodeDataUrl
+        });
+    } catch (error) {
+        console.error('Erro ao gerar QR-Code da máquina:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 });

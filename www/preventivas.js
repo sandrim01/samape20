@@ -529,6 +529,20 @@ function abrirModalDetalhesMaquina(maquinaId) {
                 </div>
               </button>
 
+              <!-- 6. Gerar QR-Code / Etiqueta -->
+              <button 
+                class="btn btn-outline" 
+                onclick="gerarQRCodeMaquina(${m.id})"
+                style="padding: 0.85rem; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; background: rgba(2, 132, 199, 0.12); border: 1px solid rgba(56, 189, 248, 0.45);"
+              >
+                <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 0.95rem; color: #38bdf8;">
+                  <span>📱</span> <span>Gerar QR-Code / Etiqueta</span>
+                </div>
+                <div style="font-size: 0.75rem; color: #cbd5e1; line-height: 1.35;">
+                  Visualizar, baixar PNG e imprimir etiqueta para a máquina
+                </div>
+              </button>
+
             </div>
           </div>
 

@@ -956,6 +956,18 @@ function renderMobileDashboard() {
     </div>
 
     <div class="mobile-giant-actions">
+      <!-- Botão Destaque QR-Code: Leitura de Máquina e OS Automática -->
+      <button class="btn-giant-mobile btn-giant-qrcode" onclick="abrirScannerQRCode()">
+        <div class="btn-giant-icon-box" style="background: rgba(255, 255, 255, 0.22);">
+          <span class="btn-giant-icon">📷</span>
+        </div>
+        <div class="btn-giant-content">
+          <span class="btn-giant-title">LER QR-CODE DA MÁQUINA</span>
+          <span class="btn-giant-subtitle">Aponte a câmera e crie a OS pré-preenchida instantaneamente ⚡</span>
+        </div>
+        <div class="btn-giant-arrow">➔</div>
+      </button>
+
       <!-- Botão Bem Grande 1: Nova OS -->
       <button class="btn-giant-mobile btn-giant-primary" onclick="showNovaOSModal()">
         <div class="btn-giant-icon-box">
@@ -1287,6 +1299,7 @@ function renderMaquinasTable(maquinas) {
               <td class="desktop-only">${maq.observacoes || '-'}</td>
               <td>
                 ${renderActionMenu(`maq-${maq.id}`, [
+    { label: 'Gerar QR-Code', icon: '📱', onclick: `gerarQRCodeMaquina(${maq.id})` },
     { label: 'Editar', icon: '📝', onclick: `showNovaMaquinaModal(${maq.id})` },
     { label: 'Histórico', icon: '📜', onclick: `showHistoricoMaquina(${maq.id})` }
   ], '⋮')}

@@ -226,6 +226,10 @@ const WebAPI = {
         return await apiFetch(`/maquinas/${id}`);
     },
 
+    async obterQRCodeMaquina(id) {
+        return await apiFetch(`/maquinas/${id}/qrcode`);
+    },
+
     async atualizarMaquina(id, dados) {
         return await apiFetch(`/maquinas/${id}`, { method: 'PUT', body: JSON.stringify(dados) });
     },

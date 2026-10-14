@@ -2125,6 +2125,22 @@ img {
   transform: scale(0.97);
 }
 
+.btn-giant-qrcode {
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 50%, #0f172a 100%);
+  border-color: rgba(56, 189, 248, 0.45);
+  color: white;
+}
+
+.btn-giant-qrcode:hover {
+  box-shadow: 0 12px 30px rgba(2, 132, 199, 0.5);
+  filter: brightness(1.06);
+}
+
+@keyframes qrScanLaser {
+  0% { top: 4%; }
+  100% { top: 94%; }
+}
+
 .btn-giant-primary {
   background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 50%, #3b82f6 100%);
   border-color: rgba(255, 255, 255, 0.25);
