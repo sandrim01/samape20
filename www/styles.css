@@ -229,6 +229,18 @@ body {
   background: var(--border-light);
 }
 
+.btn-outline {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-light);
+}
+
+.btn-outline:hover {
+  background: var(--border-light);
+  border-color: var(--primary-light);
+  color: var(--text-primary);
+}
+
 .btn-success {
   background: var(--success);
   color: white;

@@ -463,12 +463,12 @@ function abrirModalDetalhesMaquina(maquinaId) {
               <button 
                 class="btn btn-primary" 
                 onclick="fecharModalDetalhesMaquina(); gerarOSPreventiva(${m.id})"
-                style="padding: 0.85rem; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left;"
+                style="padding: 0.85rem; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%); color: #ffffff;"
               >
-                <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 0.95rem;">
+                <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 0.95rem; color: #ffffff;">
                   <span>🛠️</span> <span>Gerar OS Preventiva</span>
                 </div>
-                <div style="font-size: 0.75rem; opacity: 0.9;">
+                <div style="font-size: 0.75rem; color: rgba(255, 255, 255, 0.85); line-height: 1.35;">
                   Abre formulário de OS com horímetro ~${p.horimetroEstimado}h preenchido
                 </div>
               </button>
@@ -477,12 +477,12 @@ function abrirModalDetalhesMaquina(maquinaId) {
               <button 
                 class="btn btn-outline" 
                 onclick="fecharModalDetalhesMaquina(); abrirModalApontamento(${m.id})"
-                style="padding: 0.85rem; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left;"
+                style="padding: 0.85rem; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; background: var(--bg-tertiary); border: 1px solid var(--border-light);"
               >
-                <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 0.95rem; color: var(--primary);">
+                <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 0.95rem; color: #60a5fa;">
                   <span>⏱️</span> <span>Apontar Horímetro</span>
                 </div>
-                <div style="font-size: 0.75rem; color: var(--text-secondary);">
+                <div style="font-size: 0.75rem; color: #cbd5e1; line-height: 1.35;">
                   Registrar medição real aferida pelo mecânico na pedreira
                 </div>
               </button>
@@ -491,12 +491,12 @@ function abrirModalDetalhesMaquina(maquinaId) {
               <button 
                 class="btn btn-outline" 
                 onclick="fecharModalDetalhesMaquina(); abrirModalConfigurarMaquina(${m.id})"
-                style="padding: 0.85rem; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left;"
+                style="padding: 0.85rem; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; background: var(--bg-tertiary); border: 1px solid var(--border-light);"
               >
-                <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 0.95rem; color: var(--text-primary);">
+                <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 0.95rem; color: #f8fafc;">
                   <span>⚙️</span> <span>Configurar Regime</span>
                 </div>
-                <div style="font-size: 0.75rem; color: var(--text-secondary);">
+                <div style="font-size: 0.75rem; color: #cbd5e1; line-height: 1.35;">
                   Alterar média de horas/dia e escala de trabalho
                 </div>
               </button>
@@ -505,12 +505,12 @@ function abrirModalDetalhesMaquina(maquinaId) {
               <button 
                 class="btn btn-outline" 
                 onclick="fecharModalDetalhesMaquina(); abrirModalAlertaCliente(${m.id})"
-                style="padding: 0.85rem; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left;"
+                style="padding: 0.85rem; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; background: var(--bg-tertiary); border: 1px solid var(--border-light);"
               >
-                <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 0.95rem; color: var(--text-primary);">
+                <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 0.95rem; color: #f8fafc;">
                   <span>✉️</span> <span>Alerta via E-mail</span>
                 </div>
-                <div style="font-size: 0.75rem; color: var(--text-secondary);">
+                <div style="font-size: 0.75rem; color: #cbd5e1; line-height: 1.35;">
                   Conscientizar o cliente sobre a proximidade da revisão
                 </div>
               </button>
@@ -519,12 +519,12 @@ function abrirModalDetalhesMaquina(maquinaId) {
               <button 
                 class="btn btn-outline" 
                 onclick="enviarWhatsAppCliente(${m.id})"
-                style="padding: 0.85rem; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; border-color: #25D366; color: #25D366;"
+                style="padding: 0.85rem; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; background: rgba(37, 211, 102, 0.12); border: 1px solid rgba(37, 211, 102, 0.45);"
               >
-                <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 0.95rem;">
+                <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 0.95rem; color: #25D366;">
                   <span>💬</span> <span>Alerta via WhatsApp</span>
                 </div>
-                <div style="font-size: 0.75rem; color: var(--text-secondary);">
+                <div style="font-size: 0.75rem; color: #cbd5e1; line-height: 1.35;">
                   Abrir WhatsApp com informativo formatado para o cliente
                 </div>
               </button>
@@ -536,7 +536,7 @@ function abrirModalDetalhesMaquina(maquinaId) {
 
         <!-- Footer do Modal -->
         <div class="modal-footer" style="padding: 1rem 1.5rem; border-top: 1px solid var(--border); background: var(--bg-secondary); display: flex; justify-content: flex-end;">
-          <button type="button" class="btn btn-outline" onclick="fecharModalDetalhesMaquina()">Fechar</button>
+          <button type="button" class="btn btn-secondary" onclick="fecharModalDetalhesMaquina()">Fechar</button>
         </div>
 
       </div>
