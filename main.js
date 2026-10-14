@@ -77,6 +77,7 @@ const initDb = async () => {
                 preco_total DECIMAL(10,2) NOT NULL
             )
         `);
+    await pool.query(`ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS data_execucao DATE;`);
     console.log('✅ Tabelas de Listagem verificadas');
   } catch (err) {
     console.error('❌ Erro ao inicializar banco para listagens:', err);
@@ -464,10 +465,13 @@ ipcMain.handle('criar-os', async (event, dados) => {
 
     const servicos_realizados = dados.servicos_realizados || dados.solucao || '';
     const horimetro = dados.horimetro || null;
+    const data_execucao = dados.data_execucao || null;
+    const data_fechamento = (dados.status === 'FECHADA') ? (dados.data_fechamento || new Date()) : null;
+
     const result = await pool.query(
       `INSERT INTO ordens_servico 
-      (numero_os, cliente_id, maquina_id, mecanico_id, status, prioridade, descricao_problema, diagnostico, servicos_realizados, km_ida, km_volta, valor_por_km, valor_mao_obra, valor_pecas, valor_total, observacoes, listagem_pecas_id, horimetro)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18) RETURNING id`,
+      (numero_os, cliente_id, maquina_id, mecanico_id, status, prioridade, descricao_problema, diagnostico, servicos_realizados, km_ida, km_volta, valor_por_km, valor_mao_obra, valor_pecas, valor_total, observacoes, listagem_pecas_id, horimetro, data_execucao, data_fechamento)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20) RETURNING id`,
       [
         numero_os,
         parseInt(dados.cliente_id),
@@ -486,7 +490,9 @@ ipcMain.handle('criar-os', async (event, dados) => {
         valor_total,
         dados.observacoes,
         dados.listagem_pecas_id || null,
-        horimetro
+        horimetro,
+        data_execucao,
+        data_fechamento
       ]
     );
     if (horimetro && dados.maquina_id) {
@@ -591,14 +597,11 @@ ipcMain.handle('atualizar-os', async (event, { id, dados }) => {
     const valor_total = !isNaN(valor_recebido) ? valor_recebido :
       ((parseFloat(dados.valor_mao_obra) || 0) + (parseFloat(dados.valor_pecas) || 0) + (km_percorrido * valor_por_km));
 
-    // Se o status for FECHADA e não houver data_fechamento, define como agora
-    let dataFechamento = dados.data_fechamento;
-    if (dados.status === 'FECHADA' && !dataFechamento) {
-      dataFechamento = new Date();
-    }
-
     const servicos_realizados = dados.servicos_realizados || dados.solucao || '';
     const horimetro = dados.horimetro !== undefined ? dados.horimetro : null;
+    const data_execucao_enviada = dados.data_execucao !== undefined;
+    const data_execucao = dados.data_execucao || null;
+    const data_fechamento_enviada = dados.data_fechamento || null;
 
     await pool.query(
       `UPDATE ordens_servico 
@@ -616,9 +619,15 @@ ipcMain.handle('atualizar-os', async (event, { id, dados }) => {
            valor_pecas = COALESCE($12, valor_pecas), 
            valor_total = COALESCE($13, valor_total),
            observacoes = COALESCE($14, observacoes),
-           data_fechamento = COALESCE($15, data_fechamento),
+           data_fechamento = CASE 
+               WHEN $4 <> 'FECHADA' THEN NULL
+               WHEN $15 IS NOT NULL AND $15 <> '' THEN $15::timestamp
+               WHEN data_fechamento IS NOT NULL THEN data_fechamento
+               ELSE CURRENT_TIMESTAMP
+           END,
            listagem_pecas_id = COALESCE($16, listagem_pecas_id),
            horimetro = CASE WHEN $17 IS NOT NULL AND $17 <> '' THEN $17 ELSE horimetro END,
+           data_execucao = CASE WHEN $19 = true THEN $20::date ELSE data_execucao END,
            updated_at = CURRENT_TIMESTAMP 
        WHERE id = $18`,
       [
@@ -636,10 +645,12 @@ ipcMain.handle('atualizar-os', async (event, { id, dados }) => {
         parseFloat(dados.valor_pecas) || 0,
         valor_total,
         dados.observacoes,
-        dataFechamento,
+        data_fechamento_enviada,
         dados.listagem_pecas_id || null,
         horimetro,
-        id
+        id,
+        data_execucao_enviada,
+        data_execucao
       ]
     );
     return { success: true };
@@ -822,12 +833,22 @@ ipcMain.handle('obter-estatisticas', async () => {
     const ano = hoje.getFullYear();
     const vendasMes = await pool.query("SELECT COUNT(*), SUM(valor_final) FROM vendas WHERE EXTRACT(MONTH FROM data_venda) = $1 AND EXTRACT(YEAR FROM data_venda) = $2", [mes, ano]);
 
+    const tempoMedioResult = await pool.query(`
+        SELECT 
+            EXTRACT(EPOCH FROM AVG(data_fechamento - data_abertura)) / 3600 as media_horas
+        FROM ordens_servico 
+        WHERE status = 'FECHADA' 
+        AND data_fechamento IS NOT NULL 
+        AND data_abertura IS NOT NULL
+    `);
+
     return {
       success: true,
       stats: {
         os_abertas: parseInt(osAbertas.rows[0].count),
         os_em_andamento: parseInt(osAndamento.rows[0].count),
         pecas_estoque_baixo: parseInt(pecasBaixas.rows[0].count),
+        tempo_medio_os: parseFloat(tempoMedioResult.rows[0]?.media_horas || 0),
         vendas_mes: {
           count: parseInt(vendasMes.rows[0].count),
           total: parseFloat(vendasMes.rows[0].sum) || 0

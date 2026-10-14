@@ -101,6 +101,7 @@ const initDb = async () => {
         // Garantir que a coluna horimetro existe na tabela ordens_servico
         await pool.query(`
             ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS horimetro VARCHAR(50);
+        ALTER TABLE ordens_servico ADD COLUMN IF NOT EXISTS data_execucao DATE;
         ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS whatsapp VARCHAR(50);
         `);
 
@@ -752,18 +753,25 @@ app.post('/api/ordens', authenticateToken, async (req, res) => {
             numero_os = `OS-${ano}-${proximo.toString().padStart(5, '0')}`;
         }
 
+        const data_execucao = req.body.data_execucao || null;
+        let finalDataFechamento = null;
+        if (status === 'FECHADA') {
+            finalDataFechamento = req.body.data_fechamento ? req.body.data_fechamento : new Date();
+        }
+
         const result = await pool.query(
             `INSERT INTO ordens_servico 
        (numero_os, cliente_id, maquina_id, mecanico_id, status, prioridade,
         descricao_problema, diagnostico, servicos_realizados,
         valor_mao_obra, valor_pecas, valor_total, observacoes,
-        km_ida, km_volta, valor_por_km, listagem_pecas_id, horimetro)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+        km_ida, km_volta, valor_por_km, listagem_pecas_id, horimetro, data_execucao, data_fechamento)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
        RETURNING *`,
             [numero_os, cliente_id, maquina_id, mecanico_id, status || 'ABERTA', prioridade || 'MEDIA',
                 descricao_problema, diagnostico, servicos_realizados,
                 valor_mao_obra, valor_pecas, valor_total, observacoes,
-                km_ida, km_volta, valor_por_km, req.body.listagem_pecas_id || null, horimetro || null]
+                km_ida, km_volta, valor_por_km, req.body.listagem_pecas_id || null, horimetro || null,
+                data_execucao, finalDataFechamento]
         );
 
         await logActivity(req, 'OS_CRIADA', `Nova OS criada: ${numero_os}`);
@@ -821,16 +829,12 @@ app.put('/api/ordens/:id', authenticateToken, async (req, res) => {
             ? valor_total_recebido
             : (valor_mao_obra + valor_pecas + valor_deslocamento);
 
-        // Se o status for FECHADA e não houver data_fechamento, usar a data atual
-        let finalDataFechamento = data_fechamento;
-        if (status === 'FECHADA' && !finalDataFechamento) {
-            finalDataFechamento = new Date();
-        }
-
+        const data_execucao_enviada = req.body.data_execucao !== undefined;
+        const data_execucao = req.body.data_execucao || null;
+        const data_fechamento_enviada = req.body.data_fechamento || null;
         const horimetro = req.body.horimetro !== undefined ? req.body.horimetro : null;
 
-        // Construir query dinâmica para atualizar apenas o que foi enviado ou manter integridade
-        // Aqui usamos um update completo para simplificar, já que o front envia o objeto quase todo
+        // Atualização com blindagem de data_fechamento (não sobrescreve se já existe)
         const result = await pool.query(
             `UPDATE ordens_servico 
        SET status = COALESCE($1, status),
@@ -842,7 +846,12 @@ app.put('/api/ordens/:id', authenticateToken, async (req, res) => {
            valor_pecas = COALESCE($7, valor_pecas),
            valor_total = COALESCE($8, valor_total),
            observacoes = COALESCE($9, observacoes), 
-           data_fechamento = COALESCE($10, data_fechamento),
+           data_fechamento = CASE 
+               WHEN $1 <> 'FECHADA' THEN NULL
+               WHEN $10 IS NOT NULL AND $10 <> '' THEN $10::timestamp
+               WHEN data_fechamento IS NOT NULL THEN data_fechamento
+               ELSE CURRENT_TIMESTAMP
+           END,
            cliente_id = COALESCE($11, cliente_id),
            maquina_id = COALESCE($12, maquina_id),
            mecanico_id = COALESCE($13, mecanico_id),
@@ -851,8 +860,9 @@ app.put('/api/ordens/:id', authenticateToken, async (req, res) => {
            valor_por_km = COALESCE($16, valor_por_km),
            listagem_pecas_id = COALESCE($17, listagem_pecas_id),
            horimetro = CASE WHEN $18 IS NOT NULL AND $18 <> '' THEN $18 ELSE horimetro END,
+           data_execucao = CASE WHEN $19 = true THEN $20::date ELSE data_execucao END,
            updated_at = CURRENT_TIMESTAMP
-       WHERE id = $19
+       WHERE id = $21
        RETURNING *`,
             [
                 status || 'ABERTA',
@@ -864,7 +874,7 @@ app.put('/api/ordens/:id', authenticateToken, async (req, res) => {
                 valor_pecas,
                 valor_total,
                 observacoes,
-                finalDataFechamento,
+                data_fechamento_enviada,
                 client_id,
                 machine_id,
                 mechanic_id,
@@ -873,6 +883,8 @@ app.put('/api/ordens/:id', authenticateToken, async (req, res) => {
                 valor_por_km,
                 req.body.listagem_pecas_id || null,
                 horimetro,
+                data_execucao_enviada,
+                data_execucao,
                 id
             ]
         );

@@ -32,6 +32,9 @@ async function mostrarModalOS(osId = null, prefill = null) {
   const mecanicos = (mecanicosRes.usuarios || []).filter(u => u.cargo === 'MECANICO' || u.cargo === 'ADMIN');
   const listagens = listagensRes.listagens || [];
 
+  const dataExecucaoVal = osData?.data_execucao ? String(osData.data_execucao).split('T')[0] : (!isEdicao ? new Date().toISOString().split('T')[0] : '');
+  const dataFechamentoVal = osData?.data_fechamento ? String(osData.data_fechamento).split('T')[0] : (osData?.status === 'FECHADA' ? new Date().toISOString().split('T')[0] : '');
+
   const modalHTML = `
     <div class="modal-overlay" id="modal-os" style="z-index: 9999; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center;">
       <div class="modal-container" style="max-width: 800px; width: 95%; max-height: 95vh; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-xl); overflow: hidden; display: flex; flex-direction: column; position: relative; z-index: 10000; pointer-events: all;">
@@ -100,9 +103,15 @@ async function mostrarModalOS(osId = null, prefill = null) {
                     <option value="">Selecione uma máquina</option>
                   </select>
                 </div>
-                <div class="form-group" style="margin-top: 1rem;">
-                  <label class="form-label">Horimetro(tempo de trabalho)</label>
-                  <input type="text" class="form-input" id="os-horimetro" placeholder="Ex: 1250 h" value="${osData ? (osData.horimetro || osData.maquina_horas_uso || '') : ''}">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
+                  <div class="form-group">
+                    <label class="form-label">Horímetro (tempo de trabalho)</label>
+                    <input type="text" class="form-input" id="os-horimetro" placeholder="Ex: 1250 h" value="${osData ? (osData.horimetro || osData.maquina_horas_uso || '') : ''}">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Data de Execução do Serviço</label>
+                    <input type="date" class="form-input" id="os-data-execucao" value="${dataExecucaoVal}">
+                  </div>
                 </div>
               </div>
 
@@ -224,17 +233,23 @@ async function mostrarModalOS(osId = null, prefill = null) {
                 </div>
               </div>
 
-              <!-- STATUS E OBS -->
+              <!-- STATUS E DATAS -->
               <div class="card" style="background: var(--bg-secondary);">
-                <div class="form-group">
-                  <label class="form-label">Status da OS</label>
-                  <select class="form-input" id="os-status">
-                    <option value="ABERTA" ${osData?.status === 'ABERTA' ? 'selected' : ''}>🔵 Aberta</option>
-                    <option value="EM_ANDAMENTO" ${osData?.status === 'EM_ANDAMENTO' ? 'selected' : ''}>🟡 Em Andamento</option>
-                    <option value="FECHADA" ${osData?.status === 'FECHADA' ? 'selected' : ''}>🟢 Fechada</option>
-                  </select>
+                <div style="display: grid; grid-template-columns: ${osData?.status === 'FECHADA' ? '1fr 1fr' : '1fr'}; gap: 1rem;" id="os-status-container">
+                  <div class="form-group">
+                    <label class="form-label">Status da OS</label>
+                    <select class="form-input" id="os-status" onchange="window.toggleDataFechamentoOS(this.value)">
+                      <option value="ABERTA" ${osData?.status === 'ABERTA' ? 'selected' : ''}>🔵 Aberta</option>
+                      <option value="EM_ANDAMENTO" ${osData?.status === 'EM_ANDAMENTO' ? 'selected' : ''}>🟡 Em Andamento</option>
+                      <option value="FECHADA" ${osData?.status === 'FECHADA' ? 'selected' : ''}>🟢 Fechada</option>
+                    </select>
+                  </div>
+                  <div class="form-group" id="group-os-data-fechamento" style="${osData?.status === 'FECHADA' ? '' : 'display: none;'}">
+                    <label class="form-label">Data de Fechamento</label>
+                    <input type="date" class="form-input" id="os-data-fechamento" value="${dataFechamentoVal}">
+                  </div>
                 </div>
-                <div class="form-group">
+                <div class="form-group" style="margin-top: 1rem;">
                   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
                     <label class="form-label" style="margin-bottom: 0;">Observações Internas</label>
                     <button type="button" class="btn-ditado" onclick="iniciarDitadoVoz('os-observacoes', this)" title="Falar ao invés de digitar">
@@ -433,11 +448,17 @@ async function salvarOS(osId) {
   const valorDeslocamento = kmPercorrido * valorPorKm;
   const valorTotal = valorMaoObra + valorPecas + valorDeslocamento;
 
+  const statusVal = document.getElementById('os-status').value;
+  const dataExecInput = document.getElementById('os-data-execucao');
+  const dataFechInput = document.getElementById('os-data-fechamento');
+
   const dados = {
     cliente_id: document.getElementById('os-cliente').value,
     maquina_id: document.getElementById('os-maquina').value,
     mecanico_id: document.getElementById('os-mecanico').value,
     horimetro: document.getElementById('os-horimetro') ? document.getElementById('os-horimetro').value : '',
+    data_execucao: dataExecInput ? dataExecInput.value || null : null,
+    data_fechamento: (statusVal === 'FECHADA' && dataFechInput) ? dataFechInput.value || null : null,
     descricao_problema: document.getElementById('os-problema').value,
     diagnostico: document.getElementById('os-diagnostico').value,
     solucao: document.getElementById('os-solucao').value,
@@ -450,7 +471,7 @@ async function salvarOS(osId) {
     valor_total: valorTotal,
     listagem_pecas_id: document.getElementById('os-listagem-pecas').value || null,
     observacoes: document.getElementById('os-observacoes').value,
-    status: document.getElementById('os-status').value
+    status: statusVal
   };
 
   try {
@@ -496,6 +517,18 @@ async function gerarPDFOS(osId) {
     const horimetroDisplay = os.horimetro || (os.maquina_horas_uso && parseFloat(os.maquina_horas_uso) > 0 ? `${os.maquina_horas_uso} h` : '') || (os.horas_uso && parseFloat(os.horas_uso) > 0 ? `${os.horas_uso} h` : '');
     const solucaoServicos = os.servicos_realizados || os.solucao || '';
 
+    const formatarDataOS = (val) => {
+      if (!val) return null;
+      const s = String(val).split('T')[0];
+      const parts = s.split('-');
+      if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      return new Date(val).toLocaleDateString('pt-BR');
+    };
+
+    const dataAberturaFmt = formatarDataOS(os.data_abertura);
+    const dataExecucaoFmt = formatarDataOS(os.data_execucao);
+    const dataFechamentoFmt = formatarDataOS(os.data_fechamento);
+
     const printContent = `
       <div id="print-os-content" style="
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -510,14 +543,15 @@ async function gerarPDFOS(osId) {
         <!-- HEADER COM LOGO -->
         <div style="text-align: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #2563eb;">
           <div style="margin-bottom: 8px;">
-            <img src="resources/logonova2.png" alt="SAMAPE" style="width: 150px; height: auto;" onerror="this.style.display='none'" />
+            <img src="resources/logonova2.png" alt="SAMAPE" style="width: 120px; height: auto;" onerror="this.style.display='none'" />
           </div>
           <div style="font-size: 0.75em; color: #64748b; font-weight: 500; margin-bottom: 8px;">Sistema de Gerenciamento de Manutenção</div>
           <div style="font-size: 1.3em; font-weight: 700; color: #1e293b; margin: 8px 0 5px 0;">ORDEM DE SERVIÇO</div>
           <div style="font-size: 1.5em; font-weight: 800; color: #2563eb; margin: 5px 0;">${os.numero_os}</div>
-          <div style="display: flex; justify-content: center; gap: 20px; margin-top: 8px; font-size: 0.85em; color: #475569;">
-            <span><strong style="color: #1e293b;">Data de Abertura:</strong> ${new Date(os.data_abertura).toLocaleDateString()}</span>
-            ${os.data_fechamento ? `<span><strong style="color: #1e293b;">Fechamento:</strong> ${new Date(os.data_fechamento).toLocaleDateString()}</span>` : ''}
+          <div style="display: flex; justify-content: center; flex-wrap: wrap; gap: 15px 25px; margin-top: 8px; font-size: 0.85em; color: #475569;">
+            <span><strong style="color: #1e293b;">Data de Abertura:</strong> ${dataAberturaFmt || '-'}</span>
+            ${dataExecucaoFmt ? `<span><strong style="color: #1e293b;">Data de Execução:</strong> ${dataExecucaoFmt}</span>` : ''}
+            ${dataFechamentoFmt ? `<span><strong style="color: #1e293b;">Fechamento:</strong> ${dataFechamentoFmt}</span>` : ''}
           </div>
         </div>
 
@@ -754,4 +788,22 @@ window.iniciarDitadoVoz = function(targetInputId, btnElement) {
   }
 };
 
+function toggleDataFechamentoOS(status) {
+  const group = document.getElementById('group-os-data-fechamento');
+  const container = document.getElementById('os-status-container');
+  const input = document.getElementById('os-data-fechamento');
+  if (!group || !container) return;
+  if (status === 'FECHADA') {
+    group.style.display = 'block';
+    container.style.gridTemplateColumns = '1fr 1fr';
+    if (!input.value) {
+      input.value = new Date().toISOString().split('T')[0];
+    }
+  } else {
+    group.style.display = 'none';
+    container.style.gridTemplateColumns = '1fr';
+  }
+}
+
+window.toggleDataFechamentoOS = toggleDataFechamentoOS;
 window.gerarPDFOS = gerarPDFOS;
