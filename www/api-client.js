@@ -73,6 +73,7 @@ const API_CONFIG = {
         return headers;
     }
 };
+window.API_CONFIG = API_CONFIG;
 
 // Função auxiliar para fetch com tratamento de erro
 async function apiFetch(endpoint, options = {}) {

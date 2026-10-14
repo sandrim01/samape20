@@ -513,7 +513,7 @@ ipcMain.handle('criar-os', async (event, dados) => {
         numero_os,
         parseInt(dados.cliente_id),
         parseInt(dados.maquina_id),
-        parseInt(dados.mecanico_id),
+        dados.mecanico_id ? parseInt(dados.mecanico_id) : null,
         dados.status || 'ABERTA',
         dados.prioridade || 'MEDIA',
         dados.descricao_problema,

@@ -29,24 +29,29 @@ let _qrScannerCurrentFacing = 'environment';
 
 // Obter usuário logado de forma resiliente
 function obterUsuarioLogado() {
+  if (typeof AppState !== 'undefined' && AppState && AppState.currentUser) {
+    return AppState.currentUser;
+  }
   if (window.AppState && window.AppState.currentUser) {
     return window.AppState.currentUser;
   }
+  if (typeof API_CONFIG !== 'undefined' && API_CONFIG && typeof API_CONFIG.getUser === 'function') {
+    const u = API_CONFIG.getUser();
+    if (u) return u;
+  }
+  if (window.API_CONFIG && typeof window.API_CONFIG.getUser === 'function') {
+    const u = window.API_CONFIG.getUser();
+    if (u) return u;
+  }
   try {
-    const raw = localStorage.getItem('usuario') || sessionStorage.getItem('usuario');
+    const raw = localStorage.getItem('user_info') || sessionStorage.getItem('user_info') ||
+                localStorage.getItem('usuario') || sessionStorage.getItem('usuario');
     if (raw) return JSON.parse(raw);
   } catch (e) {}
   return null;
 }
 
 async function abrirScannerQRCode() {
-  // Verificar se o usuário está logado
-  const usuario = obterUsuarioLogado();
-  if (!usuario || !usuario.id) {
-    alert('Você precisa estar autenticado no sistema para abrir uma OS.');
-    return;
-  }
-
   // Fechar qualquer scanner pré-existente
   fecharScannerQRCode();
 

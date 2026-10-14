@@ -26,6 +26,7 @@ const AppState = {
     listagens: { search: '' }
   }
 };
+window.AppState = AppState;
 
 // Definição de permissões por cargo
 const PERMISSIONS = {

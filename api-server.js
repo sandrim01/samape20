@@ -817,7 +817,7 @@ app.post('/api/ordens', authenticateToken, async (req, res) => {
         km_ida, km_volta, valor_por_km, listagem_pecas_id, horimetro, data_execucao, data_fechamento)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
        RETURNING *`,
-            [numero_os, cliente_id, maquina_id, mecanico_id, status || 'ABERTA', prioridade || 'MEDIA',
+            [numero_os, cliente_id, maquina_id, mecanico_id || (req.user ? req.user.id : null), status || 'ABERTA', prioridade || 'MEDIA',
                 descricao_problema, diagnostico, servicos_realizados,
                 valor_mao_obra, valor_pecas, valor_total, observacoes,
                 km_ida, km_volta, valor_por_km, req.body.listagem_pecas_id || null, horimetro || null,
