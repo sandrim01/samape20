@@ -27,9 +27,22 @@ let _qrScannerAnimFrame = null;
 let _qrScannerTorchOn = false;
 let _qrScannerCurrentFacing = 'environment';
 
+// Obter usuário logado de forma resiliente
+function obterUsuarioLogado() {
+  if (window.AppState && window.AppState.currentUser) {
+    return window.AppState.currentUser;
+  }
+  try {
+    const raw = localStorage.getItem('usuario') || sessionStorage.getItem('usuario');
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return null;
+}
+
 async function abrirScannerQRCode() {
   // Verificar se o usuário está logado
-  if (!AppState.user || !AppState.user.id) {
+  const usuario = obterUsuarioLogado();
+  if (!usuario || !usuario.id) {
     alert('Você precisa estar autenticado no sistema para abrir uma OS.');
     return;
   }
@@ -390,8 +403,9 @@ async function processarLeituraQRCodeECriarOS(qrData) {
     }
 
     // 2. Dados do Mecânico (Usuário Atual)
-    const mecanicoId = AppState.user.id;
-    const mecanicoNome = AppState.user.nome || 'Mecânico';
+    const usuario = obterUsuarioLogado();
+    const mecanicoId = usuario ? usuario.id : null;
+    const mecanicoNome = usuario ? (usuario.nome || 'Mecânico') : 'Mecânico';
 
     // 3. Montar dados da Nova OS pré-preenchida
     const clienteId = maquina.cliente_id || qrData.cliente_id;
