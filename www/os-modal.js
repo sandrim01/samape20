@@ -541,13 +541,13 @@ async function gerarPDFOS(osId) {
         padding: 20px;
       ">
         <!-- HEADER COM LOGO -->
-        <div style="text-align: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #2563eb;">
+        <div style="text-align: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #475569;">
           <div style="margin-bottom: 8px;">
             <img src="resources/logonova2.png" alt="SAMAPE" style="width: 120px; height: auto;" onerror="this.style.display='none'" />
           </div>
           <div style="font-size: 0.75em; color: #64748b; font-weight: 500; margin-bottom: 8px;">Sistema de Gerenciamento de Manutenção</div>
           <div style="font-size: 1.3em; font-weight: 700; color: #1e293b; margin: 8px 0 5px 0;">ORDEM DE SERVIÇO</div>
-          <div style="font-size: 1.5em; font-weight: 800; color: #2563eb; margin: 5px 0;">${os.numero_os}</div>
+          <div style="font-size: 1.5em; font-weight: 800; color: #1e293b; margin: 5px 0;">${os.numero_os}</div>
           <div style="display: flex; justify-content: center; flex-wrap: wrap; gap: 15px 25px; margin-top: 8px; font-size: 0.85em; color: #475569;">
             <span><strong style="color: #1e293b;">Data de Abertura:</strong> ${dataAberturaFmt || '-'}</span>
             ${dataExecucaoFmt ? `<span><strong style="color: #1e293b;">Data de Execução:</strong> ${dataExecucaoFmt}</span>` : ''}
@@ -557,7 +557,7 @@ async function gerarPDFOS(osId) {
 
         <!-- CLIENTE -->
         <div style="margin: 12px 0;">
-          <div style="background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%); color: white; padding: 6px 12px; border-radius: 4px 4px 0 0; font-size: 0.95em; font-weight: 700;">
+          <div style="background: linear-gradient(135deg, #334155 0%, #475569 100%); color: white; padding: 6px 12px; border-radius: 4px 4px 0 0; font-size: 0.95em; font-weight: 700;">
             👤 Informações do Cliente
           </div>
           <div style="border: 1px solid #e2e8f0; border-top: none; padding: 10px; border-radius: 0 0 4px 4px; background: #f8fafc;">
@@ -573,14 +573,14 @@ async function gerarPDFOS(osId) {
         <!-- MAQUINÁRIO E RESPONSÁVEL -->
         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 12px 0;">
           <div>
-            <div style="background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%); color: white; padding: 6px 12px; border-radius: 4px 4px 0 0; font-size: 0.95em; font-weight: 700;">🚜 Máquina</div>
+            <div style="background: linear-gradient(135deg, #334155 0%, #475569 100%); color: white; padding: 6px 12px; border-radius: 4px 4px 0 0; font-size: 0.95em; font-weight: 700;">🚜 Máquina</div>
             <div style="border: 1px solid #e2e8f0; border-top: none; padding: 10px; border-radius: 0 0 4px 4px; background: #f8fafc;">
               <strong style="font-size: 0.75em; color: #475569;">MODELO</strong><br><span style="font-size: 0.9em;">${os.maquina_modelo || '-'}${os.maquina_id_frota ? ` (ID Frota: ${os.maquina_id_frota})` : ''}</span>
               <br><strong style="font-size: 0.75em; color: #475569; margin-top: 6px; display: inline-block;">HORÍMETRO (TEMPO DE TRABALHO)</strong><br><span style="font-size: 0.9em; font-weight: 600; color: #1e293b;">${horimetroDisplay || 'Não informado'}</span>
             </div>
           </div>
           <div>
-            <div style="background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%); color: white; padding: 6px 12px; border-radius: 4px 4px 0 0; font-size: 0.95em; font-weight: 700;">👨‍🔧 Responsável</div>
+            <div style="background: linear-gradient(135deg, #334155 0%, #475569 100%); color: white; padding: 6px 12px; border-radius: 4px 4px 0 0; font-size: 0.95em; font-weight: 700;">👨‍🔧 Responsável</div>
             <div style="border: 1px solid #e2e8f0; border-top: none; padding: 10px; border-radius: 0 0 4px 4px; background: #f8fafc;">
               <strong style="font-size: 0.75em; color: #475569;">TÉCNICO</strong><br><span style="font-size: 0.9em;">${os.mecanico_nome || '-'}</span>
             </div>
@@ -589,7 +589,7 @@ async function gerarPDFOS(osId) {
 
         <!-- SERVIÇOS -->
         <div style="margin: 12px 0;">
-          <div style="background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%); color: white; padding: 6px 12px; border-radius: 4px 4px 0 0; font-size: 0.95em; font-weight: 700;">
+          <div style="background: linear-gradient(135deg, #334155 0%, #475569 100%); color: white; padding: 6px 12px; border-radius: 4px 4px 0 0; font-size: 0.95em; font-weight: 700;">
             📝 Descrição do Serviço
           </div>
           <div style="border: 1px solid #e2e8f0; border-top: none; padding: 10px; border-radius: 0 0 4px 4px; background: #f8fafc;">
@@ -613,7 +613,7 @@ async function gerarPDFOS(osId) {
         <div style="margin: 12px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
           <!-- Deslocamento -->
           <div>
-            <div style="background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%); color: white; padding: 6px 12px; border-radius: 4px 4px 0 0; font-size: 0.95em; font-weight: 700;">🛣️ Deslocamento</div>
+            <div style="background: linear-gradient(135deg, #334155 0%, #475569 100%); color: white; padding: 6px 12px; border-radius: 4px 4px 0 0; font-size: 0.95em; font-weight: 700;">🛣️ Deslocamento</div>
             <div style="border: 1px solid #e2e8f0; border-top: none; padding: 10px; border-radius: 0 0 4px 4px; background: #f8fafc;">
               <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding: 4px 0;">
                 <span style="font-size: 0.85em; color: #475569; font-weight: 600;">Distância (${os.km_volta} - ${os.km_ida})</span>
@@ -627,7 +627,7 @@ async function gerarPDFOS(osId) {
           </div>
           <!-- Financeiro -->
           <div>
-            <div style="background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%); color: white; padding: 6px 12px; border-radius: 4px 4px 0 0; font-size: 0.95em; font-weight: 700;">💰 Financeiro</div>
+            <div style="background: linear-gradient(135deg, #334155 0%, #475569 100%); color: white; padding: 6px 12px; border-radius: 4px 4px 0 0; font-size: 0.95em; font-weight: 700;">💰 Financeiro</div>
             <div style="border: 1px solid #e2e8f0; border-top: none; padding: 10px; border-radius: 0 0 4px 4px; background: #f8fafc;">
               <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding: 4px 0;">
                 <span style="font-size: 0.85em; color: #475569; font-weight: 600;">Mão de Obra</span>
@@ -642,9 +642,9 @@ async function gerarPDFOS(osId) {
         </div>
 
         <!-- TOTAL -->
-        <div style="background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%); color: white; padding: 15px; text-align: center; border-radius: 6px; margin: 15px 0;">
-          <div style="font-size: 0.85em; font-weight: 600; letter-spacing: 1.5px; margin-bottom: 6px;">VALOR TOTAL DO SERVIÇO</div>
-          <div style="font-size: 2em; font-weight: 900; text-shadow: 0 2px 4px rgba(0,0,0,0.2);">R$ ${formatMoney(os.valor_total || 0)}</div>
+        <div style="background: linear-gradient(135deg, #334155 0%, #475569 100%); color: white; padding: 10px 18px; border-radius: 4px; margin: 15px 0; display: flex; justify-content: flex-end; align-items: center; gap: 12px; text-align: right;">
+          <span style="font-size: 0.85em; font-weight: 700; letter-spacing: 1px;">VALOR TOTAL DO SERVIÇO:</span>
+          <span style="font-size: 1.25em; font-weight: 800; white-space: nowrap;">R$ ${formatMoney(os.valor_total || 0)}</span>
         </div>
 
         <!-- ASSINATURAS -->
@@ -668,6 +668,10 @@ async function gerarPDFOS(osId) {
     overlay.innerHTML = `
       <style>
         @media print {
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
           body > :not(#print-overlay) { display: none !important; }
           #print-overlay {
             position: absolute !important;
