@@ -841,14 +841,14 @@ app.put('/api/ordens/:id', authenticateToken, async (req, res) => {
            prioridade = COALESCE($2, prioridade),
            descricao_problema = COALESCE($3, descricao_problema), 
            diagnostico = COALESCE($4, diagnostico),
-           servicos_realizados = CASE WHEN $5 IS NOT NULL AND $5 <> '' THEN $5 ELSE servicos_realizados END,
+           servicos_realizados = CASE WHEN $5::text IS NOT NULL AND $5::text <> '' THEN $5::text ELSE servicos_realizados END,
            valor_mao_obra = COALESCE($6, valor_mao_obra), 
            valor_pecas = COALESCE($7, valor_pecas),
            valor_total = COALESCE($8, valor_total),
            observacoes = COALESCE($9, observacoes), 
            data_fechamento = CASE 
                WHEN $1 <> 'FECHADA' THEN NULL
-               WHEN $10 IS NOT NULL AND $10 <> '' THEN $10::timestamp
+               WHEN $10::text IS NOT NULL AND $10::text <> '' THEN $10::timestamp
                WHEN data_fechamento IS NOT NULL THEN data_fechamento
                ELSE CURRENT_TIMESTAMP
            END,
@@ -859,8 +859,8 @@ app.put('/api/ordens/:id', authenticateToken, async (req, res) => {
            km_volta = COALESCE($15, km_volta),
            valor_por_km = COALESCE($16, valor_por_km),
            listagem_pecas_id = COALESCE($17, listagem_pecas_id),
-           horimetro = CASE WHEN $18 IS NOT NULL AND $18 <> '' THEN $18 ELSE horimetro END,
-           data_execucao = CASE WHEN $19 = true THEN $20::date ELSE data_execucao END,
+           horimetro = CASE WHEN $18::text IS NOT NULL AND $18::text <> '' THEN $18::text ELSE horimetro END,
+           data_execucao = CASE WHEN $19::boolean = true THEN $20::date ELSE data_execucao END,
            updated_at = CURRENT_TIMESTAMP
        WHERE id = $21
        RETURNING *`,

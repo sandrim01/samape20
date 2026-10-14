@@ -611,7 +611,7 @@ ipcMain.handle('atualizar-os', async (event, { id, dados }) => {
            status = COALESCE($4, status), 
            descricao_problema = COALESCE($5, descricao_problema),
            diagnostico = COALESCE($6, diagnostico),
-           servicos_realizados = CASE WHEN $7 IS NOT NULL AND $7 <> '' THEN $7 ELSE servicos_realizados END,
+           servicos_realizados = CASE WHEN $7::text IS NOT NULL AND $7::text <> '' THEN $7::text ELSE servicos_realizados END,
            km_ida = COALESCE($8, km_ida),
            km_volta = COALESCE($9, km_volta), 
            valor_por_km = COALESCE($10, valor_por_km),
@@ -621,13 +621,13 @@ ipcMain.handle('atualizar-os', async (event, { id, dados }) => {
            observacoes = COALESCE($14, observacoes),
            data_fechamento = CASE 
                WHEN $4 <> 'FECHADA' THEN NULL
-               WHEN $15 IS NOT NULL AND $15 <> '' THEN $15::timestamp
+               WHEN $15::text IS NOT NULL AND $15::text <> '' THEN $15::timestamp
                WHEN data_fechamento IS NOT NULL THEN data_fechamento
                ELSE CURRENT_TIMESTAMP
            END,
            listagem_pecas_id = COALESCE($16, listagem_pecas_id),
-           horimetro = CASE WHEN $17 IS NOT NULL AND $17 <> '' THEN $17 ELSE horimetro END,
-           data_execucao = CASE WHEN $19 = true THEN $20::date ELSE data_execucao END,
+           horimetro = CASE WHEN $17::text IS NOT NULL AND $17 <> '' THEN $17::text ELSE horimetro END,
+           data_execucao = CASE WHEN $19::boolean = true THEN $20::date ELSE data_execucao END,
            updated_at = CURRENT_TIMESTAMP 
        WHERE id = $18`,
       [
