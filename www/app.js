@@ -956,6 +956,21 @@ function renderMobileDashboard() {
       <p class="mobile-hero-subtitle">Selecione uma opção rápida para iniciar:</p>
     </div>
 
+    ${typeof OfflineManager !== 'undefined' && OfflineManager.contarPendencias() > 0 ? `
+      <div style="background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%); border-radius: var(--radius-lg); padding: 0.9rem 1.1rem; color: white; display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; box-shadow: 0 4px 14px rgba(37,99,235,0.3);">
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+          <span style="font-size: 1.4rem;">🔄</span>
+          <div>
+            <div style="font-weight: 700; font-size: 0.95rem;">${OfflineManager.contarPendencias()} alteraç${OfflineManager.contarPendencias() > 1 ? 'ões pendentes' : 'ão pendente'}</div>
+            <div style="font-size: 0.75rem; opacity: 0.9;">Salvo no aparelho. Clique para sincronizar agora.</div>
+          </div>
+        </div>
+        <button onclick="OfflineManager.sincronizarFila()" style="background: #10b981; border: none; color: white; font-weight: 800; padding: 0.5rem 0.9rem; border-radius: 8px; font-size: 0.82rem; cursor: pointer;">
+          Sincronizar
+        </button>
+      </div>
+    ` : ''}
+
     <div class="mobile-giant-actions">
       <!-- Botão Destaque QR-Code: Leitura de Máquina e OS Automática -->
       <button class="btn-giant-mobile btn-giant-qrcode" onclick="abrirScannerQRCode()">
@@ -1200,9 +1215,14 @@ function renderOrdensTable(ordens, isDashboard = false) {
           </tr>
         </thead>
         <tbody>
-          ${ordens.map(os => `
+          ${ordens.map(os => {
+            const ehOffline = String(os.id).startsWith('temp_') || !!os._isOffline;
+            return `
             <tr>
-              <td><strong>${os.numero_os}</strong></td>
+              <td>
+                <strong>${os.numero_os}</strong>
+                ${ehOffline ? '<span style="background: #b45309; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 700; margin-left: 4px;" title="Gravada no aparelho, aguardando sincronização">OFFLINE</span>' : ''}
+              </td>
               <td style="${isDashboard ? 'max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;' : ''}" title="${os.cliente_nome}">${os.cliente_nome || '-'}</td>
               <td class="desktop-only">${os.maquina_modelo || '-'}</td>
               <td class="desktop-only">${os.mecanico_nome || '-'}</td>
@@ -1211,13 +1231,14 @@ function renderOrdensTable(ordens, isDashboard = false) {
               <td class="${isDashboard ? 'desktop-only' : ''}">R$ ${formatMoney(os.valor_total)}</td>
               <td>
                 ${renderActionMenu(`os-${os.id}`, [
-    { label: 'Editar', icon: '📝', onclick: `editarOS(${os.id})` },
-    { label: 'Imprimir', icon: '🖨️', onclick: `window.gerarPDFOS(${os.id})`, show: !isDashboard },
-    { label: 'Excluir', icon: '🗑️', onclick: `confirmarExcluirOS(${os.id}, '${os.numero_os}')`, class: 'danger', show: AppState.currentUser.cargo === 'ADMIN' && !isDashboard }
-  ], isDashboard ? '⋮' : 'Ações')}
+                  { label: 'Editar', icon: '📝', onclick: `editarOS('${os.id}')` },
+                  { label: 'Imprimir', icon: '🖨️', onclick: `window.gerarPDFOS('${os.id}')`, show: !isDashboard && !ehOffline },
+                  { label: 'Excluir', icon: '🗑️', onclick: `confirmarExcluirOS('${os.id}', '${os.numero_os}')`, class: 'danger', show: AppState.currentUser.cargo === 'ADMIN' && !isDashboard }
+                ], isDashboard ? '⋮' : 'Ações')}
               </td>
             </tr>
-          `).join('')}
+            `;
+          }).join('')}
         </tbody>
       </table>
     </div>
@@ -2744,17 +2765,34 @@ window.editarOS = async (id) => {
 
 // ==================== CARREGAMENTO DE DADOS ====================
 async function loadAllData() {
-  await Promise.all([
-    loadClientes(),
-    loadMaquinas(),
-    loadOrdensServico(),
-    loadPecas(),
-    loadVendas(),
-    loadUsuarios(),
-    loadListagensPecas(),
-    loadStats(),
-    AppState.currentUser.cargo === 'ADMIN' ? loadLogs() : Promise.resolve()
-  ]);
+  try {
+    await Promise.all([
+      loadClientes(),
+      loadMaquinas(),
+      loadOrdensServico(),
+      loadPecas(),
+      loadVendas(),
+      loadUsuarios(),
+      loadListagensPecas(),
+      loadStats(),
+      (AppState.currentUser && AppState.currentUser.cargo === 'ADMIN') ? loadLogs() : Promise.resolve()
+    ]);
+
+    // Salvar snapshots locais atualizados para funcionamento offline garantido
+    if (typeof OfflineManager !== 'undefined') {
+      if (AppState.data.clientes?.length) OfflineManager.salvarSnapshot('clientes', AppState.data.clientes);
+      if (AppState.data.maquinas?.length) OfflineManager.salvarSnapshot('maquinas', AppState.data.maquinas);
+      if (AppState.data.usuarios?.length) {
+        OfflineManager.salvarSnapshot('usuarios', AppState.data.usuarios);
+        OfflineManager.salvarSnapshot('mecanicos', AppState.data.usuarios.filter(u => u.cargo === 'MECANICO' || u.cargo === 'ADMIN'));
+      }
+      if (AppState.data.pecas?.length) OfflineManager.salvarSnapshot('pecas', AppState.data.pecas);
+      if (AppState.data.ordens?.length) OfflineManager.salvarSnapshot('ordens', AppState.data.ordens);
+      if (AppState.data.listagens?.length) OfflineManager.salvarSnapshot('listagens', AppState.data.listagens);
+    }
+  } catch (err) {
+    console.warn('⚠️ Falha ao atualizar dados online, mantendo dados do cache:', err);
+  }
 }
 
 async function checkUpdates() {
@@ -2963,8 +3001,21 @@ async function loadVendas() {
 }
 
 async function loadUsuarios() {
-  const result = await window.api.listarUsuarios();
-  if (result.success) AppState.data.usuarios = result.usuarios;
+  let result = null;
+  if (typeof window.api.listarMecanicos === 'function') {
+    result = await window.api.listarMecanicos();
+    if (result && result.success && result.mecanicos) {
+      AppState.data.usuarios = result.mecanicos;
+      if (typeof OfflineManager !== 'undefined') OfflineManager.salvarSnapshot('mecanicos', result.mecanicos);
+      return;
+    }
+  }
+  result = await window.api.listarUsuarios();
+  if (result && result.success && result.usuarios) {
+    AppState.data.usuarios = result.usuarios;
+  } else if (AppState.currentUser) {
+    AppState.data.usuarios = [AppState.currentUser];
+  }
 }
 
 async function loadStats() {
@@ -2990,8 +3041,90 @@ document.addEventListener('DOMContentLoaded', () => {
   // Função de inicialização assíncrona separada para maior compatibilidade
   const init = async () => {
     try {
+      if (!window.api && typeof window.WebAPI !== 'undefined') {
+        window.api = window.WebAPI;
+      } else if (!window.api && typeof WebAPI !== 'undefined') {
+        window.api = WebAPI;
+      }
+
       if (!window.api) {
-        throw new Error('API não carregada. Verifique o arquivo api-client.js');
+        console.warn('⚠️ window.api não carregado via script tag. Ativando bridge de resiliência offline...');
+        window.api = {
+          getUser: () => {
+            try { return JSON.parse(localStorage.getItem('user_info') || sessionStorage.getItem('user_info')); } catch(e) { return null; }
+          },
+          setUser: (u) => { try { localStorage.setItem('user_info', JSON.stringify(u)); } catch(e) {} },
+          clearUser: () => { localStorage.removeItem('user_info'); sessionStorage.removeItem('user_info'); },
+          logout: () => { localStorage.clear(); sessionStorage.clear(); },
+          listarClientes: async () => ({ success: true, clientes: (typeof OfflineManager !== 'undefined' ? OfflineManager.obterSnapshot('clientes') : []) || [], _isOffline: true }),
+          listarMaquinas: async (cid) => {
+            let m = (typeof OfflineManager !== 'undefined' ? OfflineManager.obterSnapshot('maquinas') : []) || [];
+            if (cid) m = m.filter(item => String(item.cliente_id) === String(cid));
+            return { success: true, maquinas: m, _isOffline: true };
+          },
+          listarOS: async () => ({ success: true, ordens: (typeof OfflineManager !== 'undefined' ? OfflineManager.obterSnapshot('ordens') : []) || [], _isOffline: true }),
+          listarPecas: async () => ({ success: true, pecas: (typeof OfflineManager !== 'undefined' ? OfflineManager.obterSnapshot('pecas') : []) || [], _isOffline: true }),
+          listarUsuarios: async () => ({ success: true, usuarios: (typeof OfflineManager !== 'undefined' ? (OfflineManager.obterSnapshot('usuarios') || OfflineManager.obterSnapshot('mecanicos')) : []) || [], _isOffline: true }),
+          listarMecanicos: async () => ({ success: true, mecanicos: (typeof OfflineManager !== 'undefined' ? OfflineManager.obterSnapshot('mecanicos') : []) || [], _isOffline: true }),
+          listarVendas: async () => ({ success: true, vendas: [], _isOffline: true }),
+          listarListagensPecas: async () => ({ success: true, listagens: (typeof OfflineManager !== 'undefined' ? OfflineManager.obterSnapshot('listagens') : []) || [], _isOffline: true }),
+          obterEstatisticas: async () => ({ success: true, stats: {}, _isOffline: true }),
+          obterOS: async (id) => {
+            if (typeof OfflineManager !== 'undefined') {
+              const ordens = OfflineManager.obterSnapshot('ordens') || [];
+              const o = ordens.find(x => String(x.id) === String(id));
+              if (o) return { success: true, ordem: o, _isOffline: true };
+            }
+            return { success: false, message: 'OS não encontrada localmente', _isOffline: true };
+          },
+          obterMaquina: async (id) => {
+            if (typeof OfflineManager !== 'undefined') {
+              const maqs = OfflineManager.obterSnapshot('maquinas') || [];
+              const m = maqs.find(x => String(x.id) === String(id));
+              if (m) return { success: true, maquina: m, _isOffline: true };
+            }
+            return { success: false, message: 'Máquina não encontrada localmente', _isOffline: true };
+          },
+          criarOS: async (dados) => {
+            if (typeof OfflineManager !== 'undefined') {
+              const tempId = OfflineManager.gerarIdProvisorio('os');
+              const tempNumero = OfflineManager.gerarNumeroOSProvisorio();
+              const ordemOffline = { id: tempId, numero_os: tempNumero, ...dados, _provisorio: true, status: dados.status || 'ABERTA' };
+              OfflineManager.enfileirarAcao({ tipo: 'CRIAR_OS', tempId, payload: dados, descricao: `Criação de OS ${tempNumero} (Offline)` });
+              return { success: true, id: tempId, numero_os: tempNumero, ordem: ordemOffline, _isOffline: true };
+            }
+            return { success: false, message: 'Offline Manager não disponível' };
+          },
+          atualizarOS: async (id, dados) => {
+            if (typeof OfflineManager !== 'undefined') {
+              OfflineManager.enfileirarAcao({ tipo: 'ATUALIZAR_OS', targetId: id, payload: dados, descricao: `Atualização de OS ${id} (Offline)` });
+              return { success: true, _isOffline: true };
+            }
+            return { success: false, message: 'Offline Manager não disponível' };
+          },
+          adicionarPecaOS: async (osId, dados) => {
+            if (typeof OfflineManager !== 'undefined') {
+              OfflineManager.enfileirarAcao({ tipo: 'ADICIONAR_PECA', targetId: osId, payload: { os_id: osId, ...dados }, descricao: `Peça adicionada à OS ${osId} (Offline)` });
+              return { success: true, _isOffline: true };
+            }
+            return { success: false, message: 'Offline Manager não disponível' };
+          },
+          listarPecasOS: async (osId) => {
+            if (typeof OfflineManager !== 'undefined') {
+              const fila = OfflineManager.obterFila();
+              const pecasFila = fila.filter(a => a.tipo === 'ADICIONAR_PECA' && String(a.targetId) === String(osId)).map((a, idx) => ({ id: `temp_p_${idx}`, ...a.payload, _provisorio: true }));
+              return { success: true, pecas: pecasFila, _isOffline: true };
+            }
+            return { success: true, pecas: [], _isOffline: true };
+          },
+          atualizarHorimetroMaquina: async (id, horas) => {
+            if (typeof OfflineManager !== 'undefined') {
+              OfflineManager.enfileirarAcao({ tipo: 'APONTAR_HORIMETRO', targetId: id, payload: { maquina_id: id, horimetro: horas }, descricao: `Horímetro ${horas}h máquina ${id} (Offline)` });
+              return { success: true, _isOffline: true };
+            }
+            return { success: false, message: 'Offline Manager não disponível' };
+          }
+        };
       }
 
       // Verificar atualizações imediatamente ao abrir o app
@@ -3002,14 +3135,33 @@ document.addEventListener('DOMContentLoaded', () => {
       if (savedUser) {
         console.log('📦 Sessão recuperada:', savedUser.nome);
         AppState.currentUser = savedUser;
-        render(); // Renderiza interface inicial
+
+        // Hidratação instantânea do cache local (Offline First)
+        if (typeof OfflineManager !== 'undefined') {
+          const cachedClientes = OfflineManager.obterSnapshot('clientes');
+          const cachedMaquinas = OfflineManager.obterSnapshot('maquinas');
+          const cachedUsuarios = OfflineManager.obterSnapshot('usuarios') || OfflineManager.obterSnapshot('mecanicos');
+          const cachedPecas = OfflineManager.obterSnapshot('pecas');
+          const cachedOrdens = OfflineManager.obterSnapshot('ordens');
+          const cachedListagens = OfflineManager.obterSnapshot('listagens');
+
+          if (cachedClientes && cachedClientes.length) AppState.data.clientes = cachedClientes;
+          if (cachedMaquinas && cachedMaquinas.length) AppState.data.maquinas = cachedMaquinas;
+          if (cachedUsuarios && cachedUsuarios.length) AppState.data.usuarios = cachedUsuarios;
+          else if (savedUser) AppState.data.usuarios = [savedUser];
+          if (cachedPecas && cachedPecas.length) AppState.data.pecas = cachedPecas;
+          if (cachedOrdens && cachedOrdens.length) AppState.data.ordens = cachedOrdens;
+          if (cachedListagens && cachedListagens.length) AppState.data.listagens = cachedListagens;
+        }
+
+        render(); // Renderiza interface inicial imediatamente com dados cacheados
 
         try {
           await loadAllData();
-          render(); // Atualiza com dados carregados
+          render(); // Atualiza com dados frescos carregados do servidor
         } catch (dataError) {
-          console.warn('⚠️ Erro ao carregar dados iniciais:', dataError);
-          // Mesmo com erro nos dados, já renderizamos a estrutura
+          console.warn('⚠️ Erro ao carregar dados iniciais online (mantendo cache):', dataError);
+          // Mesmo com erro nos dados online, já renderizamos com o cache
         }
       } else {
         render(); // Renderiza tela de login

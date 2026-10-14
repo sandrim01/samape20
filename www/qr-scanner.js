@@ -449,7 +449,7 @@ async function processarLeituraQRCodeECriarOS(qrData) {
     const numeroOS = result.numero_os || ordemCriada.numero_os;
 
     // 5. Exibir Modal de Sucesso com Escolha Operacional
-    exibirModalSucessoOS(ordemCriada.id, numeroOS, maquina, mecanicoNome);
+    exibirModalSucessoOS(ordemCriada.id, numeroOS, maquina, mecanicoNome, !!result._isOffline);
 
   } catch (error) {
     loadingOverlay.remove();
@@ -458,9 +458,10 @@ async function processarLeituraQRCodeECriarOS(qrData) {
   }
 }
 
-// Modal exibido após a OS ser criada com sucesso no banco
-function exibirModalSucessoOS(osId, numeroOS, maquina, mecanicoNome) {
+// Modal exibido após a OS ser criada com sucesso no banco (ou salva no aparelho offline)
+function exibirModalSucessoOS(osId, numeroOS, maquina, mecanicoNome, isOffline = false) {
   const clienteNome = maquina.cliente_nome || 'Cliente Vinculado';
+  const ehOffline = isOffline || String(osId).startsWith('temp_');
 
   const modalHTML = `
     <div id="modal-sucesso-os-qr" style="
@@ -473,12 +474,14 @@ function exibirModalSucessoOS(osId, numeroOS, maquina, mecanicoNome) {
         animation: modalEnter 0.25s cubic-bezier(0.16, 1, 0.3, 1);
       ">
         
-        <!-- Header de Sucesso -->
-        <div style="background: linear-gradient(135deg, #065f46 0%, #059669 100%); color: white; padding: 1.5rem; text-align: center;">
-          <div style="font-size: 2.8rem; margin-bottom: 0.25rem;">✅</div>
-          <h3 style="margin: 0; font-size: 1.35rem; font-weight: 800;">OS Criada com Sucesso!</h3>
+        <!-- Header de Sucesso (Verde para Online / Âmbar para Offline) -->
+        <div style="background: ${ehOffline ? 'linear-gradient(135deg, #b45309 0%, #d97706 100%)' : 'linear-gradient(135deg, #065f46 0%, #059669 100%)'}; color: white; padding: 1.5rem; text-align: center;">
+          <div style="font-size: 2.8rem; margin-bottom: 0.25rem;">${ehOffline ? '📡' : '✅'}</div>
+          <h3 style="margin: 0; font-size: 1.35rem; font-weight: 800;">
+            ${ehOffline ? 'OS Provisória Salva no Aparelho!' : 'OS Criada com Sucesso!'}
+          </h3>
           <div style="display: inline-block; margin-top: 0.5rem; background: rgba(0,0,0,0.25); padding: 4px 14px; border-radius: 12px; font-weight: 800; font-size: 1.1rem; letter-spacing: 0.5px;">
-            ${numeroOS}
+            ${ehOffline ? 'OS PENDENTE ' + numeroOS : numeroOS}
           </div>
         </div>
 
@@ -504,12 +507,16 @@ function exibirModalSucessoOS(osId, numeroOS, maquina, mecanicoNome) {
             </div>
             <div style="display: flex; justify-content: space-between;">
               <span style="color: var(--text-secondary);">Status:</span>
-              <span class="badge badge-warning" style="font-size: 0.75rem;">ABERTA</span>
+              <span class="badge ${ehOffline ? 'badge-warning' : 'badge-success'}" style="font-size: 0.75rem;">
+                ${ehOffline ? 'SALVA OFFLINE' : 'ABERTA'}
+              </span>
             </div>
           </div>
 
           <p style="margin: 0; font-size: 0.8rem; color: var(--text-muted); text-align: center; line-height: 1.35;">
-            A ordem já está salva. Você pode completar a descrição dos serviços agora ou realizar o trabalho e editá-la mais tarde.
+            ${ehOffline 
+              ? 'Seu aparelho está sem internet. Os dados foram gravados na fila local com segurança e serão sincronizados automaticamente assim que você tiver sinal.'
+              : 'A ordem já está salva no banco. Você pode completar a descrição dos serviços agora ou realizar o trabalho e editá-la mais tarde.'}
           </p>
 
           <!-- Ações de Escolha -->
@@ -517,7 +524,7 @@ function exibirModalSucessoOS(osId, numeroOS, maquina, mecanicoNome) {
             <!-- Opção 1: Preencher Agora -->
             <button 
               class="btn btn-primary" 
-              onclick="fecharModalSucessoOS(); showNovaOSModal(${osId})"
+              onclick="fecharModalSucessoOS(); mostrarModalOS('${osId}')"
               style="padding: 0.85rem; font-size: 0.95rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 0.5rem;"
             >
               <span>✏️</span> <span>Preencher / Editar OS Agora</span>
@@ -536,7 +543,6 @@ function exibirModalSucessoOS(osId, numeroOS, maquina, mecanicoNome) {
         </div>
 
       </div>
-    </div>
   `;
 
   const div = document.createElement('div');

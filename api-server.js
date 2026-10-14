@@ -337,6 +337,19 @@ app.post('/api/login', async (req, res) => {
 
 // ==================== ROTAS DE USUÁRIOS ====================
 
+// Listar mecânicos para OS (Acessível a qualquer usuário autenticado)
+app.get('/api/mecanicos', authenticateToken, async (req, res) => {
+    try {
+        const result = await pool.query(
+            "SELECT id, nome, email, cargo FROM usuarios WHERE cargo IN ('MECANICO', 'ADMIN') AND ativo = true ORDER BY nome ASC"
+        );
+        res.json({ success: true, mecanicos: result.rows });
+    } catch (error) {
+        console.error('Erro ao listar mecânicos:', error);
+        res.status(500).json({ success: false, message: 'Erro no servidor' });
+    }
+});
+
 // Listar usuários (Apenas Admin)
 app.get('/api/usuarios', authenticateToken, authorize(['ADMIN']), async (req, res) => {
     try {
@@ -511,16 +524,24 @@ app.delete('/api/clientes/:id', authenticateToken, async (req, res) => {
 
 // ==================== ROTAS DE MÁQUINAS ====================
 
-// Listar máquinas
+// Listar máquinas (suporta filtro opcional ?cliente_id=X)
 app.get('/api/maquinas', authenticateToken, async (req, res) => {
     try {
-        const result = await pool.query(
-            `SELECT m.*, c.nome as cliente_nome 
-       FROM maquinas m
-       LEFT JOIN clientes c ON m.cliente_id = c.id
-       WHERE m.ativo = true
-       ORDER BY m.modelo`
-        );
+        const { cliente_id } = req.query;
+        let query = `
+            SELECT m.*, c.nome as cliente_nome 
+            FROM maquinas m
+            LEFT JOIN clientes c ON m.cliente_id = c.id
+            WHERE m.ativo = true
+        `;
+        const params = [];
+        if (cliente_id) {
+            params.push(parseInt(cliente_id));
+            query += ` AND m.cliente_id = $${params.length}`;
+        }
+        query += ` ORDER BY m.modelo`;
+
+        const result = await pool.query(query, params);
         res.json({ success: true, maquinas: result.rows });
     } catch (error) {
         console.error('Erro ao listar máquinas:', error);

@@ -127,7 +127,11 @@ async function apiFetch(endpoint, options = {}) {
             msg = 'Erro inesperado: ' + error.message;
         }
 
-        return { success: false, message: msg };
+        if (typeof OfflineManager !== 'undefined' && typeof OfflineManager.testarConexaoReal === 'function') {
+            OfflineManager.testarConexaoReal();
+        }
+
+        return { success: false, message: msg, isNetworkError: true };
     }
 }
 
@@ -173,9 +177,46 @@ const WebAPI = {
     },
 
     async listarUsuarios() {
+        if (typeof OfflineManager !== 'undefined' && !OfflineManager.isOnline()) {
+            const cached = OfflineManager.obterSnapshot('usuarios');
+            if (cached && cached.length) return { success: true, usuarios: cached, _isOffline: true };
+        }
         const data = await apiFetch('/usuarios');
-        if (data.success && data.users) data.usuarios = data.users;
+        if (data && data.success && data.users) {
+            data.usuarios = data.users;
+            if (typeof OfflineManager !== 'undefined') OfflineManager.salvarSnapshot('usuarios', data.users);
+            return data;
+        }
+        if (typeof OfflineManager !== 'undefined') {
+            const cached = OfflineManager.obterSnapshot('usuarios');
+            if (cached && cached.length) return { success: true, usuarios: cached, _isOffline: true };
+        }
+        const curUser = (typeof AppState !== 'undefined' && AppState.currentUser) ? AppState.currentUser : this.getUser();
+        if (curUser) {
+            return { success: true, usuarios: [curUser], _isOffline: true };
+        }
         return data || { success: true, usuarios: [] };
+    },
+
+    async listarMecanicos() {
+        if (typeof OfflineManager !== 'undefined' && !OfflineManager.isOnline()) {
+            const cached = OfflineManager.obterSnapshot('mecanicos');
+            if (cached && cached.length) return { success: true, mecanicos: cached, _isOffline: true };
+        }
+        const data = await apiFetch('/mecanicos');
+        if (data && data.success && data.mecanicos) {
+            if (typeof OfflineManager !== 'undefined') OfflineManager.salvarSnapshot('mecanicos', data.mecanicos);
+            return data;
+        }
+        if (typeof OfflineManager !== 'undefined') {
+            const cached = OfflineManager.obterSnapshot('mecanicos');
+            if (cached && cached.length) return { success: true, mecanicos: cached, _isOffline: true };
+        }
+        const curUser = (typeof AppState !== 'undefined' && AppState.currentUser) ? AppState.currentUser : this.getUser();
+        if (curUser) {
+            return { success: true, mecanicos: [curUser], _isOffline: true };
+        }
+        return { success: true, mecanicos: [] };
     },
 
     async obterUsuario(id) {
@@ -195,7 +236,19 @@ const WebAPI = {
     },
 
     async listarClientes() {
+        if (typeof OfflineManager !== 'undefined' && !OfflineManager.isOnline()) {
+            const cached = OfflineManager.obterSnapshot('clientes');
+            if (cached) return { success: true, clientes: cached, _isOffline: true };
+        }
         const data = await apiFetch('/clientes');
+        if (data && data.success && data.clientes) {
+            if (typeof OfflineManager !== 'undefined') OfflineManager.salvarSnapshot('clientes', data.clientes);
+            return data;
+        }
+        if (typeof OfflineManager !== 'undefined') {
+            const cached = OfflineManager.obterSnapshot('clientes');
+            if (cached) return { success: true, clientes: cached, _isOffline: true };
+        }
         return data || { success: true, clientes: [] };
     },
 
@@ -204,6 +257,11 @@ const WebAPI = {
     },
 
     async obterCliente(id) {
+        if (typeof OfflineManager !== 'undefined' && !OfflineManager.isOnline()) {
+            const cached = OfflineManager.obterSnapshot('clientes') || [];
+            const c = cached.find(item => String(item.id) === String(id));
+            if (c) return { success: true, cliente: c, _isOffline: true };
+        }
         return await apiFetch(`/clientes/${id}`);
     },
 
@@ -217,14 +275,45 @@ const WebAPI = {
     },
 
     async listarMaquinas(cliente_id) {
+        if (typeof OfflineManager !== 'undefined' && !OfflineManager.isOnline()) {
+            let cached = OfflineManager.obterSnapshot('maquinas') || [];
+            if (cliente_id) cached = cached.filter(m => String(m.cliente_id) === String(cliente_id));
+            return { success: true, maquinas: cached, _isOffline: true };
+        }
         let url = '/maquinas';
         if (cliente_id) url += `?cliente_id=${cliente_id}`;
         const data = await apiFetch(url);
+        if (data && data.success && data.maquinas) {
+            let resMaquinas = data.maquinas;
+            if (cliente_id) {
+                resMaquinas = resMaquinas.filter(m => String(m.cliente_id) === String(cliente_id));
+            } else if (typeof OfflineManager !== 'undefined') {
+                OfflineManager.salvarSnapshot('maquinas', data.maquinas);
+            }
+            return { success: true, maquinas: resMaquinas };
+        }
+        if (typeof OfflineManager !== 'undefined') {
+            let cached = OfflineManager.obterSnapshot('maquinas') || [];
+            if (cliente_id) cached = cached.filter(m => String(m.cliente_id) === String(cliente_id));
+            return { success: true, maquinas: cached, _isOffline: true };
+        }
         return data || { success: true, maquinas: [] };
     },
 
     async obterMaquina(id) {
-        return await apiFetch(`/maquinas/${id}`);
+        if (typeof OfflineManager !== 'undefined' && !OfflineManager.isOnline()) {
+            const cached = OfflineManager.obterSnapshot('maquinas') || [];
+            const maq = cached.find(m => String(m.id) === String(id));
+            if (maq) return { success: true, maquina: maq, _isOffline: true };
+        }
+        const data = await apiFetch(`/maquinas/${id}`);
+        if (data && data.success) return data;
+        if (typeof OfflineManager !== 'undefined') {
+            const cached = OfflineManager.obterSnapshot('maquinas') || [];
+            const maq = cached.find(m => String(m.id) === String(id));
+            if (maq) return { success: true, maquina: maq, _isOffline: true };
+        }
+        return data;
     },
 
     async obterQRCodeMaquina(id) {
@@ -240,34 +329,198 @@ const WebAPI = {
     },
 
     async atualizarHorimetroMaquina(id, horas_uso) {
+        if (typeof OfflineManager !== 'undefined' && !OfflineManager.isOnline()) {
+            OfflineManager.enfileirarAcao({
+                tipo: 'APONTAR_HORIMETRO',
+                targetId: id,
+                payload: { maquina_id: id, horimetro: horas_uso },
+                descricao: `Apontamento de horímetro ${horas_uso}h para máquina ${id}`
+            });
+            return { success: true, _isOffline: true };
+        }
         return await apiFetch(`/maquinas/${id}/horimetro`, { method: 'PATCH', body: JSON.stringify({ horas_uso }) });
     },
 
-    // Ordens de Serviço
+    // Ordens de Serviço (com suporte transparente a Modo Offline)
     async criarOS(dados) {
-        return await apiFetch('/ordens', { method: 'POST', body: JSON.stringify(dados) });
+        if (typeof OfflineManager !== 'undefined' && !OfflineManager.isOnline()) {
+            const tempId = OfflineManager.gerarIdProvisorio('os');
+            const tempNumero = OfflineManager.gerarNumeroOSProvisorio();
+            const ordemOffline = {
+                id: tempId,
+                numero_os: tempNumero,
+                ...dados,
+                data_abertura: new Date().toISOString(),
+                status: dados.status || 'ABERTA',
+                prioridade: dados.prioridade || 'MEDIA',
+                valor_total: dados.valor_total || 0,
+                _isOffline: true
+            };
+
+            OfflineManager.enfileirarAcao({
+                tipo: 'CRIAR_OS',
+                tempId: tempId,
+                endpoint: '/ordens',
+                metodo: 'POST',
+                payload: dados,
+                descricao: `Abertura de OS Provisória ${tempNumero}`
+            });
+
+            // Atualiza snapshot de ordens localmente
+            const ordens = (typeof AppState !== 'undefined' && AppState.data && AppState.data.ordens) ? AppState.data.ordens : [];
+            ordens.unshift(ordemOffline);
+            if (typeof OfflineManager !== 'undefined') OfflineManager.salvarSnapshot('ordens', ordens);
+
+            return {
+                success: true,
+                ordem: ordemOffline,
+                numero_os: tempNumero,
+                _isOffline: true,
+                message: 'OS criada localmente no aparelho (Modo Offline).'
+            };
+        }
+
+        const data = await apiFetch('/ordens', { method: 'POST', body: JSON.stringify(dados) });
+        if (!data || !data.success) {
+            if (data && data.isNetworkError && typeof OfflineManager !== 'undefined') {
+                const tempId = OfflineManager.gerarIdProvisorio('os');
+                const tempNumero = OfflineManager.gerarNumeroOSProvisorio();
+                const ordemOffline = {
+                    id: tempId,
+                    numero_os: tempNumero,
+                    ...dados,
+                    data_abertura: new Date().toISOString(),
+                    status: dados.status || 'ABERTA',
+                    prioridade: dados.prioridade || 'MEDIA',
+                    valor_total: dados.valor_total || 0,
+                    _isOffline: true
+                };
+
+                OfflineManager.enfileirarAcao({
+                    tipo: 'CRIAR_OS',
+                    tempId: tempId,
+                    endpoint: '/ordens',
+                    metodo: 'POST',
+                    payload: dados,
+                    descricao: `Abertura de OS Provisória ${tempNumero}`
+                });
+
+                return {
+                    success: true,
+                    ordem: ordemOffline,
+                    numero_os: tempNumero,
+                    _isOffline: true,
+                    message: 'Rede instável: OS criada no aparelho com segurança.'
+                };
+            }
+        }
+        return data;
     },
 
     async atualizarOS(id, dados) {
-        return await apiFetch(`/ordens/${id}`, { method: 'PUT', body: JSON.stringify(dados) });
+        if (typeof OfflineManager !== 'undefined' && (!OfflineManager.isOnline() || String(id).startsWith('temp_'))) {
+            OfflineManager.enfileirarAcao({
+                tipo: 'ATUALIZAR_OS',
+                targetId: id,
+                endpoint: `/ordens/${id}`,
+                metodo: 'PUT',
+                payload: dados,
+                descricao: `Atualização de OS ${id}`
+            });
+
+            if (typeof AppState !== 'undefined' && AppState.data && AppState.data.ordens) {
+                const idx = AppState.data.ordens.findIndex(o => String(o.id) === String(id));
+                if (idx !== -1) {
+                    AppState.data.ordens[idx] = { ...AppState.data.ordens[idx], ...dados };
+                }
+            }
+            return { success: true, _isOffline: true, message: 'Alterações da OS salvas no aparelho.' };
+        }
+
+        const data = await apiFetch(`/ordens/${id}`, { method: 'PUT', body: JSON.stringify(dados) });
+        if (!data || !data.success) {
+            if (data && data.isNetworkError && typeof OfflineManager !== 'undefined') {
+                OfflineManager.enfileirarAcao({
+                    tipo: 'ATUALIZAR_OS',
+                    targetId: id,
+                    endpoint: `/ordens/${id}`,
+                    metodo: 'PUT',
+                    payload: dados,
+                    descricao: `Atualização de OS ${id}`
+                });
+                return { success: true, _isOffline: true };
+            }
+        }
+        return data;
     },
 
     async listarOrdens(filtros = {}) {
+        if (typeof OfflineManager !== 'undefined' && !OfflineManager.isOnline()) {
+            const cached = OfflineManager.obterSnapshot('ordens') || [];
+            return { success: true, ordens: cached, _isOffline: true };
+        }
         let url = '/ordens';
         const params = new URLSearchParams(filtros);
         if (params.toString()) url += `?${params.toString()}`;
         const data = await apiFetch(url);
-        if (data.success && data.ordens) return data;
-        return { success: true, ordens: data.ordens || [] };
+        if (data && data.success && data.ordens) {
+            if (typeof OfflineManager !== 'undefined') OfflineManager.salvarSnapshot('ordens', data.ordens);
+            return data;
+        }
+        if (typeof OfflineManager !== 'undefined') {
+            const cached = OfflineManager.obterSnapshot('ordens') || [];
+            return { success: true, ordens: cached, _isOffline: true };
+        }
+        return { success: true, ordens: data ? (data.ordens || []) : [] };
     },
 
     async listarOS(filtros = {}) { return this.listarOrdens(filtros); },
 
     async obterOS(id) {
-        return await apiFetch(`/ordens/${id}`);
+        // 1. Se for OS provisória/offline ou estiver sem rede, busca localmente
+        if (String(id).startsWith('temp_') || (typeof OfflineManager !== 'undefined' && !OfflineManager.isOnline())) {
+            const ordens = (typeof AppState !== 'undefined' && AppState.data && AppState.data.ordens)
+                ? AppState.data.ordens
+                : (typeof OfflineManager !== 'undefined' ? (OfflineManager.obterSnapshot('ordens') || []) : []);
+            
+            const encontrada = ordens.find(o => String(o.id) === String(id));
+            if (encontrada) {
+                return { success: true, os: encontrada, _isOffline: true };
+            }
+        }
+
+        // 2. Se estiver online, tenta buscar do servidor
+        const data = await apiFetch(`/ordens/${id}`);
+        if (data && data.success && data.os) {
+            return data;
+        }
+
+        // 3. Fallback para memória local ou snapshot
+        const ordens = (typeof AppState !== 'undefined' && AppState.data && AppState.data.ordens)
+            ? AppState.data.ordens
+            : (typeof OfflineManager !== 'undefined' ? (OfflineManager.obterSnapshot('ordens') || []) : []);
+        
+        const encontrada = ordens.find(o => String(o.id) === String(id));
+        if (encontrada) {
+            return { success: true, os: encontrada, _isOffline: true };
+        }
+
+        return data || { success: false, message: 'OS não encontrada' };
     },
 
     async excluirOS(id) {
+        if (String(id).startsWith('temp_') || (typeof OfflineManager !== 'undefined' && !OfflineManager.isOnline())) {
+            if (typeof AppState !== 'undefined' && AppState.data && AppState.data.ordens) {
+                AppState.data.ordens = AppState.data.ordens.filter(o => String(o.id) !== String(id));
+            }
+            if (typeof OfflineManager !== 'undefined') {
+                const fila = OfflineManager.obterFila();
+                const novaFila = fila.filter(a => !(a.tempId === id || a.targetId === id));
+                localStorage.setItem('samape_offline_sync_queue', JSON.stringify(novaFila));
+                OfflineManager.atualizarUIConexao();
+            }
+            return { success: true, _isOffline: true };
+        }
         return await apiFetch(`/ordens/${id}`, { method: 'DELETE' });
     },
 
@@ -308,12 +561,38 @@ const WebAPI = {
         });
     },
 
-    // Peças na OS
     async listarPecasOS(id) {
+        if (String(id).startsWith('temp_') || (typeof OfflineManager !== 'undefined' && !OfflineManager.isOnline())) {
+            if (typeof OfflineManager !== 'undefined') {
+                const fila = OfflineManager.obterFila();
+                const pecasOffline = fila
+                    .filter(a => a.tipo === 'ADICIONAR_PECA_OS' && String(a.targetId) === String(id))
+                    .map(a => a.payload);
+                return { success: true, pecas: pecasOffline, _isOffline: true };
+            }
+            return { success: true, pecas: [], _isOffline: true };
+        }
         return await apiFetch(`/ordens/${id}/pecas`);
     },
 
     async adicionarPecaOS(id, dados) {
+        if (typeof OfflineManager !== 'undefined' && (!OfflineManager.isOnline() || String(id).startsWith('temp_'))) {
+            OfflineManager.enfileirarAcao({
+                tipo: 'ADICIONAR_PECA_OS',
+                targetId: id,
+                payload: dados,
+                descricao: `Adicionar peça na OS ${id}`
+            });
+            return {
+                success: true,
+                _isOffline: true,
+                item: {
+                    id: typeof OfflineManager.gerarIdProvisorio === 'function' ? OfflineManager.gerarIdProvisorio('peca') : Date.now(),
+                    ordem_id: id,
+                    ...dados
+                }
+            };
+        }
         return await apiFetch(`/ordens/${id}/pecas`, {
             method: 'POST',
             body: JSON.stringify(dados)
@@ -332,7 +611,19 @@ const WebAPI = {
     },
 
     async listarPecas() {
+        if (typeof OfflineManager !== 'undefined' && !OfflineManager.isOnline()) {
+            const cached = OfflineManager.obterSnapshot('pecas');
+            if (cached) return { success: true, pecas: cached, _isOffline: true };
+        }
         const data = await apiFetch('/pecas');
+        if (data && data.success && data.pecas) {
+            if (typeof OfflineManager !== 'undefined') OfflineManager.salvarSnapshot('pecas', data.pecas);
+            return data;
+        }
+        if (typeof OfflineManager !== 'undefined') {
+            const cached = OfflineManager.obterSnapshot('pecas');
+            if (cached) return { success: true, pecas: cached, _isOffline: true };
+        }
         return data || { success: true, pecas: [] };
     },
 
@@ -488,6 +779,7 @@ const WebAPI = {
 // Expõe a API como global para o app.js
 // No Electron, o window.api já vem do preload.js e é imutável.
 // Em outros ambientes (Web/Mobile), usamos o WebAPI.
+window.WebAPI = WebAPI;
 if (typeof window.api === 'undefined') {
     window.api = WebAPI;
     console.log('🌐 WebAPI integrada (Modo Web/Mobile).');

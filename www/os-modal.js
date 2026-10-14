@@ -11,26 +11,68 @@ async function mostrarModalOS(osId = null, prefill = null) {
 
   if (isEdicao) {
     const result = await window.api.obterOS(osId);
-    if (result.success) {
+    if (result && result.success && result.os) {
       osData = result.os;
     } else {
-      showAlert('Erro ao carregar OS', 'danger');
-      return;
+      // Fallback extra direto no AppState e Snapshots offline
+      if (typeof AppState !== 'undefined' && AppState.data && AppState.data.ordens) {
+        osData = AppState.data.ordens.find(o => String(o.id) === String(osId));
+      }
+      if (!osData && typeof OfflineManager !== 'undefined') {
+        const snap = OfflineManager.obterSnapshot('ordens') || [];
+        osData = snap.find(o => String(o.id) === String(osId));
+      }
+      if (!osData) {
+        showAlert('Erro ao carregar OS', 'danger');
+        return;
+      }
     }
   } else if (prefill) {
     osData = { ...prefill };
   }
 
-  // Carregar dados necessários (Clientes, Mecânicos e Listagens de Peças)
-  const [clientesRes, mecanicosRes, listagensRes] = await Promise.all([
-    window.api.listarClientes(),
-    window.api.listarUsuarios(),
-    window.api.listarListagensPecas()
-  ]);
+  // Carregar dados necessários com suporte offline garantido (Snapshots locais + API)
+  let clientes = (typeof AppState !== 'undefined' && AppState.data && AppState.data.clientes && AppState.data.clientes.length > 0)
+    ? AppState.data.clientes
+    : (typeof OfflineManager !== 'undefined' ? (OfflineManager.obterSnapshot('clientes') || []) : []);
 
-  const clientes = clientesRes.clientes || [];
-  const mecanicos = (mecanicosRes.usuarios || []).filter(u => u.cargo === 'MECANICO' || u.cargo === 'ADMIN');
-  const listagens = listagensRes.listagens || [];
+  let mecanicos = (typeof AppState !== 'undefined' && AppState.data && AppState.data.usuarios && AppState.data.usuarios.length > 0)
+    ? AppState.data.usuarios.filter(u => u.cargo === 'MECANICO' || u.cargo === 'ADMIN')
+    : (typeof OfflineManager !== 'undefined' ? (OfflineManager.obterSnapshot('mecanicos') || OfflineManager.obterSnapshot('usuarios') || []) : []);
+
+  if (mecanicos.length === 0) {
+    const curUser = (typeof AppState !== 'undefined' && AppState.currentUser) ? AppState.currentUser : (window.api ? window.api.getUser() : null);
+    if (curUser) mecanicos = [curUser];
+  }
+
+  let listagens = (typeof AppState !== 'undefined' && AppState.data && AppState.data.listagens)
+    ? AppState.data.listagens
+    : (typeof OfflineManager !== 'undefined' ? (OfflineManager.obterSnapshot('listagens') || []) : []);
+
+  // Se estiver online, tenta buscar atualizações da rede
+  if (typeof OfflineManager === 'undefined' || OfflineManager.isOnline()) {
+    try {
+      const [clientesRes, mecanicosRes, listagensRes] = await Promise.all([
+        window.api.listarClientes(),
+        typeof window.api.listarMecanicos === 'function' ? window.api.listarMecanicos() : window.api.listarUsuarios(),
+        window.api.listarListagensPecas()
+      ]);
+      if (clientesRes && clientesRes.clientes && clientesRes.clientes.length > 0) {
+        clientes = clientesRes.clientes;
+      }
+      const mecs = mecanicosRes?.mecanicos || (mecanicosRes?.usuarios || []).filter(u => u.cargo === 'MECANICO' || u.cargo === 'ADMIN');
+      if (mecs && mecs.length > 0) {
+        mecanicos = mecs;
+      }
+      if (listagensRes && listagensRes.listagens) {
+        listagens = listagensRes.listagens;
+      }
+    } catch (e) {
+      console.warn('Usando dados em cache local no modal de OS:', e);
+    }
+  }
+
+  const usuarioLogadoId = (typeof AppState !== 'undefined' && AppState.currentUser) ? AppState.currentUser.id : null;
 
   const dataExecucaoVal = osData?.data_execucao ? String(osData.data_execucao).split('T')[0] : (!isEdicao ? new Date().toISOString().split('T')[0] : '');
   const dataFechamentoVal = osData?.data_fechamento ? String(osData.data_fechamento).split('T')[0] : (osData?.status === 'FECHADA' ? new Date().toISOString().split('T')[0] : '');
@@ -124,7 +166,7 @@ async function mostrarModalOS(osId = null, prefill = null) {
                   <select class="form-input" id="os-mecanico" required>
                     <option value="">Selecione um mecânico</option>
                     ${mecanicos.map(m => `
-                      <option value="${m.id}" ${osData && osData.mecanico_id === m.id ? 'selected' : ''}>
+                      <option value="${m.id}" ${(osData && String(osData.mecanico_id) === String(m.id)) || (!osData?.mecanico_id && usuarioLogadoId && String(usuarioLogadoId) === String(m.id)) ? 'selected' : ''}>
                         ${m.nome}
                       </option>
                     `).join('')}
@@ -386,8 +428,30 @@ async function mostrarModalOS(osId = null, prefill = null) {
     salvarOS(osId);
   });
 
-  // Carregar máquinas e valores iniciais
+  // Listener para sincronizar máquina -> cliente e horímetro automaticamente
+  document.getElementById('os-maquina').addEventListener('change', (e) => {
+    const selectedOpt = e.target.selectedOptions ? e.target.selectedOptions[0] : null;
+    if (!selectedOpt) return;
+    const cliId = selectedOpt.getAttribute('data-cliente');
+    const horimetro = selectedOpt.getAttribute('data-horimetro');
+    const clienteSelect = document.getElementById('os-cliente');
+    const horimetroInput = document.getElementById('os-horimetro');
+
+    // Apenas se o cliente ainda NÃO estiver selecionado no dropdown, auto-seleciona o dono da máquina
+    if (cliId && clienteSelect && !clienteSelect.value) {
+      clienteSelect.value = cliId;
+    }
+    // Auto-preenche o horímetro se estiver disponível
+    if (horimetro && horimetroInput && !horimetroInput.value) {
+      horimetroInput.value = `${horimetro} h`;
+    }
+  });
+
+  // Carregar máquinas imediatamente para que o dropdown nunca fique em branco
+  await carregarMaquinasCliente();
+
   if (osData && osData.cliente_id) {
+    document.getElementById('os-cliente').value = osData.cliente_id;
     await carregarMaquinasCliente();
     if (osData.maquina_id) {
       document.getElementById('os-maquina').value = osData.maquina_id;
@@ -399,22 +463,40 @@ async function mostrarModalOS(osId = null, prefill = null) {
 }
 
 async function carregarMaquinasCliente() {
-  const clienteId = document.getElementById('os-cliente').value;
+  const clienteSelect = document.getElementById('os-cliente');
+  const clienteId = clienteSelect?.value;
   const maquinaSelect = document.getElementById('os-maquina');
+  if (!maquinaSelect) return;
 
-  if (!clienteId) {
-    maquinaSelect.innerHTML = '<option value="">Selecione uma máquina</option>';
-    return;
+  const todasMaquinas = (typeof AppState !== 'undefined' && AppState.data && AppState.data.maquinas && AppState.data.maquinas.length > 0)
+    ? AppState.data.maquinas
+    : (typeof OfflineManager !== 'undefined' ? (OfflineManager.obterSnapshot('maquinas') || []) : []);
+
+  let maquinas = [];
+
+  if (clienteId) {
+    maquinas = todasMaquinas.filter(m => String(m.cliente_id) === String(clienteId));
+    // Se a lista deu vazia e estamos online, busca da API
+    if (maquinas.length === 0 && (typeof OfflineManager === 'undefined' || OfflineManager.isOnline())) {
+      try {
+        const result = await window.api.listarMaquinas(parseInt(clienteId));
+        if (result && result.success && Array.isArray(result.maquinas) && result.maquinas.length > 0) {
+          maquinas = result.maquinas;
+        }
+      } catch (e) {}
+    }
+  } else {
+    // Se nenhum cliente foi selecionado ainda, mostra todas as máquinas com o cliente entre parênteses
+    maquinas = todasMaquinas;
   }
 
-  const result = await window.api.listarMaquinas(parseInt(clienteId));
-  const maquinas = result.maquinas || [];
-
   const currentValue = maquinaSelect.value;
-  maquinaSelect.innerHTML = '<option value="">Selecione uma máquina</option>' +
+  const placeholder = clienteId ? 'Selecione uma máquina' : 'Selecione uma máquina (ou escolha o cliente acima)';
+
+  maquinaSelect.innerHTML = `<option value="">${placeholder}</option>` +
     maquinas.map(m => `
-      <option value="${m.id}" ${m.id == currentValue ? 'selected' : ''}>
-        ${m.id_frota ? `[Frota: ${m.id_frota}] ` : ''}${m.modelo}${m.numero_serie ? ` - ${m.numero_serie}` : ''}
+      <option value="${m.id}" data-cliente="${m.cliente_id || ''}" data-horimetro="${m.horas_uso || ''}" ${m.id == currentValue ? 'selected' : ''}>
+        ${m.id_frota ? `[Frota: ${m.id_frota}] ` : ''}${m.modelo}${m.numero_serie ? ` - ${m.numero_serie}` : ''}${!clienteId && m.cliente_nome ? ` (${m.cliente_nome})` : ''}
       </option>
     `).join('');
 }
