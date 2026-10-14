@@ -11,18 +11,34 @@
   <link rel="icon" type="image/png" href="resources/favicon.png">
   <link rel="apple-touch-icon" sizes="180x180" href="resources/apple-touch-icon.png">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <link rel="stylesheet" href="styles.css?v=20261014_1530">
+  <script>
+    // Limpar Service Worker e caches legados para forçar carregamento das versões mais recentes
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        for (const reg of regs) reg.unregister();
+      }).catch(() => {});
+    }
+    if ('caches' in window) {
+      caches.keys().then(keys => {
+        for (const key of keys) caches.delete(key);
+      }).catch(() => {});
+    }
+  </script>
 </head>
 
 <body>
   <div id="app"></div>
-  <script src="api-client.js"></script>
-  <script src="jsqr.min.js"></script>
-  <script src="qr-scanner.js"></script>
-  <script src="os-modal.js"></script>
-  <script src="listagem-pecas-modal.js"></script>
-  <script src="preventivas.js"></script>
-  <script src="app.js"></script>
+  <script src="api-client.js?v=20261014_1530"></script>
+  <script src="jsqr.min.js?v=20261014_1530"></script>
+  <script src="qr-scanner.js?v=20261014_1530"></script>
+  <script src="os-modal.js?v=20261014_1530"></script>
+  <script src="listagem-pecas-modal.js?v=20261014_1530"></script>
+  <script src="preventivas.js?v=20261014_1530"></script>
+  <script src="app.js?v=20261014_1530"></script>
 </body>
 
 </html>

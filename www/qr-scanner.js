@@ -393,7 +393,8 @@ async function processarLeituraQRCodeECriarOS(qrData) {
 
   try {
     // 1. Obter dados completos da máquina
-    let maquina = (AppState.data.maquinas || []).find(m => m.id === maquinaId);
+    const maquinasLista = (typeof AppState !== 'undefined' && AppState && AppState.data && AppState.data.maquinas) ? AppState.data.maquinas : [];
+    let maquina = maquinasLista.find(m => m.id === maquinaId);
     if (!maquina) {
       const resMaq = await window.api.obterMaquina(maquinaId);
       if (resMaq && resMaq.success) {

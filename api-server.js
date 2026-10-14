@@ -210,8 +210,18 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// Servir arquivos estáticos (Front-end)
-app.use(express.static(path.join(__dirname, 'www')));
+// Servir arquivos estáticos (Front-end) com desativação de cache para scripts e estilos
+app.use(express.static(path.join(__dirname, 'www'), {
+    etag: false,
+    maxAge: 0,
+    setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.html') || filePath.endsWith('.js') || filePath.endsWith('.css')) {
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+        }
+    }
+}));
 
 // Middleware de autenticação
 const authenticateToken = (req, res, next) => {
