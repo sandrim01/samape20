@@ -3,16 +3,18 @@
 // Estratégia Network-First com Cache Fallback para permitir uso sem sinal
 // ============================================================================
 
-const CACHE_NAME = 'samape-offline-v3';
+const CACHE_NAME = 'samape-offline-v4';
 
 const APP_SHELL = [
   '/',
   '/index.html',
+  '/portal-maquina.html',
   '/styles.css',
   '/api-client.js',
   '/offline-manager.js',
   '/jsqr.min.js',
   '/qr-scanner.js',
+  '/whatsapp-helper.js',
   '/os-modal.js',
   '/listagem-pecas-modal.js',
   '/preventivas.js',

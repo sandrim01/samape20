@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Portal do Equipamento • SAMAPE ÍNDIO</title>
+  <link rel="icon" type="image/png" href="resources/favicon.png">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* Estilos específicos complementares ao styles.css do App SAMAPE */
+    body {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .portal-main-wrapper {
+      width: 100%;
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 1.25rem 1rem 3rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    /* Topo com Logo SAMAPE no mesmo padrão da barra do App */
+    .portal-navbar {
+      background: rgba(15, 23, 42, 0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0.85rem 1.25rem;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      box-shadow: var(--shadow-lg);
+    }
+    .portal-navbar-inner {
+      max-width: 680px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+    }
+    .brand-logo-img {
+      height: 44px;
+      width: auto;
+      object-fit: contain;
+      filter: drop-shadow(0 2px 8px rgba(0,0,0,0.4));
+    }
+    .brand-text-title {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: #ffffff;
+      line-height: 1.2;
+      letter-spacing: 0.5px;
+    }
+    .brand-text-sub {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    /* Banner para Mecânico SAMAPE Conectado */
+    #banner-mecanico {
+      display: none;
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.25), rgba(30, 64, 175, 0.2));
+      border: 1px solid #3b82f6;
+      border-radius: var(--radius-lg);
+      padding: 0.85rem 1.15rem;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      box-shadow: 0 4px 15px rgba(37, 99, 235, 0.2);
+    }
+    #banner-mecanico.ativo {
+      display: flex;
+    }
+
+    /* Card Principal do Equipamento */
+    .card-portal-maquina {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 1.5rem;
+      box-shadow: var(--shadow-xl);
+      position: relative;
+      overflow: hidden;
+    }
+    .card-portal-maquina::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 4px;
+      background: linear-gradient(90deg, #2563eb, #38bdf8, #10b981);
+    }
+
+    .maquina-header-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .maquina-nome {
+      font-size: 1.65rem;
+      font-weight: 800;
+      color: #ffffff;
+      line-height: 1.2;
+    }
+
+    /* Grid de Atributos Técnicos */
+    .tecnico-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.85rem;
+      background: rgba(15, 23, 42, 0.6);
+      padding: 1rem;
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      margin-top: 1rem;
+    }
+    .tecnico-item {
+      display: flex;
+      flex-direction: column;
+    }
+    .tecnico-label {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+    .tecnico-val {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin-top: 0.15rem;
+      word-break: break-word;
+    }
+
+    /* Box de Horímetro com Visual do App */
+    .horimetro-stat-box {
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.12), rgba(15, 23, 42, 0.5));
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      border-radius: var(--radius-lg);
+      padding: 1.15rem 1.25rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-top: 1rem;
+    }
+    .horimetro-stat-num {
+      font-size: 2.2rem;
+      font-weight: 900;
+      color: #38bdf8;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
+    .horimetro-stat-sub {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.25rem;
+    }
+
+    /* Formulário de Horímetro */
+    .form-horimetro-drawer {
+      display: none;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.15rem;
+      margin-top: 0.75rem;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .form-horimetro-drawer.aberto {
+      display: flex;
+    }
+
+    /* Card WhatsApp com Chamado Rápido */
+    .card-chamado-whatsapp {
+      background: linear-gradient(135deg, rgba(37, 211, 102, 0.12), rgba(15, 23, 42, 0.75));
+      border: 1px solid rgba(37, 211, 102, 0.35);
+      border-radius: var(--radius-xl);
+      padding: 1.35rem;
+      box-shadow: var(--shadow-xl);
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+    .btn-whatsapp-action {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.65rem;
+      background: #25d366;
+      color: #052e16;
+      text-decoration: none;
+      font-size: 1.05rem;
+      font-weight: 800;
+      padding: 0.95rem 1.25rem;
+      border-radius: var(--radius-lg);
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 6px 20px rgba(37, 211, 102, 0.35);
+      transition: all 0.2s ease;
+      width: 100%;
+    }
+    .btn-whatsapp-action:hover {
+      background: #22c55e;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(37, 211, 102, 0.45);
+    }
+
+    /* Histórico de OS */
+    .card-historico-os {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 1.35rem;
+      box-shadow: var(--shadow-xl);
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .os-card-row {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 0.95rem 1.15rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+      transition: border-color 0.2s;
+    }
+    .os-card-row:hover {
+      border-color: #475569;
+    }
+    .os-card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+    }
+    .os-badge-num {
+      font-weight: 800;
+      color: #38bdf8;
+      font-size: 0.9rem;
+    }
+    .os-servico-txt {
+      font-size: 0.88rem;
+      color: #cbd5e1;
+      line-height: 1.4;
+    }
+    .os-card-meta {
+      display: flex;
+      gap: 0.85rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.15rem;
+      flex-wrap: wrap;
+    }
+
+    /* Rodapé com Logo e Informações */
+    .portal-footer-box {
+      text-align: center;
+      padding: 1.5rem 1rem;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      line-height: 1.6;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Barra de Navegação no Padrão do App SAMAPE -->
+  <nav class="portal-navbar">
+    <div class="portal-navbar-inner">
+      <div class="brand-group">
+        <img src="resources/logonova2.png" alt="SAMAPE ÍNDIO" class="brand-logo-img">
+        <div>
+          <div class="brand-text-title">SAMAPE ÍNDIO</div>
+          <div class="brand-text-sub">Gestão & Manutenção de Pesados</div>
+        </div>
+      </div>
+      <div>
+        <span class="badge badge-concluida" style="font-size: 0.75rem; padding: 0.35rem 0.65rem; display: inline-flex; align-items: center; gap: 0.35rem;">
+          <span style="display:inline-block; width: 7px; height: 7px; background: #10b981; border-radius: 50%; box-shadow: 0 0 6px #10b981;"></span>
+          <span>Passaporte Ativo</span>
+        </span>
+      </div>
+    </div>
+  </nav>
+
+  <div class="portal-main-wrapper">
+    
+    <!-- Loading inicial com estilo do App -->
+    <div id="loading-state" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4rem 1rem; gap: 1rem;">
+      <div class="loading" style="width: 48px; height: 48px; border-width: 4px; border-color: rgba(56, 189, 248, 0.2); border-top-color: #38bdf8;"></div>
+      <div style="font-weight: 600; font-size: 0.95rem; color: var(--text-secondary);">Carregando ficha técnica do equipamento...</div>
+    </div>
+
+    <!-- Conteúdo Dinâmico -->
+    <div id="content-state" style="display: none; display: flex; flex-direction: column; gap: 1.25rem;">
+      
+      <!-- Banner para Mecânico SAMAPE Conectado -->
+      <div id="banner-mecanico">
+        <div>
+          <div style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: #93c5fd;">Equipe SAMAPE Identificada</div>
+          <div id="mecanico-nome-label" style="font-size: 0.9rem; font-weight: 700; color: #ffffff;">Mecânico Conectado</div>
+        </div>
+        <button id="btn-abrir-os-mecanico" class="btn btn-primary" style="padding: 0.5rem 0.9rem; font-size: 0.85rem; font-weight: 700;">
+          <span>⚡</span> <span>Abrir OS Desta Máquina</span>
+        </button>
+      </div>
+
+      <!-- Cartão Principal da Máquina -->
+      <section class="card-portal-maquina">
+        <div class="maquina-header-title">
+          <div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+              <span style="font-size: 1.4rem;">🚜</span>
+              <span id="maq-modelo" class="maquina-nome">Carregando...</span>
+            </div>
+            <div style="display: flex; gap: 0.5rem; align-items: center; margin-top: 0.5rem; flex-wrap: wrap;">
+              <span id="badge-frota" class="badge badge-andamento" style="font-size: 0.85rem; font-weight: 700; padding: 0.3rem 0.65rem;">FROTA: -</span>
+              <span id="badge-status" class="badge badge-concluida" style="font-size: 0.8rem; font-weight: 700; padding: 0.3rem 0.75rem;">
+                🟢 Em Operação
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Grid de Atributos -->
+        <div class="tecnico-grid">
+          <div class="tecnico-item">
+            <span class="tecnico-label">Cliente / Pedreira</span>
+            <span class="tecnico-val" id="maq-cliente">-</span>
+          </div>
+          <div class="tecnico-item">
+            <span class="tecnico-label">Nº de Série / Chassi</span>
+            <span class="tecnico-val" id="maq-serie">-</span>
+          </div>
+          <div class="tecnico-item">
+            <span class="tecnico-label">Tipo de Equipamento</span>
+            <span class="tecnico-val" id="maq-tipo">-</span>
+          </div>
+          <div class="tecnico-item">
+            <span class="tecnico-label">Ano Fabricação</span>
+            <span class="tecnico-val" id="maq-ano">-</span>
+          </div>
+        </div>
+
+        <!-- Bloco do Horímetro Atual -->
+        <div class="horimetro-stat-box">
+          <div>
+            <div class="tecnico-label">Horímetro Atual no Sistema</div>
+            <div class="horimetro-stat-num" id="maq-horimetro">0 h</div>
+            <div class="horimetro-stat-sub" id="maq-horimetro-data">Última leitura registrada</div>
+          </div>
+          <button class="btn btn-outline" id="btn-toggle-apontamento" onclick="toggleFormApontamento()">
+            <span>📝</span> <span>Atualizar Horas</span>
+          </button>
+        </div>
+
+        <!-- Drawer de Atualização de Horímetro pelo Operador -->
+        <form id="form-apontar-horimetro" class="form-horimetro-drawer" onsubmit="salvarNovoHorimetro(event)">
+          <div style="font-size: 0.9rem; font-weight: 700; color: #38bdf8; display: flex; align-items: center; gap: 0.4rem;">
+            <span>⏱️</span> <span>Informar Nova Leitura de Horas</span>
+          </div>
+          <div>
+            <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem; font-weight: 600;">
+              Horímetro marcado no painel da máquina:
+            </label>
+            <input type="number" step="0.1" id="input-novo-horimetro" class="form-control" placeholder="Ex: 4850.5" required>
+          </div>
+          <div>
+            <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 0.35rem; font-weight: 600;">
+              Seu Nome (Operador ou Encarregado):
+            </label>
+            <input type="text" id="input-operador-nome" class="form-control" placeholder="Ex: Carlos (Operador Pedreira)" required>
+          </div>
+          <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 0.35rem;">
+            <button type="button" class="btn btn-outline" onclick="toggleFormApontamento()">Cancelar</button>
+            <button type="submit" id="btn-salvar-horimetro" class="btn btn-primary">Gravar no Sistema</button>
+          </div>
+        </form>
+
+      </section>
+
+      <!-- Chamado de Manutenção Direto no WhatsApp -->
+      <section class="card-chamado-whatsapp">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span style="font-size: 1.5rem;">🚨</span>
+          <div>
+            <div style="font-size: 1.15rem; font-weight: 800; color: #86efac;">Precisa de Mecânico SAMAPE?</div>
+            <div style="font-size: 0.8rem; color: #cbd5e1;">Acione o plantão técnico diretamente pelo WhatsApp</div>
+          </div>
+        </div>
+        <p style="font-size: 0.85rem; color: #cbd5e1; line-height: 1.45; margin: 0;">
+          Problema mecânico, elétrico, hidráulico ou solicitação de revisão periódica? Envie um chamado direto com todos os dados da máquina já preenchidos.
+        </p>
+
+        <div>
+          <label style="font-size: 0.75rem; color: #cbd5e1; display: block; margin-bottom: 0.35rem; font-weight: 600;">
+            Descreva brevemente o sintoma ou defeito (opcional):
+          </label>
+          <input type="text" id="input-sintoma-chamado" class="form-control" style="background: rgba(15, 23, 42, 0.95);" placeholder="Ex: Vazamento de óleo na mangueira do braço...">
+        </div>
+
+        <button class="btn-whatsapp-action" onclick="acionarChamadoWhatsApp()">
+          <svg style="width: 24px; height: 24px; fill: currentColor;" viewBox="0 0 24 24">
+            <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.861.174.086.275.073.376-.044.101-.116.433-.506.549-.68.116-.173.231-.145.39-.086s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.099.824zm-3.423-14.416c-6.627 0-12 5.373-12 12 0 2.155.57 4.179 1.564 5.924l-1.564 5.719 5.861-1.538c1.701.927 3.655 1.459 5.733 1.459 6.627 0 12-5.373 12-12s-5.373-12-12-12zm0 21.6c-1.879 0-3.633-.518-5.137-1.417l-.368-.219-3.486.915.93-3.398-.24-.382c-.989-1.571-1.517-3.393-1.517-5.289 0-5.293 4.306-9.6 9.6-9.6 5.293 0 9.6 4.307 9.6 9.6 0 5.293-4.307 9.6-9.6 9.6z"/>
+          </svg>
+          <span>CHAMAR MECÂNICO SAMAPE</span>
+        </button>
+      </section>
+
+      <!-- Histórico de Manutenções da SAMAPE -->
+      <section class="card-historico-os">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.05rem; color: #ffffff;">
+            <span>🛠️</span> <span>Histórico de Serviços SAMAPE</span>
+          </div>
+          <span id="badge-total-os" class="badge" style="background: #334155; color: #cbd5e1; font-weight: 700;">
+            0 OS
+          </span>
+        </div>
+
+        <div id="lista-historico" style="display: flex; flex-direction: column; gap: 0.75rem;">
+          <div style="font-size: 0.85rem; color: var(--text-muted); text-align: center; padding: 1.5rem; background: rgba(15,23,42,0.4); border-radius: var(--radius);">
+            Nenhuma ordem de serviço arquivada para este chassi.
+          </div>
+        </div>
+      </section>
+
+      <!-- Rodapé com Identidade SAMAPE -->
+      <footer class="portal-footer-box">
+        <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-bottom: 0.4rem;">
+          <img src="resources/logonova2.png" alt="SAMAPE" style="height: 28px; width: auto;">
+          <strong style="color: #f1f5f9; font-size: 0.95rem;">SAMAPE ÍNDIO</strong>
+        </div>
+        <div>Serviços Especializados em Máquinas Pesadas & Agrícolas</div>
+        <div style="margin-top: 0.25rem;">
+          Plantão de Emergência: <a id="link-telefone-emergencia" href="tel:+5545999887766" style="color: #38bdf8; font-weight: 700; text-decoration: none;">(45) 99988-7766</a>
+        </div>
+        <div style="margin-top: 0.6rem; font-size: 0.72rem; color: #64748b;">
+          SAMAPE 2.0 • Passaporte Digital do Equipamento
+        </div>
+      </footer>
+
+    </div>
+
+    <!-- Estado de Erro -->
+    <div id="error-state" class="alert alert-error" style="display: none; padding: 2rem 1.5rem; text-align: center; border-radius: var(--radius-xl);">
+      <div style="font-size: 2.2rem; margin-bottom: 0.5rem;">⚠️</div>
+      <h3 style="margin-bottom: 0.5rem; font-size: 1.2rem;" id="error-title">Máquina Não Encontrada</h3>
+      <p id="error-msg" style="font-size: 0.9rem; margin: 0;">Verifique se o código QR está legível ou entre em contato com a equipe de suporte da SAMAPE.</p>
+    </div>
+
+  </div>
+
+  <script>
+    let _portalData = null;
+
+    // Obter ID da máquina a partir da URL (?id=...)
+    function obterIdMaquinaUrl() {
+      const params = new URLSearchParams(window.location.search);
+      const id = params.get('id');
+      if (id && !isNaN(parseInt(id))) return parseInt(id);
+      return null;
+    }
+
+    // Carregar dados da API Pública
+    async function carregarPortalMaquina() {
+      const id = obterIdMaquinaUrl();
+      const loading = document.getElementById('loading-state');
+      const content = document.getElementById('content-state');
+      const errorBox = document.getElementById('error-state');
+
+      if (!id) {
+        loading.style.display = 'none';
+        errorBox.style.display = 'block';
+        document.getElementById('error-title').textContent = 'QR-Code Incompleto';
+        document.getElementById('error-msg').textContent = 'Nenhum identificador de máquina foi detectado no endereço acessado.';
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/public/maquinas/${id}/portal`);
+        const json = await res.json();
+
+        if (!json || !json.success) {
+          loading.style.display = 'none';
+          errorBox.style.display = 'block';
+          document.getElementById('error-title').textContent = 'Equipamento não localizado';
+          document.getElementById('error-msg').textContent = json?.message || 'Máquina inativa ou não cadastrada no sistema.';
+          return;
+        }
+
+        _portalData = json;
+        renderizarPortal(json);
+
+        loading.style.display = 'none';
+        content.style.display = 'flex';
+
+        // Checar se o navegador tem sessão de mecânico logado
+        verificarSessaoMecanico(json.maquina.id);
+
+      } catch (err) {
+        console.error('Erro ao carregar portal:', err);
+        loading.style.display = 'none';
+        errorBox.style.display = 'block';
+        document.getElementById('error-title').textContent = 'Erro de Conexão';
+        document.getElementById('error-msg').textContent = 'Não foi possível conectar ao servidor SAMAPE. Verifique sua conexão com a internet.';
+      }
+    }
+
+    // Preencher dados na tela
+    function renderizarPortal(data) {
+      const maq = data.maquina || {};
+      const historico = data.historico || [];
+      const contato = data.contato_samape || {};
+
+      // Título da página
+      document.title = `${maq.modelo || 'Máquina'} • SAMAPE Portal`;
+
+      // Modelo e Frota
+      document.getElementById('maq-modelo').textContent = maq.modelo || 'Equipamento';
+      const badgeFrota = document.getElementById('badge-frota');
+      if (maq.id_frota) {
+        badgeFrota.textContent = `FROTA: ${maq.id_frota}`;
+        badgeFrota.style.display = 'inline-flex';
+      } else {
+        badgeFrota.style.display = 'none';
+      }
+
+      // Status
+      const badgeStatus = document.getElementById('badge-status');
+      badgeStatus.textContent = maq.status_texto || 'Equipamento em Operação';
+      badgeStatus.style.borderColor = maq.status_cor || '#10b981';
+      badgeStatus.style.color = maq.status_cor || '#10b981';
+      badgeStatus.style.background = (maq.status_cor || '#10b981') + '1a';
+
+      // Informações Técnicas
+      document.getElementById('maq-cliente').textContent = maq.cliente_nome || 'SAMAPE';
+      document.getElementById('maq-serie').textContent = maq.numero_serie || 'Não Informado';
+      document.getElementById('maq-tipo').textContent = maq.tipo || 'Pesado / Agrícola';
+      document.getElementById('maq-ano').textContent = maq.ano_fabricacao || '-';
+
+      // Horímetro
+      const horimetroVal = parseFloat(maq.horas_uso || maq.ultimo_horimetro_real || 0);
+      document.getElementById('maq-horimetro').textContent = `${horimetroVal.toLocaleString('pt-BR')} h`;
+      
+      if (maq.data_ultimo_horimetro) {
+        const d = new Date(maq.data_ultimo_horimetro);
+        document.getElementById('maq-horimetro-data').textContent = `Atualizado em ${d.toLocaleDateString('pt-BR')} às ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+      } else {
+        document.getElementById('maq-horimetro-data').textContent = 'Horímetro padrão cadastrado';
+      }
+
+      // Telefone de emergência no footer
+      if (contato.telefone) {
+        const linkTel = document.getElementById('link-telefone-emergencia');
+        linkTel.textContent = contato.telefone;
+        linkTel.href = `tel:${contato.telefone.replace(/\D/g, '')}`;
+      }
+
+      // Histórico de Manutenções
+      renderizarHistorico(historico);
+    }
+
+    // Renderizar lista de manutenções com o visual das OS do App
+    function renderizarHistorico(historico) {
+      const container = document.getElementById('lista-historico');
+      const badgeTotal = document.getElementById('badge-total-os');
+      badgeTotal.textContent = `${historico.length} OS`;
+
+      if (!historico || historico.length === 0) {
+        container.innerHTML = `
+          <div style="font-size: 0.85rem; color: var(--text-muted); text-align: center; padding: 1.5rem; background: rgba(15,23,42,0.4); border-radius: var(--radius-lg);">
+            Nenhuma ordem de serviço arquivada para este chassi.
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = historico.map(os => {
+        const dataStr = os.data_fechamento || os.data_execucao || os.data_abertura;
+        let dataFmt = 'Data não informada';
+        if (dataStr) {
+          const d = new Date(dataStr);
+          dataFmt = d.toLocaleDateString('pt-BR');
+        }
+
+        const servico = (os.servicos_realizados || os.descricao_problema || 'Manutenção realizada pela equipe SAMAPE').trim();
+        const horimetro = os.horimetro ? `⏱️ ${os.horimetro}` : '';
+        const mecanico = os.mecanico_nome ? `👤 Mecânico: ${os.mecanico_nome}` : '';
+
+        return `
+          <div class="os-card-row">
+            <div class="os-card-top">
+              <span class="os-badge-num">${os.numero_os || `OS #${os.id}`}</span>
+              <span style="font-size: 0.75rem; color: var(--text-muted);">📅 ${dataFmt}</span>
+            </div>
+            <div class="os-servico-txt">${servico}</div>
+            <div class="os-card-meta">
+              ${horimetro ? `<span>${horimetro}</span>` : ''}
+              ${mecanico ? `<span>${mecanico}</span>` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Alternar visibilidade do formulário de horímetro
+    function toggleFormApontamento() {
+      const form = document.getElementById('form-apontar-horimetro');
+      form.classList.toggle('aberto');
+      if (form.classList.contains('aberto')) {
+        const inputH = document.getElementById('input-novo-horimetro');
+        if (_portalData?.maquina?.horas_uso) {
+          inputH.value = _portalData.maquina.horas_uso;
+        }
+        inputH.focus();
+      }
+    }
+
+    // Salvar novo horímetro via API
+    async function salvarNovoHorimetro(e) {
+      e.preventDefault();
+      const id = obterIdMaquinaUrl();
+      const novoH = parseFloat(document.getElementById('input-novo-horimetro').value);
+      const operador = document.getElementById('input-operador-nome').value.trim();
+      const btn = document.getElementById('btn-salvar-horimetro');
+
+      if (!id || isNaN(novoH) || novoH <= 0) {
+        alert('Informe um número válido para o horímetro.');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Gravando...';
+
+      try {
+        const res = await fetch(`/api/public/maquinas/${id}/horimetro`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            horimetro: novoH,
+            operador_nome: operador
+          })
+        });
+
+        const json = await res.json();
+        btn.disabled = false;
+        btn.textContent = 'Gravar no Sistema';
+
+        if (json.success) {
+          alert('✅ Horímetro atualizado com sucesso no sistema SAMAPE!');
+          document.getElementById('form-apontar-horimetro').classList.remove('aberto');
+          // Atualizar valor na tela
+          _portalData.maquina.horas_uso = novoH;
+          document.getElementById('maq-horimetro').textContent = `${novoH.toLocaleString('pt-BR')} h`;
+          document.getElementById('maq-horimetro-data').textContent = `Atualizado por ${operador || 'Operador'} agora mesmo`;
+        } else {
+          alert('Erro ao atualizar: ' + (json.message || 'Falha no servidor'));
+        }
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = 'Gravar no Sistema';
+        console.error('Erro ao salvar horímetro:', err);
+        alert('Erro ao conectar com o servidor para atualizar o horímetro.');
+      }
+    }
+
+    // Ação do Botão Gigante de WhatsApp
+    function acionarChamadoWhatsApp() {
+      if (!_portalData || !_portalData.maquina) {
+        alert('Aguarde o carregamento dos dados da máquina.');
+        return;
+      }
+
+      const maq = _portalData.maquina;
+      const contato = _portalData.contato_samape || {};
+      const sintomaDigitado = (document.getElementById('input-sintoma-chamado').value || '').trim();
+
+      const numWhatsApp = (contato.whatsapp || '5545999887766').replace(/\D/g, '');
+      const modelo = maq.modelo || 'Equipamento';
+      const frota = maq.id_frota ? `(Frota: ${maq.id_frota})` : '';
+      const serie = maq.numero_serie ? `S/N: ${maq.numero_serie}` : '';
+      const cliente = maq.cliente_nome ? maq.cliente_nome : 'Cliente SAMAPE';
+      const horimetro = maq.horas_uso ? `${maq.horas_uso} h` : 'Não informado';
+
+      let texto = `*SOLICITAÇÃO DE ATENDIMENTO TÉCNICO • SAMAPE*\n\n`;
+      texto += `🚜 *Equipamento:* ${modelo} ${frota}\n`;
+      if (serie) texto += `🔢 *Série / Chassi:* ${serie}\n`;
+      texto += `🏢 *Cliente / Local:* ${cliente}\n`;
+      texto += `⏱️ *Horímetro Atual:* ~${horimetro}\n\n`;
+
+      if (sintomaDigitado) {
+        texto += `⚠️ *Problema / Necessidade:* ${sintomaDigitado}\n\n`;
+      } else {
+        texto += `⚠️ *Problema / Necessidade:* Solicito visita do mecânico para verificação deste equipamento.\n\n`;
+      }
+
+      texto += `Solicitado via QR-Code da Máquina 📱`;
+
+      const urlWa = `https://wa.me/${numWhatsApp}?text=${encodeURIComponent(texto)}`;
+      window.open(urlWa, '_blank');
+    }
+
+    // Detecção se o mecânico SAMAPE está com sessão ativa
+    function verificarSessaoMecanico(maquinaId) {
+      try {
+        const token = localStorage.getItem('token') || localStorage.getItem('samape_auth_token');
+        let user = null;
+        try {
+          user = JSON.parse(localStorage.getItem('user_info') || sessionStorage.getItem('user_info'));
+        } catch(e) {}
+
+        if (token || user) {
+          const banner = document.getElementById('banner-mecanico');
+          const label = document.getElementById('mecanico-nome-label');
+          const btn = document.getElementById('btn-abrir-os-mecanico');
+
+          if (user && user.nome) {
+            label.textContent = `Olá, ${user.nome}!`;
+          }
+
+          btn.onclick = () => {
+            window.location.href = `/index.html?abrir_os_maquina=${maquinaId}`;
+          };
+
+          banner.classList.add('ativo');
+        }
+      } catch (e) {
+        console.warn('Erro ao verificar sessão do mecânico:', e);
+      }
+    }
+
+    // Inicialização ao carregar a página
+    document.addEventListener('DOMContentLoaded', carregarPortalMaquina);
+  </script>
+</body>
+</html>

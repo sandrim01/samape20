@@ -1229,9 +1229,13 @@ function renderOrdensTable(ordens, isDashboard = false) {
               <td class="desktop-only">${formatDate(os.data_abertura)}</td>
               <td><span class="badge badge-${statusBadges[os.status]}" style="font-size: 0.65rem; padding: 0.2rem 0.5rem;">${os.status === 'EM_ANDAMENTO' ? 'ANDAM.' : os.status}</span></td>
               <td class="${isDashboard ? 'desktop-only' : ''}">R$ ${formatMoney(os.valor_total)}</td>
-              <td>
+              <td style="white-space: nowrap;">
+                <button type="button" class="btn btn-icon btn-sm" onclick="WhatsAppHelper.abrirModalEnvio('${os.id}')" title="Enviar OS via WhatsApp" style="color: #25D366; background: rgba(37,211,102,0.12); border-radius: 6px; padding: 4px 8px; margin-right: 4px; border: 1px solid rgba(37,211,102,0.35); cursor: pointer;">
+                  💬
+                </button>
                 ${renderActionMenu(`os-${os.id}`, [
                   { label: 'Editar', icon: '📝', onclick: `editarOS('${os.id}')` },
+                  { label: 'WhatsApp', icon: '💬', onclick: `WhatsAppHelper.abrirModalEnvio('${os.id}')` },
                   { label: 'Imprimir', icon: '🖨️', onclick: `window.gerarPDFOS('${os.id}')`, show: !isDashboard && !ehOffline },
                   { label: 'Excluir', icon: '🗑️', onclick: `confirmarExcluirOS('${os.id}', '${os.numero_os}')`, class: 'danger', show: AppState.currentUser.cargo === 'ADMIN' && !isDashboard }
                 ], isDashboard ? '⋮' : 'Ações')}
@@ -3162,6 +3166,22 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (dataError) {
           console.warn('⚠️ Erro ao carregar dados iniciais online (mantendo cache):', dataError);
           // Mesmo com erro nos dados online, já renderizamos com o cache
+        }
+
+        // Atalho de abertura rápida de OS vindo do Portal do Equipamento (QR-Code)
+        try {
+          const urlParams = new URLSearchParams(window.location.search);
+          const abrirMaqId = urlParams.get('abrir_os_maquina');
+          if (abrirMaqId) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+            if (typeof processarLeituraQRCodeECriarOS === 'function') {
+              setTimeout(() => {
+                processarLeituraQRCodeECriarOS({ id: parseInt(abrirMaqId) });
+              }, 400);
+            }
+          }
+        } catch (eUrl) {
+          console.warn('Erro ao processar parâmetro abrir_os_maquina:', eUrl);
         }
       } else {
         render(); // Renderiza tela de login

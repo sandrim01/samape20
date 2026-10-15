@@ -576,6 +576,13 @@ app.get('/api/maquinas/:id/qrcode', authenticateToken, async (req, res) => {
             return res.status(404).json({ success: false, message: 'Máquina não encontrada' });
         }
         const maq = result.rows[0];
+
+        // URL base dinâmica para ambiente de produção (Railway) ou local
+        const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+        const host = req.get('host');
+        const baseUrl = process.env.BASE_URL || `${protocol}://${host}`;
+        const portalUrl = `${baseUrl}/portal-maquina.html?id=${maq.id}`;
+
         const payloadObj = {
             app: 'samape',
             tipo: 'maquina',
@@ -586,13 +593,15 @@ app.get('/api/maquinas/:id/qrcode', authenticateToken, async (req, res) => {
             horas_uso: maq.horas_uso || 0,
             cliente_id: maq.cliente_id,
             cliente_nome: maq.cliente_nome || '',
-            v: 1
+            portal_url: portalUrl,
+            v: 2
         };
-        const payload = JSON.stringify(payloadObj);
-        const qrcodeDataUrl = await QRCode.toDataURL(payload, {
-            width: 450,
+
+        // Codificar a URL do portal no QR-Code com alta redundância ('H' = 30%) para permitir logo no centro
+        const qrcodeDataUrl = await QRCode.toDataURL(portalUrl, {
+            width: 500,
             margin: 2,
-            errorCorrectionLevel: 'M',
+            errorCorrectionLevel: 'H',
             color: {
                 dark: '#0f172a',
                 light: '#ffffff'
@@ -601,11 +610,140 @@ app.get('/api/maquinas/:id/qrcode', authenticateToken, async (req, res) => {
         res.json({
             success: true,
             maquina: maq,
+            portal_url: portalUrl,
             payload: payloadObj,
             qrcode: qrcodeDataUrl
         });
     } catch (error) {
         console.error('Erro ao gerar QR-Code da máquina:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// ==================== PORTAL PÚBLICO DA MÁQUINA (QR-CODE VIVO) ====================
+
+// Obter dados do portal da máquina (Página Viva da Máquina via QR-Code)
+app.get('/api/public/maquinas/:id/portal', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const resultMaq = await pool.query(
+            `SELECT m.id, m.tipo, m.modelo, m.numero_serie, m.ano_fabricacao, 
+                    m.horas_uso, m.observacoes, m.id_frota, m.ultimo_horimetro_real, 
+                    m.data_ultimo_horimetro, m.proxima_revisao_horas,
+                    c.id as cliente_id, c.nome as cliente_nome, c.telefone as cliente_telefone
+             FROM maquinas m
+             LEFT JOIN clientes c ON m.cliente_id = c.id
+             WHERE m.id = $1 AND m.ativo IS NOT FALSE`,
+            [id]
+        );
+
+        if (resultMaq.rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Equipamento não encontrado ou inativo.' });
+        }
+
+        const maquina = resultMaq.rows[0];
+
+        // Buscar histórico de ordens de serviço
+        const resultOS = await pool.query(
+            `SELECT os.id, os.numero_os, os.status, os.prioridade, os.data_abertura, 
+                    os.data_fechamento, os.data_execucao, os.servicos_realizados, 
+                    os.horimetro, os.descricao_problema, u.nome as mecanico_nome
+             FROM ordens_servico os
+             LEFT JOIN usuarios u ON os.mecanico_id = u.id
+             WHERE os.maquina_id = $1 
+             ORDER BY COALESCE(os.data_fechamento, os.data_execucao, os.data_abertura) DESC 
+             LIMIT 10`,
+            [id]
+        );
+
+        // Verificar status operacional geral
+        let statusOperacional = 'EM_OPERACAO';
+        let statusTexto = 'Equipamento em Operação';
+        let statusCor = '#22c55e'; // verde
+
+        const osAberta = resultOS.rows.find(o => o.status === 'ABERTA' || o.status === 'EM_ANDAMENTO');
+        if (osAberta) {
+            statusOperacional = 'EM_MANUTENCAO';
+            statusTexto = `Em Atendimento Técnico (${osAberta.numero_os || 'OS Aberta'})`;
+            statusCor = '#f59e0b'; // laranja
+        }
+
+        const contatoSamape = {
+            empresa: 'SAMAPE Índio - Serviços Agrícolas & Manutenção de Pesados',
+            whatsapp: process.env.SAMAPE_WHATSAPP || '5545999887766',
+            telefone: '(45) 99988-7766',
+            email: 'samapeindio.manutencao@gmail.com'
+        };
+
+        res.json({
+            success: true,
+            maquina: {
+                ...maquina,
+                status_operacional: statusOperacional,
+                status_texto: statusTexto,
+                status_cor: statusCor
+            },
+            historico: resultOS.rows,
+            contato_samape: contatoSamape
+        });
+    } catch (error) {
+        console.error('Erro ao carregar dados do portal da máquina:', error);
+        res.status(500).json({ success: false, message: 'Erro ao carregar portal da máquina: ' + error.message });
+    }
+});
+
+// Apontamento rápido de horímetro via portal (Operador no campo/pedreira)
+app.post('/api/public/maquinas/:id/horimetro', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { horimetro, operador_nome, observacoes } = req.body;
+        const numHorimetro = parseFloat(horimetro);
+
+        if (isNaN(numHorimetro) || numHorimetro <= 0) {
+            return res.status(400).json({ success: false, message: 'Informe um valor de horímetro numérico válido.' });
+        }
+
+        const resultMaq = await pool.query('SELECT id, horas_uso, modelo, id_frota FROM maquinas WHERE id = $1', [id]);
+        if (resultMaq.rows.length === 0) {
+            return res.status(404).json({ success: false, message: 'Máquina não encontrada.' });
+        }
+
+        const maq = resultMaq.rows[0];
+        const horimetroAntigo = parseFloat(maq.horas_uso || 0);
+
+        // Atualizar horímetro na máquina
+        await pool.query(
+            `UPDATE maquinas 
+             SET horas_uso = $1, ultimo_horimetro_real = $1, data_ultimo_horimetro = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP 
+             WHERE id = $2`,
+            [numHorimetro, id]
+        );
+
+        // Registrar apontamento na tabela apontamentos_horimetro se existir
+        try {
+            await pool.query(
+                `INSERT INTO apontamentos_horimetro (maquina_id, horimetro, data_apontamento, origem, observacoes, criado_por)
+                 VALUES ($1, $2, CURRENT_TIMESTAMP, 'PORTAL_CLIENTE', $3, $4)`,
+                [id, numHorimetro, observacoes || 'Apontamento via QR-Code do Equipamento', operador_nome || 'Operador / Cliente']
+            );
+        } catch (eApont) {
+            console.warn('Tabela apontamentos_horimetro não disponível para registro:', eApont.message);
+        }
+
+        // Registrar no log
+        await logActivity(
+            req,
+            'APONTAMENTO_HORIMETRO_PORTAL',
+            `Máquina ID ${id} (${maq.modelo}): Horímetro alterado de ${horimetroAntigo}h para ${numHorimetro}h por ${operador_nome || 'Operador/Cliente'}`
+        );
+
+        res.json({
+            success: true,
+            message: 'Horímetro atualizado com sucesso!',
+            novo_horimetro: numHorimetro
+        });
+    } catch (error) {
+        console.error('Erro ao atualizar horímetro via portal:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 });

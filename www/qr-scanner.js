@@ -344,9 +344,23 @@ async function tratarConteudoQRCode(rawText) {
     data = JSON.parse(rawText);
   } catch (e) {
     // Caso seja formato texto com prefixo simples ex: SAMAPE:MAQ:12
-    if (rawText.startsWith('SAMAPE:MAQ:')) {
+    if (rawText && typeof rawText === 'string' && rawText.startsWith('SAMAPE:MAQ:')) {
       const maqId = parseInt(rawText.replace('SAMAPE:MAQ:', ''));
       data = { app: 'samape', tipo: 'maquina', id: maqId };
+    }
+  }
+
+  // Se não foi JSON direto, pode ser a URL do portal da máquina (ex: http://.../portal-maquina.html?id=30)
+  if (!data && rawText) {
+    try {
+      const text = String(rawText).trim();
+      const matchId = text.match(/[?&]id=(\d+)/) || text.match(/\/maquinas\/(\d+)/);
+      if (matchId && matchId[1]) {
+        const maqId = parseInt(matchId[1]);
+        data = { app: 'samape', tipo: 'maquina', id: maqId };
+      }
+    } catch (errUrl) {
+      console.warn('Erro ao processar URL no QR-Code:', errUrl);
     }
   }
 
@@ -617,7 +631,7 @@ function abrirModalVisualizarQRCode(maquina, qrcodeDataUrl) {
           </div>
 
           <p style="margin: 0; font-size: 0.8rem; color: var(--text-secondary); text-align: center;">
-            Fixe esta etiqueta adesiva no painel ou cabine do equipamento. Ao apontar o celular, a OS é criada instantaneamente.
+            Etiqueta com Duplo Propósito: O <strong>Cliente</strong> aponta a câmera para ver o histórico e chamar a SAMAPE; o <strong>Mecânico SAMAPE</strong> abre a OS na hora.
           </p>
 
           <!-- Botões de Ação -->
@@ -627,7 +641,7 @@ function abrirModalVisualizarQRCode(maquina, qrcodeDataUrl) {
               onclick="baixarEtiquetaPNG('${maquina.modelo}', '${maquina.id_frota || ''}')"
               style="padding: 0.75rem; font-size: 0.9rem; font-weight: 700;"
             >
-              <span>📥</span> <span>Baixar PNG</span>
+              <span>📥</span> <span>Baixar Etiqueta</span>
             </button>
 
             <button 
@@ -637,6 +651,25 @@ function abrirModalVisualizarQRCode(maquina, qrcodeDataUrl) {
             >
               <span>🖨️</span> <span>Imprimir</span>
             </button>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; width: 100%;">
+            <button 
+              class="btn btn-outline" 
+              onclick="baixarApenasQRCodePNG('${maquina.modelo}', '${maquina.id_frota || ''}')"
+              style="padding: 0.65rem; font-size: 0.85rem; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 0.4rem;"
+            >
+              <span>🖼️</span> <span>QR com Logo</span>
+            </button>
+
+            <a 
+              href="/portal-maquina.html?id=${maquina.id}" 
+              target="_blank" 
+              class="btn btn-outline"
+              style="display: flex; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.65rem; font-size: 0.85rem; font-weight: 600; text-decoration: none; color: #38bdf8; border-color: rgba(56, 189, 248, 0.3);"
+            >
+              <span>🌐</span> <span>Ver Portal Vivo</span>
+            </a>
           </div>
 
         </div>
@@ -649,6 +682,8 @@ function abrirModalVisualizarQRCode(maquina, qrcodeDataUrl) {
       </div>
     </div>
   `;
+
+  window._ultimoQrCodeDataUrl = qrcodeDataUrl;
 
   const div = document.createElement('div');
   div.id = 'container-modal-preview-qrcode';
@@ -664,7 +699,7 @@ function fecharModalPreviewQRCode() {
   if (el) el.remove();
 }
 
-// Desenha a etiqueta completa com Logo, Dados da Máquina e QR Code
+// Desenha a etiqueta completa com Logo da Empresa no Cabeçalho e no Centro do QR Code
 function desenharEtiquetaNoCanvas(maquina, qrcodeDataUrl) {
   const canvas = document.getElementById('canvas-etiqueta-maquina');
   if (!canvas) return;
@@ -682,19 +717,30 @@ function desenharEtiquetaNoCanvas(maquina, qrcodeDataUrl) {
 
   // Barra de Cabeçalho Superior Grafite
   ctx.fillStyle = '#0f172a';
-  ctx.fillRect(0, 0, width, 80);
+  ctx.fillRect(0, 0, width, 84);
+
+  // Logo da SAMAPE no Cabeçalho Superior
+  const headerLogo = new Image();
+  headerLogo.onload = () => {
+    ctx.drawImage(headerLogo, 24, 14, 56, 56);
+  };
+  headerLogo.src = 'resources/logonova2.png';
 
   // Título do Cabeçalho
   ctx.fillStyle = '#ffffff';
   ctx.font = 'bold 22px Inter, Arial, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('SAMAPE ÍNDIO • GESTÃO DE MÁQUINAS', width / 2, 48);
+  ctx.textAlign = 'left';
+  ctx.fillText('SAMAPE ÍNDIO', 92, 42);
+
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '600 13px Inter, Arial, sans-serif';
+  ctx.fillText('GESTÃO & MANUTENÇÃO DE PESADOS', 92, 64);
 
   // Modelo do Equipamento (Destaque Principal)
   ctx.fillStyle = '#1e293b';
   ctx.font = 'bold 36px Inter, Arial, sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText(maquina.modelo || 'MÁQUINA', width / 2, 135);
+  ctx.fillText(maquina.modelo || 'MÁQUINA', width / 2, 138);
 
   // ID de Frota e Número de Série
   ctx.fillStyle = '#2563eb';
@@ -702,21 +748,21 @@ function desenharEtiquetaNoCanvas(maquina, qrcodeDataUrl) {
   const frotaTxt = maquina.id_frota ? `FROTA: ${maquina.id_frota}` : '';
   const serieTxt = maquina.numero_serie ? `S/N: ${maquina.numero_serie}` : '';
   const subInfo = [frotaTxt, serieTxt].filter(Boolean).join('  •  ') || 'EQUIPAMENTO REGISTRADO';
-  ctx.fillText(subInfo, width / 2, 175);
+  ctx.fillText(subInfo, width / 2, 178);
 
   // Cliente
   if (maquina.cliente_nome) {
     ctx.fillStyle = '#475569';
     ctx.font = '500 18px Inter, Arial, sans-serif';
-    ctx.fillText(`Cliente: ${maquina.cliente_nome}`, width / 2, 208);
+    ctx.fillText(`Cliente: ${maquina.cliente_nome}`, width / 2, 210);
   }
 
   // Divisória sutil
   ctx.strokeStyle = '#e2e8f0';
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(40, 225);
-  ctx.lineTo(width - 40, 225);
+  ctx.moveTo(40, 226);
+  ctx.lineTo(width - 40, 226);
   ctx.stroke();
 
   // Desenhar QR-Code Central
@@ -733,17 +779,57 @@ function desenharEtiquetaNoCanvas(maquina, qrcodeDataUrl) {
     ctx.lineWidth = 1;
     ctx.strokeRect(qrX - 10, qrY - 10, qrSize + 20, qrSize + 20);
 
+    // Desenha o QR code base
     ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
+
+    // LOGO DA EMPRESA NO CENTRO DO QR-CODE
+    const centerLogo = new Image();
+    centerLogo.onload = () => {
+      const badgeSize = 74; // ~21% da largura do QR (340px)
+      const badgeX = qrX + (qrSize - badgeSize) / 2;
+      const badgeY = qrY + (qrSize - badgeSize) / 2;
+      const radius = 14;
+
+      // Badge branco arredondado
+      ctx.save();
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
+      ctx.shadowBlur = 8;
+      ctx.shadowOffsetY = 2;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(badgeX, badgeY, badgeSize, badgeSize, radius);
+      } else {
+        ctx.rect(badgeX, badgeY, badgeSize, badgeSize);
+      }
+      ctx.fill();
+
+      // Borda sutil no badge
+      ctx.shadowColor = 'transparent';
+      ctx.strokeStyle = '#cbd5e1';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Desenhar a Logo SAMAPE centralizada dentro do badge
+      const pad = 6;
+      ctx.drawImage(centerLogo, badgeX + pad, badgeY + pad, badgeSize - (pad * 2), badgeSize - (pad * 2));
+      ctx.restore();
+    };
+    centerLogo.src = 'resources/logonova2.png';
 
     // Instruções no Rodapé
     ctx.fillStyle = '#0f172a';
-    ctx.font = 'bold 20px Inter, Arial, sans-serif';
+    ctx.font = 'bold 18px Inter, Arial, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('APONTE A CÂMERA NO APP SAMAPE', width / 2, 645);
+    ctx.fillText('APONTE A CÂMERA DE QUALQUER CELULAR', width / 2, 638);
 
     ctx.fillStyle = '#64748b';
-    ctx.font = '500 16px Inter, Arial, sans-serif';
-    ctx.fillText('⚡ Abertura instantânea de Ordem de Serviço', width / 2, 678);
+    ctx.font = '500 15px Inter, Arial, sans-serif';
+    ctx.fillText('🚜 Portal do Cliente & Chamado Direto no WhatsApp', width / 2, 664);
+
+    ctx.fillStyle = '#0284c7';
+    ctx.font = 'bold 14px Inter, Arial, sans-serif';
+    ctx.fillText('⚡ Mecânicos SAMAPE: Abertura Direta de OS', width / 2, 690);
 
     // Barra decorativa inferior
     ctx.fillStyle = '#38bdf8';
@@ -752,7 +838,7 @@ function desenharEtiquetaNoCanvas(maquina, qrcodeDataUrl) {
   qrImg.src = qrcodeDataUrl;
 }
 
-// Download do arquivo PNG
+// Download do arquivo PNG da etiqueta completa
 function baixarEtiquetaPNG(modelo, idFrota) {
   const canvas = document.getElementById('canvas-etiqueta-maquina');
   if (!canvas) return;
@@ -764,6 +850,64 @@ function baixarEtiquetaPNG(modelo, idFrota) {
   document.body.appendChild(a);
   a.click();
   a.remove();
+}
+
+// Download apenas do QR-Code com a Logo no centro (formato quadrado para aplicação avulsa)
+function baixarApenasQRCodePNG(modelo, idFrota) {
+  const qrCanvas = document.createElement('canvas');
+  qrCanvas.width = 500;
+  qrCanvas.height = 500;
+  const qctx = qrCanvas.getContext('2d');
+
+  // Fundo branco
+  qctx.fillStyle = '#ffffff';
+  qctx.fillRect(0, 0, 500, 500);
+
+  const qrSrc = window._ultimoQrCodeDataUrl;
+  if (!qrSrc) return alert('QR-Code não carregado.');
+
+  const tempImg = new Image();
+  tempImg.onload = () => {
+    qctx.drawImage(tempImg, 25, 25, 450, 450);
+
+    // Logo central
+    const centerLogo = new Image();
+    centerLogo.onload = () => {
+      const bSize = 100;
+      const bX = (500 - bSize) / 2;
+      const bY = (500 - bSize) / 2;
+      const radius = 16;
+
+      qctx.save();
+      qctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
+      qctx.shadowBlur = 10;
+      qctx.shadowOffsetY = 2;
+      qctx.fillStyle = '#ffffff';
+      qctx.beginPath();
+      if (qctx.roundRect) qctx.roundRect(bX, bY, bSize, bSize, radius);
+      else qctx.rect(bX, bY, bSize, bSize);
+      qctx.fill();
+
+      qctx.shadowColor = 'transparent';
+      qctx.strokeStyle = '#cbd5e1';
+      qctx.lineWidth = 2.5;
+      qctx.stroke();
+
+      const pad = 8;
+      qctx.drawImage(centerLogo, bX + pad, bY + pad, bSize - (pad * 2), bSize - (pad * 2));
+      qctx.restore();
+
+      const nomeLimpo = `${modelo}_${idFrota}`.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const a = document.createElement('a');
+      a.download = `qrcode_com_logo_${nomeLimpo || 'maquina'}.png`;
+      a.href = qrCanvas.toDataURL('image/png');
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    };
+    centerLogo.src = 'resources/logonova2.png';
+  };
+  tempImg.src = qrSrc;
 }
 
 // Impressão da Etiqueta
@@ -806,5 +950,6 @@ window.lerQRCodeDeArquivo = lerQRCodeDeArquivo;
 window.gerarQRCodeMaquina = gerarQRCodeMaquina;
 window.fecharModalPreviewQRCode = fecharModalPreviewQRCode;
 window.baixarEtiquetaPNG = baixarEtiquetaPNG;
+window.baixarApenasQRCodePNG = baixarApenasQRCodePNG;
 window.imprimirEtiquetaQRCode = imprimirEtiquetaQRCode;
 window.fecharModalSucessoOS = fecharModalSucessoOS;

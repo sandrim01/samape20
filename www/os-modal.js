@@ -305,11 +305,16 @@ async function mostrarModalOS(osId = null, prefill = null) {
           </div>
         </form>
         
-        <div class="modal-footer" style="background: var(--bg-secondary); border-top: 1px solid var(--border); padding: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
-          <div>
+        <div class="modal-footer" style="background: var(--bg-secondary); border-top: 1px solid var(--border); padding: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
             <button type="button" class="btn btn-secondary" id="btn-prev-os" style="display: none; height: 45px; padding: 0 1.5rem;">
               ⬅ Anterior
             </button>
+            ${isEdicao && osId ? `
+              <button type="button" class="btn btn-success" id="btn-os-whatsapp" style="background: #25D366; border-color: #25D366; color: white; height: 45px; padding: 0 1.25rem; display: flex; align-items: center; gap: 0.5rem; font-weight: 600; box-shadow: 0 2px 8px rgba(37,211,102,0.25);" title="Enviar relatório via WhatsApp">
+                💬 WhatsApp
+              </button>
+            ` : ''}
           </div>
           <div style="display: flex; gap: 0.75rem;">
             <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-os')" style="height: 45px; padding: 0 1.25rem;">
@@ -421,6 +426,15 @@ async function mostrarModalOS(osId = null, prefill = null) {
     currentStepOS--;
     updateWizard();
   });
+
+  const btnWa = document.getElementById('btn-os-whatsapp');
+  if (btnWa) {
+    btnWa.addEventListener('click', () => {
+      if (typeof WhatsAppHelper !== 'undefined') {
+        WhatsAppHelper.abrirModalEnvio(osId);
+      }
+    });
+  }
 
   document.getElementById('os-cliente').addEventListener('change', carregarMaquinasCliente);
   document.getElementById('form-os').addEventListener('submit', (e) => {
@@ -560,10 +574,22 @@ async function salvarOS(osId) {
     const result = osId ? await window.api.atualizarOS(osId, dados) : await window.api.criarOS(dados);
 
     if (result.success) {
+      const idParaEnvio = osId || result.id;
       showAlert(osId ? 'OS atualizada!' : `OS ${result.numero_os} criada!`, 'success');
       fecharModal('modal-os');
       await loadOrdens();
       if (AppState.currentPage === 'ordens-servico') render();
+
+      // Se a OS for concluída / fechada, sugere o envio via WhatsApp
+      if (dados.status === 'FECHADA' || dados.status === 'CONCLUIDA') {
+        setTimeout(() => {
+          if (confirm('Ordem de Serviço finalizada com sucesso! Deseja enviar o relatório para o cliente via WhatsApp agora?')) {
+            if (typeof WhatsAppHelper !== 'undefined') {
+              WhatsAppHelper.abrirModalEnvio(idParaEnvio);
+            }
+          }
+        }, 400);
+      }
     } else {
       showAlert(result.message || 'Erro ao salvar', 'danger');
     }
